@@ -1069,7 +1069,9 @@ function drawChart(m, sol) {
   if (partial) o += `<path class="curve-all" d="${curve({ ...S, apportSel: null })}"/>`;
   o += `<path class="curve" d="${path}"/>`;
   o += `<line class="limit" x1="${L}" x2="${W - R}" y1="${Y(lim)}" y2="${Y(lim)}"/><text class="lbl-bad" x="${L + 6}" y="${Y(lim) - 6}">plafond ${S.ratioMax}%</text>`;
-  if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${T}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) + (X(sol.pMax) > W - 170 ? -5 : 5)}" y="${H - B - 8}" text-anchor="${X(sol.pMax) > W - 170 ? "end" : "start"}">max ${short(sol.pMax)}${partial ? " (tout investi)" : ""}</text>`;
+  // Le trait du maximum s'arrête sur la courbe « tout investi »
+  const yTop = Y(Math.min(model({ ...S, apportSel: null }, sol.pMax).ratio, yMax));
+  if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${yTop}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) + (X(sol.pMax) > W - 170 ? -5 : 5)}" y="${H - B - 8}" text-anchor="${X(sol.pMax) > W - 170 ? "end" : "start"}">max ${short(sol.pMax)}${partial ? " (tout investi)" : ""}</text>`;
   const cx = X(m.P), cy = Y(m.ratio);
   o += `<line class="now" x1="${cx}" x2="${cx}" y1="${cy}" y2="${H - B}" stroke-dasharray="3 3"/><circle class="dot" cx="${cx}" cy="${cy}" r="6"/>`;
   // Étiquette du point du côté opposé à la ligne du maximum
