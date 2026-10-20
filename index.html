@@ -311,26 +311,6 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="gauge" id="g-ret"><div class="gt"><span>Charges à la retraite</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
         </div>
       </div>
-
-      <section class="panel">
-        <h2>Ce qui est possible <small>recalculé en direct</small></h2>
-        <p class="lead">Fixez certains chiffres, laissez le simulateur trouver les autres.</p>
-        <label class="lockbar" for="lockPrice"><input type="checkbox" id="lockPrice"> <span>Bloquer le prix sur le maximum finançable : le prix suit vos revenus et vos fonds propres.</span></label>
-        <div class="solve">
-          <div class="srow">
-            <div><div class="sl">Prix maximum avec vos revenus et fonds propres</div><div class="sv" id="s-pmax">–</div><div class="sd" id="s-pmax-d"></div></div>
-            <button class="btn" id="use-pmax" type="button">Utiliser ce prix</button>
-          </div>
-          <div class="srow">
-            <div><div class="sl">Revenu annuel retenu nécessaire pour ce prix</div><div class="sv" id="s-inc">–</div><div class="sd" id="s-inc-d"></div></div>
-            <button class="btn" id="use-inc" type="button">Ajuster les salaires</button>
-          </div>
-          <div class="srow">
-            <div><div class="sl">Fonds propres nets nécessaires pour ce prix (frais inclus)</div><div class="sv" id="s-eq">–</div><div class="sd" id="s-eq-d"></div></div>
-            <button class="btn" id="use-eq" type="button">Compléter en épargne</button>
-          </div>
-        </div>
-      </section>
     </div>
 
     <!-- SAISIE -->
@@ -434,6 +414,26 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="ctip" id="ctip" hidden></div>
         </div>
         <p class="hint">Survolez la courbe pour voir pourquoi la pente change.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Ce qui est possible <small>recalculé en direct</small></h2>
+        <p class="lead">Fixez certains chiffres, laissez le simulateur trouver les autres.</p>
+        <label class="lockbar" for="lockPrice"><input type="checkbox" id="lockPrice"> <span>Bloquer le prix sur le maximum finançable : le prix suit vos revenus et vos fonds propres.</span></label>
+        <div class="solve">
+          <div class="srow">
+            <div><div class="sl">Prix maximum avec vos revenus et fonds propres</div><div class="sv" id="s-pmax">–</div><div class="sd" id="s-pmax-d"></div></div>
+            <button class="btn" id="use-pmax" type="button">Utiliser ce prix</button>
+          </div>
+          <div class="srow">
+            <div><div class="sl">Revenu annuel retenu nécessaire pour ce prix</div><div class="sv" id="s-inc">–</div><div class="sd" id="s-inc-d"></div></div>
+            <button class="btn" id="use-inc" type="button">Ajuster les salaires</button>
+          </div>
+          <div class="srow">
+            <div><div class="sl">Fonds propres nets nécessaires pour ce prix (frais inclus)</div><div class="sv" id="s-eq">–</div><div class="sd" id="s-eq-d"></div></div>
+            <button class="btn" id="use-eq" type="button">Compléter en épargne</button>
+          </div>
+        </div>
       </section>
 
       <section class="panel">
