@@ -460,7 +460,8 @@ const DEFAULTS = {
   lockPrice: false,
   name1: "Personne 1", name2: "Personne 2",
   feesMode: "pct", feesChf: 60000,
-  solo: false, p2saved: null
+  solo: false, p2saved: null,
+  apportSel: null
 };
 const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -673,8 +674,9 @@ $("addP2").addEventListener("click", () => {
   S.p2saved = null; S.solo = false; touched = true; update(); $("rmP2").focus();
 });
 $("rg-apport").addEventListener("input", e => {
-  const P = S.price, m0 = model({ ...S, reserve: 0 }, P);
-  S.reserve = Math.max(0, Math.round((m0.eq.total - m0.fees - parseFloat(e.target.value)) / 1000) * 1000);
+  // Montant choisi parmi ce qui est investissable ; au maximum = tout investir
+  const v = parseFloat(e.target.value), max = parseFloat(e.target.max);
+  S.apportSel = v >= max - 500 ? null : Math.round(v / 1000) * 1000;
   touched = true;
   update(e.target);
 });
@@ -706,7 +708,8 @@ function model(s, P) {
   const fees = s.feesMode === "chf" ? s.feesChf : P * s.feesPct / 100;
   const avail = eq.total - fees - s.reserve;          // apport disponible pour le prix
   const hardAvail = eq.hard - fees - s.reserve;        // part dure après frais
-  const apport = Math.max(0, Math.min(avail, P));
+  const apport = Math.max(0, Math.min(avail, P, s.apportSel ?? Infinity));
+  const hardIn = Math.max(0, Math.min(hardAvail, apport));   // le 2e pilier est le dernier investi
   const loan = P - apport;
   const k = s.rank1Pct / 100;
   const rank1 = Math.min(loan, k * P), rank2 = loan - rank1;
@@ -721,7 +724,7 @@ function model(s, P) {
   const chargesRet = rank1 * s.rate / 100 + maint + s.debt;
   const ratioRet = incRet > 0 ? chargesRet / incRet : Infinity;
   return { P, eq, fees, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, charges, inc, ratio, incRet, chargesRet, ratioRet,
-    eqPct: Math.max(0, avail) / P, hardPct: Math.max(0, hardAvail) / P, ltv: loan / P, unused: Math.max(0, avail - P) };
+    eqPct: apport / P, hardPct: hardIn / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
 }
 function bisect(ok, hi = 3e7) {
   if (!ok(1000)) return 0;
@@ -730,6 +733,7 @@ function bisect(ok, hi = 3e7) {
   return lo;
 }
 function solve(s) {
+  s = { ...s, apportSel: null };   // le prix maximum suppose que tout l'investissable est investi
   const eq = equity(s), chfMode = s.feesMode === "chf", f = chfMode ? 0 : s.feesPct / 100, fx = chfMode ? s.feesChf : 0, minEq = 1 - s.ltvMax / 100;
   const pEq = Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
   const pHard = Math.max(0, (eq.hard - s.reserve - fx) / (0.10 + f));
@@ -776,7 +780,7 @@ function update(skip) {
   $("exampleTag").hidden = touched;
 
   // Contrôles
-  const okRatio = m.ratio <= lim, okEq = m.avail >= minEq * m.P - 0.5, okHard = m.hardAvail >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
+  const okRatio = m.ratio <= lim, okEq = m.apport >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
   const reasons = [];
   if (!okRatio) reasons.push(`Charges théoriques à ${pc(m.ratio)} du revenu, au-delà de ${S.ratioMax} %.`);
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
@@ -869,7 +873,7 @@ function update(skip) {
     ["2e rang", m.rank2, "var(--c-r2)"]
   ];
   // Curseur d'apport : ce qui n'est pas investi devient la réserve
-  const apMax = Math.max(0, Math.min(m.eq.total - m.fees, m.P));
+  const apMax = Math.max(0, Math.min(m.avail, m.P));
   const apMin = Math.min(apMax, Math.max(0, minEq * m.P));
   const ra = $("rg-apport");
   ra.min = Math.floor(apMin); ra.max = Math.ceil(apMax);
@@ -878,7 +882,7 @@ function update(skip) {
   $("apport-v").textContent = `${chf(m.apport)} · ${pc(m.apport / m.P, 0)} du prix`;
   $("apport-h").textContent = ra.disabled
     ? (apMax < minEq * m.P ? `Fonds propres insuffisants pour atteindre le minimum de ${pc(minEq, 0)}.` : "Tous vos fonds propres sont nécessaires.")
-    : `De ${short(apMin)} (minimum ${pc(minEq, 0)}) à ${short(apMax)} (tout investir). Réserve gardée : ${chf(S.reserve)}.`;
+    : `De ${short(apMin)} (minimum ${pc(minEq, 0)}) à ${short(apMax)} (tout ce qui est investissable, réserve déduite). Non investi : ${chf(m.unused)}.`;
   const em = $("eqmin");
   em.style.left = minEq * 100 + "%";
   em.querySelector("span").textContent = `min ${pc(minEq, 0)}`;
@@ -1078,6 +1082,7 @@ async function exportPdf() {
     segs.forEach(([v, c]) => { const w = v / m.P * bw; if (w > 0) { doc.setFillColor(...c); doc.rect(x, y, w, 6, "F"); x += w; } });
     y += 10;
     segs.forEach(([v, , n]) => row(n, `${chfT(v)}  (${tx(pc(v / m.P, 0))})`));
+    if (m.unused > 0) row("Fonds propres non investis (en plus de la réserve)", chfT(m.unused));
     row("Hypothèque totale", `${chfT(m.loan)}  (${tx(pc(m.ltv))} du prix)`, true);
     row("Amortissement du 2e rang", `${m.years} ans`);
 
