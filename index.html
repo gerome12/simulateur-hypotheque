@@ -382,7 +382,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <h2>Structure du financement <small id="t-ltv"></small></h2>
         <div class="apport">
           <div class="frow"><label for="rg-apport">Fonds propres investis dans l'achat</label><b class="apport-v" id="apport-v">–</b></div>
-          <input type="range" id="rg-apport" min="0" max="1" step="1000">
+          <input type="range" id="rg-apport" min="0" max="1" step="any">
           <p class="hint" id="apport-h"></p>
         </div>
         <div class="stackwrap"><div class="stack" id="stack"></div><div class="eqmin" id="eqmin"><span></span></div></div>
@@ -676,7 +676,9 @@ $("addP2").addEventListener("click", () => {
 $("rg-apport").addEventListener("input", e => {
   // Montant choisi parmi ce qui est investissable ; au maximum = tout investir
   const v = parseFloat(e.target.value), max = parseFloat(e.target.max);
-  S.apportSel = v >= max - 500 ? null : Math.round(v / 1000) * 1000;
+  const min = parseFloat(e.target.min);
+  // Pas de 1'000, mais les deux extrémités restent atteignables exactement
+  S.apportSel = v >= max - 500 ? null : v <= min + 500 ? Math.ceil(min) : Math.round(v / 1000) * 1000;
   touched = true;
   update(e.target);
 });
@@ -876,10 +878,10 @@ function update(skip) {
   const apMax = Math.max(0, Math.min(m.avail, m.P));
   const apMin = Math.min(apMax, Math.max(0, minEq * m.P));
   const ra = $("rg-apport");
-  ra.min = Math.floor(apMin); ra.max = Math.ceil(apMax);
+  ra.min = apMin; ra.max = apMax;
   ra.disabled = apMax - apMin < 1000;
   if (ra !== skip) ra.value = m.apport;
-  $("apport-v").textContent = `${chf(m.apport)} · ${pc(m.apport / m.P, 0)} du prix`;
+  $("apport-v").textContent = `${chf(m.apport)} · ${pc(m.apport / m.P)} du prix`;
   $("apport-h").textContent = ra.disabled
     ? (apMax < minEq * m.P ? `Fonds propres insuffisants pour atteindre le minimum de ${pc(minEq, 0)}.` : "Tous vos fonds propres sont nécessaires.")
     : `De ${short(apMin)} (minimum ${pc(minEq, 0)}) à ${short(apMax)} (tout ce qui est investissable, réserve déduite). Non investi : ${chf(m.unused)}.`;
