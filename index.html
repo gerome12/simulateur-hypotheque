@@ -243,6 +243,16 @@ svg.chart { width: 100%; height: auto; display: block; }
 .chart .axis { stroke: var(--line); }
 .chart .grid { stroke: var(--line); stroke-dasharray: 2 4; }
 .chart .curve { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.chart .curve-all { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .55; }
+.chart text.lbl-all { fill: var(--muted); }
+.chartwrap { position: relative; }
+.chart .hover { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.ctip { position: absolute; z-index: 2; width: min(260px, 80%); padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size: 12.5px; line-height: 1.45; pointer-events: none; }
+.ctip b { display: block; font-family: var(--font-data); font-weight: 500; font-size: 13px; }
+.ctip-zone { display: block; color: var(--accent); font-weight: 600; margin-top: 2px; }
+.ctip p { margin: 4px 0 0; color: var(--muted); }
+.ctip .ctip-bad { color: var(--bad); }
+.chart text.halo { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .chart .area { fill: var(--accent); opacity: .08; }
 .chart .limit { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .chart .noeq { fill: var(--bad); opacity: .08; }
@@ -419,7 +429,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <section class="panel">
         <h2>Prix et taux d'effort</h2>
         <p class="lead">Ratio charges / revenu selon le prix d'achat, avec vos fonds propres actuels.</p>
-        <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Taux d'effort en fonction du prix"></svg>
+        <div class="chartwrap">
+          <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Taux d'effort en fonction du prix"></svg>
+          <div class="ctip" id="ctip" hidden></div>
+        </div>
+        <p class="hint">Survolez la courbe pour voir pourquoi la pente change.</p>
       </section>
 
       <section class="panel">
@@ -977,6 +991,48 @@ function niceStep(range, ticks) {
   const raw = range / ticks, p = Math.pow(10, Math.floor(Math.log10(raw)));
   return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw);
 }
+let CH = null;   // repères du dernier tracé, pour l'infobulle
+
+// Infobulle : explique la pente de la courbe au prix survolé
+function chartTip(e) {
+  if (!CH) return;
+  const svg = $("chart"), r = svg.getBoundingClientRect(), wrap = svg.parentElement.getBoundingClientRect();
+  const vx = (e.clientX - r.left) * CH.W / r.width;
+  const tip = $("ctip");
+  if (vx < CH.L || vx > CH.W - CH.R) { hideTip(); return; }
+  const P = Math.max(1000, (vx - CH.L) / (CH.W - CH.L - CH.R) * CH.xMax);
+  const m = model(S, P);
+  let zone, why;
+  if (m.loan <= 0) {
+    zone = "Pas d'hypothèque";
+    why = `Votre apport couvre tout le prix. Seuls l'entretien (${S.maintPct}&nbsp;% du prix) et vos autres charges comptent : la pente est faible.`;
+  } else if (m.rank2 <= 0) {
+    zone = "1<sup>er</sup> rang seulement";
+    why = `Chaque franc emprunté coûte ${S.rate}&nbsp;% d'intérêts théoriques par an, plus l'entretien. Pas d'amortissement obligatoire.`;
+  } else {
+    zone = "Avec un 2<sup>e</sup> rang";
+    why = `L'hypothèque dépasse ${S.rank1Pct}&nbsp;% du prix. La partie en plus coûte ${S.rate}&nbsp;% d'intérêts et s'amortit en ${m.years}&nbsp;ans (≈ ${(100 / m.years).toFixed(1)}&nbsp;% par an) : la pente est plus forte.`;
+  }
+  const warn = P > CH.pEqLim ? `<p class="ctip-bad">Fonds propres insuffisants à ce prix.</p>` : "";
+  tip.innerHTML = `<b>${chf(P)} → ${pc(m.ratio)}</b><span class="ctip-zone">${zone}</span><p>${why}</p>${warn}`;
+  tip.hidden = false;
+  // Ligne verticale de survol
+  let hl = svg.querySelector("#hoverline");
+  if (!hl) { hl = document.createElementNS("http://www.w3.org/2000/svg", "line"); hl.id = "hoverline"; hl.setAttribute("class", "hover"); svg.appendChild(hl); }
+  const yv = Math.min(m.ratio, CH.yMax);
+  hl.setAttribute("x1", vx); hl.setAttribute("x2", vx); hl.setAttribute("y1", CH.Y(yv)); hl.setAttribute("y2", CH.H - CH.B);
+  // Position : à côté du curseur, sans sortir du cadre
+  const tw = tip.offsetWidth, x = e.clientX - wrap.left;
+  tip.style.left = Math.max(0, Math.min(x + 14 + tw > wrap.width ? x - 14 - tw : x + 14, wrap.width - tw)) + "px";
+  tip.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
+}
+function hideTip() {
+  $("ctip").hidden = true;
+  const hl = $("chart").querySelector("#hoverline"); if (hl) hl.remove();
+}
+$("chart").addEventListener("pointermove", chartTip);
+$("chart").addEventListener("pointerleave", hideTip);
+
 function drawChart(m, sol) {
   const W = 640, H = 300, L = 48, R = 16, T = 18, B = 34;
   const lim = S.ratioMax / 100;
@@ -989,18 +1045,40 @@ function drawChart(m, sol) {
   for (let y = 0; y <= yMax + 1e-9; y += 0.1) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${Math.round(y * 100)}%</text>`;
   for (let x = 0; x <= xMax + 1; x += xs) o += `<text x="${X(x)}" y="${H - 12}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
   if (pEqLim < xMax) o += `<rect class="noeq" x="${X(pEqLim)}" y="${T}" width="${W - R - X(pEqLim)}" height="${H - T - B}"/><text class="lbl-bad" x="${W - R - 6}" y="${T + 14}" text-anchor="end">fonds propres insuffisants</text>`;
-  const pts = [];
-  for (let i = 0; i <= 120; i++) { const P = Math.max(1000, xMax * i / 120); pts.push([X(P), Y(model(S, P).ratio)]); }
-  const path = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
-  o += `<path class="area" d="${path}L${X(xMax)} ${Y(0)}L${X(0)} ${Y(0)}Z"/><path class="curve" d="${path}"/>`;
+  // La courbe s'arrête au bord haut du graphique au lieu de faire un plateau.
+  let endX = X(xMax);
+  const curve = (st, track) => {
+    const pts = [];
+    let prevP = 1000, prevR = model(st, prevP).ratio;
+    for (let i = 0; i <= 120; i++) {
+      const P = Math.max(1000, xMax * i / 120), r = model(st, P).ratio;
+      if (r > yMax) {
+        const Pc = prevR < yMax ? prevP + (P - prevP) * (yMax - prevR) / (r - prevR) : prevP;
+        pts.push([X(Pc), Y(yMax)]);
+        if (track) endX = X(Pc);
+        break;
+      }
+      pts.push([X(P), Y(r)]); prevP = P; prevR = r;
+    }
+    return pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+  };
+  const path = curve(S, true);
+  o += `<path class="area" d="${path}L${endX} ${Y(0)}L${X(0)} ${Y(0)}Z"/>`;
+  // Apport réduit par le curseur : on montre aussi la courbe « tout investi », celle du prix maximum
+  const partial = S.apportSel != null;
+  if (partial) o += `<path class="curve-all" d="${curve({ ...S, apportSel: null })}"/>`;
+  o += `<path class="curve" d="${path}"/>`;
   o += `<line class="limit" x1="${L}" x2="${W - R}" y1="${Y(lim)}" y2="${Y(lim)}"/><text class="lbl-bad" x="${L + 6}" y="${Y(lim) - 6}">plafond ${S.ratioMax}%</text>`;
-  if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${T}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) - 5}" y="${H - B - 8}" text-anchor="end">max ${short(sol.pMax)}</text>`;
+  if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${T}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) + (X(sol.pMax) > W - 170 ? -5 : 5)}" y="${H - B - 8}" text-anchor="${X(sol.pMax) > W - 170 ? "end" : "start"}">max ${short(sol.pMax)}${partial ? " (tout investi)" : ""}</text>`;
   const cx = X(m.P), cy = Y(m.ratio);
   o += `<line class="now" x1="${cx}" x2="${cx}" y1="${cy}" y2="${H - B}" stroke-dasharray="3 3"/><circle class="dot" cx="${cx}" cy="${cy}" r="6"/>`;
-  const right = cx > W - 160;
-  o += `<text class="lbl-ink" x="${cx + (right ? -10 : 10)}" y="${Math.max(T + 12, cy - 10)}" text-anchor="${right ? "end" : "start"}">${short(m.P)} → ${pc(m.ratio)}</text>`;
+  // Étiquette du point du côté opposé à la ligne du maximum
+  const left = (sol.pMax > m.P && cx > L + 130) || cx > W - 160;
+  o += `<text class="lbl-ink halo" x="${cx + (left ? -10 : 10)}" y="${Math.max(T + 12, cy - 10)}" text-anchor="${left ? "end" : "start"}">${short(m.P)} → ${pc(m.ratio)}</text>`;
+  if (partial) o += `<text class="lbl-all" x="${L + 6}" y="${T + 14}">pointillé : tout investi · plein : votre apport</text>`;
   o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
   $("chart").innerHTML = o;
+  CH = { L, R, W, T, B, H, xMax, yMax, pEqLim, X, Y };
 }
 
 $("use-pmax").addEventListener("click", () => { S.price = Math.floor(solve(S).pMax / 5000) * 5000; touched = true; update(); });
