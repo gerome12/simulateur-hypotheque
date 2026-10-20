@@ -160,6 +160,8 @@ select, button { font: inherit; }
 .subgroup.off, .field.off { opacity: .45; transition: opacity .2s; }
 .subgroup.off .check { cursor: default; }
 @media (prefers-reduced-motion: reduce) { .subgroup { transition: none; } }
+.apport { padding: 4px 0 6px; }
+.apport-v { font-family: var(--font-data); font-weight: 500; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .lg-info { display: inline-flex; align-items: center; gap: 6px; }
 .lg-info .info { width: 17px; height: 17px; font-size: 11px; }
 #info-loan { margin: 0 0 12px; }
@@ -377,6 +379,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
     <div class="details">
       <section class="panel">
         <h2>Structure du financement <small id="t-ltv"></small></h2>
+        <div class="apport">
+          <div class="frow"><label for="rg-apport">Fonds propres investis dans l'achat</label><b class="apport-v" id="apport-v">–</b></div>
+          <input type="range" id="rg-apport" min="0" max="1" step="1000">
+          <p class="hint" id="apport-h"></p>
+        </div>
         <div class="stackwrap"><div class="stack" id="stack"></div><div class="eqmin" id="eqmin"><span></span></div></div>
         <div class="legend" id="legend"></div>
         <div class="infobox" id="info-loan" hidden>
@@ -664,6 +671,12 @@ $("addP2").addEventListener("click", () => {
   if (S.p2saved) Object.assign(S, S.p2saved);
   S.p2saved = null; S.solo = false; touched = true; update(); $("rmP2").focus();
 });
+$("rg-apport").addEventListener("input", e => {
+  const P = S.price, m0 = model({ ...S, reserve: 0 }, P);
+  S.reserve = Math.max(0, Math.round((m0.eq.total - m0.fees - parseFloat(e.target.value)) / 1000) * 1000);
+  touched = true;
+  update(e.target);
+});
 $("allocCount").addEventListener("change", e => { S.allocCount = e.target.checked; update(); });
 $("lockPrice").addEventListener("change", e => { S.lockPrice = e.target.checked; update(); });
 $("canton").addEventListener("change", e => {
@@ -854,6 +867,17 @@ function update(skip) {
     ["1er rang", m.rank1, "var(--c-r1)"],
     ["2e rang", m.rank2, "var(--c-r2)"]
   ];
+  // Curseur d'apport : ce qui n'est pas investi devient la réserve
+  const apMax = Math.max(0, Math.min(m.eq.total - m.fees, m.P));
+  const apMin = Math.min(apMax, Math.max(0, minEq * m.P));
+  const ra = $("rg-apport");
+  ra.min = Math.floor(apMin); ra.max = Math.ceil(apMax);
+  ra.disabled = apMax - apMin < 1000;
+  if (ra !== skip) ra.value = m.apport;
+  $("apport-v").textContent = `${chf(m.apport)} · ${pc(m.apport / m.P, 0)} du prix`;
+  $("apport-h").textContent = ra.disabled
+    ? (apMax < minEq * m.P ? `Fonds propres insuffisants pour atteindre le minimum de ${pc(minEq, 0)}.` : "Tous vos fonds propres sont nécessaires.")
+    : `De ${short(apMin)} (minimum ${pc(minEq, 0)}) à ${short(apMax)} (tout investir). Réserve gardée : ${chf(S.reserve)}.`;
   const em = $("eqmin");
   em.style.left = minEq * 100 + "%";
   em.querySelector("span").textContent = `min ${pc(minEq, 0)}`;
