@@ -1,0 +1,1104 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Simulateur hypothécaire suisse</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : formulaire à gauche (le ménage, le bien, les fonds propres, les hypothèses), résultats à droite ; une colonne sur téléphone avec barre de synthèse en bas */
+:root {
+  --bg: #F3F5F7;
+  --surface: #FFFFFF;
+  --ink: #15191E;
+  --muted: #5B6570;
+  --line: #DCE1E6;
+  --accent: #1F4F86;      /* bleu lac, pour les contrôles */
+  --accent-soft: #E3ECF6;
+  --swiss: #D52B1E;       /* uniquement pour la marque */
+  --ok: #1E7A4C;  --ok-soft: #E2F2E9;
+  --warn: #A86300; --warn-soft: #FBEFD9;
+  --bad: #B3261E; --bad-soft: #F9E3E1;
+  --c-eq: #2E7D6B; --c-r1: #1F4F86; --c-r2: #7FA3CF; --c-fee: #B7BFC8;
+  --c-cash: #2E7D6B; --c-3a: #D49A2A; --c-lpp: #6B4FA0; --c-cash-dark: #164237;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101317; --surface: #191D22; --ink: #E7EAEE; --muted: #9AA4AF; --line: #2B3138;
+    --accent: #84AEE6; --accent-soft: #1E2A3A; --swiss: #E5483B;
+    --ok: #52C48E; --ok-soft: #15291F; --warn: #E4A63E; --warn-soft: #2D2312; --bad: #F2766A; --bad-soft: #321A18;
+    --c-eq: #4FB39B; --c-r1: #5C8FD6; --c-r2: #9DBBE3; --c-fee: #5A636D; --c-cash: #4FB39B; --c-3a: #E2B45A; --c-lpp: #A58BDB; --c-cash-dark: #1F6352;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101317; --surface: #191D22; --ink: #E7EAEE; --muted: #9AA4AF; --line: #2B3138;
+  --accent: #84AEE6; --accent-soft: #1E2A3A; --swiss: #E5483B;
+  --ok: #52C48E; --ok-soft: #15291F; --warn: #E4A63E; --warn-soft: #2D2312; --bad: #F2766A; --bad-soft: #321A18;
+  --c-eq: #4FB39B; --c-r1: #5C8FD6; --c-r2: #9DBBE3; --c-fee: #5A636D; --c-cash: #4FB39B; --c-3a: #E2B45A; --c-lpp: #A58BDB; --c-cash-dark: #1F6352;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 96px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 24px; }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.brand { display: flex; gap: 14px; align-items: center; }
+.cross { width: 34px; height: 34px; background: var(--swiss); border-radius: 4px; position: relative; flex: none; }
+.cross::before, .cross::after { content: ""; position: absolute; background: #fff; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+.cross::before { width: 20px; height: 6px; } .cross::after { width: 6px; height: 20px; }
+h1 { font-family: var(--font-display); font-stretch: 80%; font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
+.top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+select, button { font: inherit; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.primary:hover { filter: brightness(1.08); color: var(--surface); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); grid-template-areas: "inputs summary" "inputs details"; gap: 24px; align-items: start; }
+.inputs { grid-area: inputs; display: grid; gap: 16px; min-width: 0; }
+.summary { grid-area: summary; min-width: 0; display: grid; gap: 16px; }
+.details { grid-area: details; min-width: 0; display: grid; gap: 16px; }
+@media (max-width: 900px) {
+  .grid { grid-template-columns: minmax(0,1fr); grid-template-areas: "summary" "inputs" "details"; }
+}
+
+.fold > summary { list-style: none; cursor: pointer; display: grid; gap: 2px; padding-right: 28px; position: relative; margin-bottom: 8px; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::after { content: ""; position: absolute; right: 4px; top: 6px; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
+.fold[open] > summary::after { transform: rotate(-135deg); top: 10px; }
+.fold:not([open]) { padding-bottom: 10px; }
+.fold:not([open]) > summary { margin-bottom: 0; }
+.fold[open] .msum { display: none; }
+.msum { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.msum b { color: var(--ink); font-weight: 600; }
+.person .field, #f-menage2 .field { padding: 8px 0; }
+@media (prefers-reduced-motion: reduce) { .fold > summary::after { transition: none; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 8px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 17px; margin: 0 0 2px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.panel h2 small { font-family: var(--font-data); font-weight: 400; font-size: 12px; color: var(--muted); }
+.panel .lead { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+@media (max-width: 520px) { .duo { grid-template-columns: 1fr; } }
+.duo.people { gap: 12px; margin-bottom: 12px; }
+.person { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 0; background: var(--bg); min-width: 0; }
+.person h3 { font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 2px; }
+.split { margin: -2px 0 12px; display: grid; gap: 6px; }
+.split-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.split-row b { color: var(--ink); font-family: var(--font-data); font-weight: 500; }
+.split-bar { height: 12px; border-radius: 4px; background: var(--line); overflow: hidden; display: flex; }
+.split-bar div { height: 100%; min-width: 0; transition: flex-basis .25s; }
+.msum-eq { display: grid; gap: 6px; margin-top: 6px; }
+.fold[open] .msum-eq { display: none; }
+.hatch { background: repeating-linear-gradient(135deg, var(--c-cash-dark) 0 2px, var(--c-cash) 2px 5px); }
+.split-bar .sep { flex: 0 0 3px; background: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .split-bar div { transition: none; } }
+.split-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--muted); }
+.split-legend b { color: var(--ink); font-family: var(--font-data); font-weight: 500; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.person h3 { display: flex; align-items: center; gap: 6px; min-height: 24px; }
+.person h3 small { margin-left: auto; }
+.pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pen { flex: none; width: 22px; height: 22px; display: inline-grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; padding: 0; }
+.rmp { flex: none; width: 22px; height: 22px; display: inline-grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; padding: 0; margin-left: auto; }
+.rmp:hover { background: var(--bad-soft); color: var(--bad); }
+.addp { border: 1px dashed var(--line); border-radius: 10px; background: transparent; color: var(--accent); font: 500 13.5px var(--font-body); padding: 12px; cursor: pointer; text-align: center; }
+.addp:hover { border-color: var(--accent); background: var(--accent-soft); }
+.people.solo { grid-template-columns: minmax(0, 1fr); }
+.pen:hover { background: var(--accent-soft); color: var(--accent); }
+.pname-edit { font: inherit; text-transform: none; letter-spacing: 0; font-family: var(--font-body); font-size: 13.5px; color: var(--ink); background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; width: 100%; max-width: 200px; }
+.person h3 small { font-family: var(--font-data); font-weight: 400; text-transform: none; letter-spacing: 0; float: right; }
+.person .num input { background: var(--surface); width: 100px; }
+
+.field { padding: 10px 0 12px; border-top: 1px solid var(--line); min-width: 0; }
+.duo .field:nth-child(-n+2), .fields > .field:first-child { border-top: 0; }
+.frow { display: flex; justify-content: space-between; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.frow label { font-size: 13.5px; font-weight: 500; }
+.num { display: flex; align-items: baseline; gap: 4px; flex: none; }
+.num input { width: 110px; text-align: right; font-family: var(--font-data); font-size: 14px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; }
+.num input:disabled { opacity: .75; border-style: dashed; }
+.num .unit { font-size: 12px; color: var(--muted); min-width: 34px; }
+.frow label + .info { margin-right: auto; margin-left: -4px; }
+.info { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 12px/1 Georgia, "Times New Roman", serif; cursor: pointer; padding: 0; }
+.info:hover, .info[aria-expanded="true"] { border-color: var(--accent); color: var(--surface); background: var(--accent); }
+.infobox { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 13px; line-height: 1.5; max-width: 70ch; }
+.infobox p { margin: 0 0 6px; }
+.infobox ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.seg { display: inline-grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-left: auto; flex: none; }
+.seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg + .num { margin-left: 0; }
+.rwrap { position: relative; }
+.rwrap:has(.casatax:not([hidden])) { padding-bottom: 16px; }
+.casatax { position: absolute; top: 5px; left: calc(8px + var(--p) * (100% - 16px)); transform: translateX(-1px); pointer-events: none; display: grid; justify-items: start; gap: 1px; }
+.casatax .tick { width: 2px; height: 24px; background: var(--warn); border-radius: 1px; }
+.casatax .lbl { font: 500 11px/1.2 var(--font-data); color: var(--warn); white-space: nowrap; transform: translateX(-50%); }
+@media print {
+  .top-actions, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
+  body { padding-block: 0; background: #fff; color: #000; }
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "inputs" "details"; }
+  .panel, .verdict { break-inside: avoid; }
+  .fold > summary::after { display: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.stackwrap { position: relative; margin-top: 22px; }
+.eqmin { position: absolute; top: 2px; height: 46px; margin-left: -1px; border-left: 2px dashed var(--ink); pointer-events: none; }
+.eqmin span { position: absolute; bottom: 100%; left: 0; transform: translateX(-50%); margin-bottom: 1px; font: 500 11px/1.2 var(--font-data); color: var(--ink); white-space: nowrap; }
+.eqmin.bad { border-left-color: var(--bad); }
+.eqmin.bad span { color: var(--bad); }
+.subgroup { margin: -4px 0 10px 10px; padding-left: 14px; border-left: 2px solid var(--accent-soft); transition: opacity .2s; }
+.subgroup .field:first-child { border-top: 0; padding-top: 4px; }
+.subgroup.off, .field.off { opacity: .45; transition: opacity .2s; }
+.subgroup.off .check { cursor: default; }
+@media (prefers-reduced-motion: reduce) { .subgroup { transition: none; } }
+.lg-info { display: inline-flex; align-items: center; gap: 6px; }
+.lg-info .info { width: 17px; height: 17px; font-size: 11px; }
+#info-loan { margin: 0 0 12px; }
+.inote { font-size: 12px; font-weight: 400; color: var(--muted); }
+.hint { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+input[type=range] { width: 100%; margin: 8px 0 0; accent-color: var(--accent); height: 18px; }
+input[type=range]:disabled { opacity: .4; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; padding: 10px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.check span small { display: block; color: var(--muted); font-size: 12px; }
+.tally { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 10px 0 12px; border-top: 1px solid var(--line); color: var(--muted); }
+.tally b { color: var(--ink); font-family: var(--font-data); font-weight: 500; }
+select.canton { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 13px; }
+
+/* Verdict */
+.verdict { border-radius: 12px; padding: 18px; border: 1px solid var(--line); background: var(--surface); display: grid; gap: 14px; }
+.vhead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-stretch: 85%; font-weight: 700; font-size: 20px; padding: 6px 14px 6px 10px; border-radius: 999px; }
+.pill::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok); background: var(--ok-soft); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); }
+.pill.bad { color: var(--bad); background: var(--bad-soft); }
+.vprice { text-align: right; }
+.vprice .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.vprice .v { font-family: var(--font-data); font-size: 20px; font-weight: 500; }
+.reasons { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+.reasons:empty { display: none; }
+
+.gauges { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+@media (max-width: 460px) { .gauges { grid-template-columns: 1fr; } }
+.gauge { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+.gauge .gt { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.gauge .gv { font-family: var(--font-data); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.gauge .gv small { font-size: 12px; color: var(--muted); font-weight: 400; }
+.track { position: relative; height: 8px; border-radius: 4px; background: var(--line); overflow: visible; }
+.track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.track .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+.st-ok .fill { background: var(--ok); } .st-ok .state { color: var(--ok); }
+.st-warn .fill { background: var(--warn); } .st-warn .state { color: var(--warn); }
+.st-bad .fill { background: var(--bad); } .st-bad .state { color: var(--bad); }
+.state { font-weight: 600; font-size: 12px; }
+
+/* Ce qui est possible */
+.solve { display: grid; gap: 0; }
+.srow { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 14px; padding: 12px 0; border-top: 1px solid var(--line); align-items: center; }
+.srow:first-of-type { border-top: 0; }
+.srow .sl { font-size: 13px; color: var(--muted); }
+.srow .sv { font-family: var(--font-data); font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.srow .sd { font-size: 12.5px; color: var(--muted); }
+.srow .sd b { font-weight: 600; }
+.delta-pos { color: var(--ok); } .delta-neg { color: var(--bad); }
+.lockbar { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 13.5px; margin-bottom: 4px; cursor: pointer; }
+.lockbar input { accent-color: var(--accent); }
+
+/* Structure */
+.stack { display: flex; height: 38px; border-radius: 8px; overflow: hidden; margin: 6px 0 10px; }
+.stack div { min-width: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; transition: flex-basis .25s; }
+@media (prefers-reduced-motion: reduce) { .stack div { transition: none; } }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin-bottom: 10px; }
+.lg { display: grid; grid-template-columns: 10px 1fr; gap: 2px 8px; font-size: 12.5px; }
+.lg i { width: 10px; height: 10px; border-radius: 2px; margin-top: 4px; }
+.lg span { color: var(--muted); }
+.lg b { grid-column: 2; font-family: var(--font-data); font-weight: 500; font-size: 13.5px; }
+
+table.costs { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.costs th, .costs td { padding: 7px 0; border-top: 1px solid var(--line); text-align: right; }
+.costs th { font-weight: 500; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; border-top: 0; }
+.costs td:first-child, .costs th:first-child { text-align: left; }
+.costs td:not(:first-child) { font-family: var(--font-data); padding-left: 12px; }
+.costs tr.total td { font-weight: 600; border-top: 2px solid var(--ink); }
+.tablewrap { overflow-x: auto; }
+.note { font-size: 12.5px; color: var(--muted); margin: 10px 0; }
+
+svg.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-family: var(--font-data); font-size: 11px; }
+.chart .axis { stroke: var(--line); }
+.chart .grid { stroke: var(--line); stroke-dasharray: 2 4; }
+.chart .curve { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.chart .area { fill: var(--accent); opacity: .08; }
+.chart .limit { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .noeq { fill: var(--bad); opacity: .08; }
+.chart .now { stroke: var(--ink); stroke-width: 1.5; }
+.chart .dot { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.chart .pmax { stroke: var(--ok); stroke-width: 1.5; }
+.chart text.lbl-bad { fill: var(--bad); } .chart text.lbl-ok { fill: var(--ok); } .chart text.lbl-ink { fill: var(--ink); font-weight: 500; }
+
+details.rules { font-size: 13.5px; }
+details.rules summary { cursor: pointer; font-weight: 600; padding: 4px 0 10px; }
+details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; max-width: 70ch; }
+
+.mbar { display: none; }
+@media (max-width: 900px) {
+  .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 12px; justify-content: space-between; align-items: center;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; }
+  .mbar b { font-family: var(--font-data); font-weight: 500; }
+  .mbar .pill { font-size: 14px; padding: 3px 10px 3px 8px; }
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.example { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 3px 10px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="cross" aria-hidden="true"></div>
+      <div>
+        <h1>Simulateur hypothécaire suisse</h1>
+        <p class="sub">Règles usuelles des banques : 20&nbsp;% de fonds propres dont 10&nbsp;% hors 2<sup>e</sup>&nbsp;pilier, charges théoriques à 5&nbsp;% max. un tiers du revenu, 2<sup>e</sup>&nbsp;rang amorti en 15&nbsp;ans.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="example" id="exampleTag">Chiffres d'exemple</span>
+      <label for="canton" class="sr">Canton</label>
+      <select id="canton" class="canton"></select>
+      <button class="btn primary" id="export" type="button" hidden>Exporter en PDF</button>
+      <button class="btn" id="reset" type="button">Réinitialiser</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- RÉSULTATS : synthèse -->
+    <div class="summary">
+      <div class="verdict" id="verdict">
+        <div class="vhead">
+          <span class="pill ok" id="vpill">Finançable</span>
+          <div class="vprice"><div class="k">Prix d'achat</div><div class="v" id="vprice">–</div></div>
+        </div>
+        <ul class="reasons" id="reasons"></ul>
+        <div class="gauges">
+          <div class="gauge" id="g-ratio"><div class="gt"><span>Charges / revenu</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
+          <div class="gauge" id="g-eq"><div class="gt"><span>Fonds propres</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
+          <div class="gauge" id="g-hard"><div class="gt"><span>Fonds propres durs (hors 2<sup>e</sup> pilier)</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
+          <div class="gauge" id="g-ret"><div class="gt"><span>Charges à la retraite</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <h2>Ce qui est possible <small>recalculé en direct</small></h2>
+        <p class="lead">Fixez certains chiffres, laissez le simulateur trouver les autres.</p>
+        <label class="lockbar" for="lockPrice"><input type="checkbox" id="lockPrice"> <span>Bloquer le prix sur le maximum finançable : le prix suit vos revenus et vos fonds propres.</span></label>
+        <div class="solve">
+          <div class="srow">
+            <div><div class="sl">Prix maximum avec vos revenus et fonds propres</div><div class="sv" id="s-pmax">–</div><div class="sd" id="s-pmax-d"></div></div>
+            <button class="btn" id="use-pmax" type="button">Utiliser ce prix</button>
+          </div>
+          <div class="srow">
+            <div><div class="sl">Revenu annuel retenu nécessaire pour ce prix</div><div class="sv" id="s-inc">–</div><div class="sd" id="s-inc-d"></div></div>
+            <button class="btn" id="use-inc" type="button">Ajuster les salaires</button>
+          </div>
+          <div class="srow">
+            <div><div class="sl">Fonds propres nets nécessaires pour ce prix (frais inclus)</div><div class="sv" id="s-eq">–</div><div class="sd" id="s-eq-d"></div></div>
+            <button class="btn" id="use-eq" type="button">Compléter en épargne</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- SAISIE -->
+    <div class="inputs">
+      <details class="panel fold" id="menage" open>
+        <summary>
+          <h2>Le ménage <small id="t-income"></small></h2>
+          <span class="msum" id="m-sum"></span>
+        </summary>
+        <p class="lead">Revenus bruts annuels, 13<sup>e</sup> salaire compris.</p>
+        <div class="duo people">
+          <div class="person"><h3><span class="pname" data-p="1">Personne 1</span><button type="button" class="pen" data-p="1" aria-label="Renommer Personne 1"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M11.5 1.8l2.7 2.7-8.6 8.6-3.4.7.7-3.4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button></h3><div class="fields" id="f-p1"></div></div>
+          <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span><button type="button" class="pen" data-p="2" aria-label="Renommer Personne 2"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M11.5 1.8l2.7 2.7-8.6 8.6-3.4.7.7-3.4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button><button type="button" class="rmp" id="rmP2" aria-label="Retirer la 2e personne" title="Retirer"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></h3><div class="fields" id="f-p2"></div></div>
+          <button type="button" class="addp" id="addP2" hidden>+ Ajouter une 2e personne</button>
+        </div>
+        <div class="fields" id="f-menage2"></div>
+        <label class="check" for="allocCount"><input type="checkbox" id="allocCount"><span>Compter les allocations familiales dans le revenu<small>Beaucoup de banques ne les retiennent pas, ou seulement en partie.</small></span></label>
+        <div class="tally"><span>Revenu retenu par la banque</span><b id="t-retenu">–</b></div>
+      </details>
+
+      <details class="panel fold" id="fonds" open>
+        <summary>
+          <h2>Fonds propres <small id="t-fp"></small></h2>
+          <span class="msum msum-eq"><span class="split-bar" id="spbar2"></span><span class="split-legend" id="splg2"></span><span id="f-sum"></span></span>
+        </summary>
+        <p class="lead">Les frais d'achat se paient en fonds propres durs. Le 2<sup>e</sup> pilier ne compte pas pour les 10&nbsp;% durs.</p>
+        <div class="duo people">
+          <div class="person"><h3><span class="pname" data-p="1">Personne 1</span> <small id="t-eq1"></small></h3><div class="fields" id="f-eq1"></div></div>
+          <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span> <small id="t-eq2"></small></h3><div class="fields" id="f-eq2"></div></div>
+        </div>
+        <div class="split" aria-live="polite">
+          <div class="split-row"><span id="sp1"></span><span id="sp2"></span></div>
+          <div class="split-bar" id="spbar"></div>
+          <div class="split-legend" id="splg"></div>
+        </div>
+        <div class="fields" id="f-fp2"></div>
+        <div class="tally"><span>Durs nets / 2<sup>e</sup> pilier net</span><b id="t-hard">–</b></div>
+      </details>
+
+      <section class="panel">
+        <h2>Le bien</h2>
+        <div class="fields" id="f-bien"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Hypothèses bancaires</h2>
+        <p class="lead">Valeurs usuelles. Chaque banque a ses propres curseurs.</p>
+        <div class="duo" id="f-hyp"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Coût réel</h2>
+        <p class="lead">Le taux du marché sert au budget, pas au calcul de la banque.</p>
+        <div class="duo" id="f-real"></div>
+      </section>
+    </div>
+
+    <!-- RÉSULTATS : détail -->
+    <div class="details">
+      <section class="panel">
+        <h2>Structure du financement <small id="t-ltv"></small></h2>
+        <div class="stackwrap"><div class="stack" id="stack"></div><div class="eqmin" id="eqmin"><span></span></div></div>
+        <div class="legend" id="legend"></div>
+        <div class="infobox" id="info-loan" hidden>
+          <p><b>Hypothèque totale = 1<sup>er</sup> rang + 2<sup>e</sup> rang.</b> C'est le montant que la banque vous prête : le prix moins votre apport.</p>
+          <ul>
+            <li><b>1<sup>er</sup> rang</b> : jusqu'à environ 2/3 du prix. Pas d'amortissement obligatoire.</li>
+            <li><b>2<sup>e</sup> rang</b> : la partie entre 2/3 et 80&nbsp;% du prix. Elle doit être remboursée en 15 ans au plus, ou avant la retraite si elle arrive plus tôt.</li>
+            <li>Les intérêts, au taux théorique comme au taux réel, se calculent sur l'hypothèque totale.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Charges</h2>
+        <div class="tablewrap">
+          <table class="costs">
+            <thead><tr><th></th><th>Calcul banque / an</th><th>Banque / mois</th><th>Réel / mois</th></tr></thead>
+            <tbody id="costs"></tbody>
+          </table>
+        </div>
+        <p class="note" id="rentNote"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Prix et taux d'effort</h2>
+        <p class="lead">Ratio charges / revenu selon le prix d'achat, avec vos fonds propres actuels.</p>
+        <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Taux d'effort en fonction du prix"></svg>
+      </section>
+
+      <section class="panel">
+        <details class="rules">
+          <summary>Règles appliquées et limites du modèle</summary>
+          <ul>
+            <li>Hypothèque max. 80&nbsp;% du prix. 1<sup>er</sup> rang jusqu'à env. 2/3 du prix, sans amortissement obligatoire. 2<sup>e</sup> rang amorti linéairement en 15 ans, ou avant l'âge de la retraite si c'est plus tôt.</li>
+            <li>Charges théoriques = intérêts au taux théorique (5&nbsp;%) + amortissement du 2<sup>e</sup> rang + entretien et frais (≈ 1&nbsp;% du prix) + autres charges (leasing, pensions). Elles doivent rester sous 33&nbsp;% du revenu brut retenu.</li>
+            <li>Fonds propres : au moins 20&nbsp;% du prix, dont 10&nbsp;% hors 2<sup>e</sup> pilier. Les frais d'achat (droits de mutation, notaire, registre foncier, cédule) s'ajoutent et ne sont pas financés.</li>
+            <li>Les retraits de 2<sup>e</sup> et 3<sup>e</sup> pilier sont imposés à part : le taux saisi est déduit du montant brut.</li>
+            <li>Tous les fonds propres disponibles servent à réduire l'hypothèque, sauf la réserve que vous gardez.</li>
+            <li>Les frais par canton et les montants d'allocations sont des ordres de grandeur à vérifier ; ils restent modifiables. Ce simulateur ne remplace pas une offre bancaire.</li>
+          </ul>
+        </details>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="mbar" aria-live="polite">
+  <span class="pill ok" id="m-pill">Finançable</span>
+  <span>Effort <b id="m-ratio">–</b></span>
+  <span>Max <b id="m-pmax">–</b></span>
+</div>
+
+<script>
+const CANTONS = {
+  GE: { label: "Genève",    fees: 5.0, alloc: 311 },
+  VD: { label: "Vaud",      fees: 4.5, alloc: 322 },
+  FR: { label: "Fribourg",  fees: 3.5, alloc: 265 },
+  NE: { label: "Neuchâtel", fees: 4.5, alloc: 220 },
+  VS: { label: "Valais",    fees: 3.0, alloc: 305 },
+  BE: { label: "Berne",     fees: 2.5, alloc: 230 },
+  ZH: { label: "Zurich",    fees: 1.5, alloc: 215 },
+  XX: { label: "Autre canton" }
+};
+
+const DEFAULTS = {
+  canton: "GE",
+  inc1: 120000, inc2: 90000, bonus1: 0, bonus2: 0, age1: 38, age2: 36,
+  bonusPct: 50, kids: 2, alloc: 311, debt: 0, allocCount: false,
+  price: 1200000, feesPct: 5, maintPct: 1,
+  cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, reserve: 0,
+  rate: 5, ratioMax: 33, rank1Pct: 66.7, ltvMax: 80, amortMax: 15, retireAge: 65, retirePct: 60,
+  realRate: 1.6, rent: 3200,
+  lockPrice: false,
+  name1: "Personne 1", name2: "Personne 2",
+  feesMode: "pct", feesChf: 60000,
+  solo: false, p2saved: null
+};
+const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const F = {
+  p1: [
+    { id: "inc1", who: "Personne 1", label: "Salaire brut", min: 0, max: 400000, step: 1000, unit: "CHF" },
+    { id: "bonus1", who: "Personne 1", label: "Bonus", min: 0, max: 150000, step: 1000, unit: "CHF" },
+    { id: "age1", who: "Personne 1", label: "Âge", min: 20, max: 70, step: 1, unit: "ans" }
+  ],
+  p2: [
+    { id: "inc2", who: "Personne 2", label: "Salaire brut", min: 0, max: 400000, step: 1000, unit: "CHF" },
+    { id: "bonus2", who: "Personne 2", label: "Bonus", min: 0, max: 150000, step: 1000, unit: "CHF" },
+    { id: "age2", who: "Personne 2", label: "Âge", min: 20, max: 70, step: 1, unit: "ans" }
+  ],
+  menage2: [
+    { id: "bonusPct", label: "Part du bonus retenue", min: 0, max: 100, step: 5, unit: "%", hint: "Souvent la moyenne des 3 dernières années, partiellement." },
+    { id: "debt", label: "Autres charges fixes annuelles", min: 0, max: 60000, step: 500, unit: "CHF", hint: "Leasing, crédit privé, pension alimentaire." },
+    { id: "kids", label: "Nombre d'enfants", min: 0, max: 6, step: 1, unit: "" },
+    { id: "alloc", label: "Allocation par enfant", min: 0, max: 600, step: 1, unit: "CHF/mois", dyn: true }
+  ],
+  bien: [
+    { id: "price", label: "Prix d'achat", min: 200000, max: 4000000, step: 10000, unit: "CHF" },
+    { id: "feesPct", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 7, step: 0.1, unit: "%", seg: true, dyn: true },
+    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true },
+    { id: "maintPct", label: "Entretien et frais accessoires", min: 0.5, max: 1.5, step: 0.1, unit: "%/an", dyn: true }
+  ],
+  eq1: [
+    { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
+    { id: "lpp1", color: "lpp", who: "Personne 1", label: "Retrait 2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF" },
+    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF" }
+  ],
+  eq2: [
+    { id: "cash2", color: "cash", who: "Personne 2", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
+    { id: "lpp2", color: "lpp", who: "Personne 2", label: "Retrait 2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF" },
+    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF" }
+  ],
+  fp2: [
+    { id: "gift", label: "Donation / avance d'hoirie", min: 0, max: 1000000, step: 5000, unit: "CHF" },
+    { id: "taxPct", label: "Impôt sur retraits 2e et 3e pilier", min: 0, max: 15, step: 0.5, unit: "%", dyn: true },
+    { id: "reserve", label: "Réserve gardée de côté", min: 0, max: 300000, step: 5000, unit: "CHF", note: "Non investie dans l'achat" }
+  ],
+  hyp: [
+    { id: "rate", label: "Taux théorique", min: 3, max: 7, step: 0.25, unit: "%" },
+    { id: "ratioMax", label: "Charges max. / revenu", min: 25, max: 40, step: 1, unit: "%" },
+    { id: "rank1Pct", label: "Limite 1er rang", min: 60, max: 70, step: 0.1, unit: "%" },
+    { id: "ltvMax", label: "Financement max.", min: 70, max: 90, step: 1, unit: "%" },
+    { id: "amortMax", label: "Durée d'amortissement 2e rang", min: 5, max: 20, step: 1, unit: "ans" },
+    { id: "retireAge", label: "Âge de la retraite", min: 60, max: 70, step: 1, unit: "ans" },
+    { id: "retirePct", label: "Revenu à la retraite", min: 30, max: 100, step: 5, unit: "% actuel" }
+  ],
+  real: [
+    { id: "realRate", label: "Taux réel (fixe ou SARON + marge)", min: 0.3, max: 5, step: 0.05, unit: "%" },
+    { id: "rent", label: "Loyer actuel", min: 0, max: 10000, step: 50, unit: "CHF/mois" }
+  ]
+};
+const ALL = Object.values(F).flat();
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2].map(f => f.id));
+const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
+
+const KEY = "simu-hypo-ch-v1";
+let S = { ...DEFAULTS };
+let touched = false;
+try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
+  // Ancienne version : fonds propres communs, repris sur la personne 1
+  if (saved.cash != null && saved.cash1 == null) {
+    Object.assign(saved, { cash1: saved.cash, p3a1: saved.p3a || 0, lpp1: saved.lpp || 0, cash2: 0, p3a2: 0, lpp2: 0 });
+    delete saved.cash; delete saved.p3a; delete saved.lpp;
+  }
+  S = { ...DEFAULTS, ...saved }; touched = true;
+} } catch (e) {}
+
+const $ = id => document.getElementById(id);
+const nf = new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 });
+const chf = v => isFinite(v) ? "CHF " + nf.format(Math.round(v)) : "–";
+const pc = (v, d = 1) => isFinite(v) ? (v * 100).toFixed(d) + " %" : "–";
+const short = v => v >= 1e6 ? (v / 1e6).toFixed(2).replace(/\.?0+$/, "") + " M" : Math.round(v / 1000) + " k";
+const decimals = step => (String(step).split(".")[1] || "").length;
+const fmtField = (f, v) => { const d = decimals(f.step); return d ? Number(v).toFixed(d) : nf.format(Math.round(v)); };
+
+/* ---------- Construction du formulaire ---------- */
+const INFO = {
+  gift: `<p>Argent reçu, en général des parents, pour aider à l'achat. Il compte comme fonds propres durs, comme l'épargne.</p>
+    <ul>
+      <li><b>Avance d'hoirie</b> : avance sur la future part d'héritage. À la succession, elle est déduite de ce que vous recevez, pour rester équitable avec les frères et sœurs (rapport, CC art. 626).</li>
+      <li><b>Donation</b> : un cadeau qui n'a pas à être compensé plus tard si l'acte prévoit une dispense de rapport, dans la limite des réserves héréditaires.</li>
+      <li><b>Banque</b> : elle accepte ces montants s'il s'agit d'un vrai don sans remboursement, en général sur attestation écrite. Un prêt des parents n'est pas un fonds propre : ses intérêts ou remboursements vont dans « Autres charges fixes annuelles ».</li>
+      <li><b>Impôt</b> : dépend du canton. Beaucoup exonèrent les dons aux enfants, pas tous et parfois au-delà d'un seuil seulement.</li>
+      <li><b>Couple</b> : marié, le don reste le bien propre de celui qui le reçoit. Non marié, la répartition de la propriété compte. Dans les deux cas, gardez une trace écrite de qui a apporté quoi.</li>
+    </ul>`
+};
+function fieldHTML(f) {
+  return `<div class="field" id="field-${f.id}">
+    <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="Explication : ${f.label}">i</button>` : ""}
+      ${f.seg ? `<span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></div>
+    ${NO_RANGE.has(f.id) ? "" : `<input id="rg-${f.id}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" aria-label="${f.who ? f.who + " – " : ""}${f.label}">`}
+    ${f.hint || f.dyn ? `<p class="hint" id="hint-${f.id}">${f.hint || ""}</p>` : ""}
+    ${INFO[f.id] ? `<div class="infobox" id="info-${f.id}" hidden>${INFO[f.id]}</div>` : ""}
+  </div>`;
+}
+for (const [group, list] of Object.entries(F)) $("f-" + group).innerHTML = list.map(fieldHTML).join("");
+
+// Allocations rattachées au nombre d'enfants
+{
+  const g = document.createElement("div");
+  g.className = "subgroup"; g.id = "allocGroup";
+  $("field-kids").after(g);
+  g.append($("field-alloc"), document.querySelector('label[for="allocCount"]'));
+}
+
+// Repère Casatax (Genève) sur le curseur du prix, à titre indicatif
+const CASATAX = 1394928;
+{
+  const r = $("rg-price"), w = document.createElement("div"), f = BY.price;
+  w.className = "rwrap"; r.before(w); w.append(r);
+  w.insertAdjacentHTML("beforeend", `<div class="casatax" id="casatax" hidden style="--p:${(CASATAX - f.min) / (f.max - f.min)}" title="Casatax Genève, à titre indicatif"><span class="tick"></span><span class="lbl">Casatax ${nf.format(CASATAX)}</span></div>`);
+}
+document.addEventListener("click", e => {
+  const fm = e.target.closest(".seg button");
+  if (fm) {
+    const mode = fm.dataset.fm;
+    if (mode === S.feesMode) return;
+    if (mode === "chf") S.feesChf = Math.round(S.price * S.feesPct / 100 / 500) * 500;
+    else S.feesPct = Math.round(S.feesChf / S.price * 1000) / 10;
+    S.feesMode = mode; touched = true;
+    update();
+    const next = $("field-" + (mode === "chf" ? "feesChf" : "feesPct")).querySelector(`.seg button[data-fm="${mode}"]`);
+    if (next) next.focus();
+    return;
+  }
+  const pen = e.target.closest("button.pen");
+  if (pen) {
+    const p = pen.dataset.p, span = pen.previousElementSibling;
+    const inp = document.createElement("input");
+    inp.className = "pname-edit"; inp.id = "name-edit-" + p; inp.maxLength = 24; inp.value = S["name" + p];
+    inp.setAttribute("aria-label", "Nom de la personne " + p);
+    span.hidden = true; pen.hidden = true; span.after(inp); inp.focus(); inp.select();
+    let done = false;
+    const finish = save => {
+      if (done) return; done = true;
+      if (save) S["name" + p] = inp.value.trim() || DEFAULTS["name" + p];
+      inp.remove(); span.hidden = false; pen.hidden = false; pen.focus();
+      update();
+    };
+    inp.addEventListener("keydown", ev => { if (ev.key === "Enter") finish(true); if (ev.key === "Escape") finish(false); });
+    inp.addEventListener("blur", () => finish(true));
+    return;
+  }
+  const b = e.target.closest("button.info"); if (!b) return;
+  const box = $(b.getAttribute("aria-controls")), open = box.hidden;
+  box.hidden = !open; b.setAttribute("aria-expanded", open);
+});
+
+$("canton").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
+
+function syncInputs(skip) {
+  for (const f of ALL) {
+    const t = $("in-" + f.id), r = $("rg-" + f.id);
+    if (t !== skip && document.activeElement !== t) t.value = fmtField(f, S[f.id]);
+    if (r && r !== skip) r.value = S[f.id];
+  }
+  $("allocCount").checked = !!S.allocCount;
+  $("lockPrice").checked = !!S.lockPrice;
+  $("canton").value = S.canton;
+  $("in-price").disabled = $("rg-price").disabled = !!S.lockPrice;
+  document.querySelectorAll(".person.p2").forEach(el => { el.hidden = !!S.solo; });
+  document.querySelectorAll(".people").forEach(el => el.classList.toggle("solo", !!S.solo));
+  $("addP2").hidden = !S.solo;
+  $("sp2").hidden = !!S.solo;
+  $("field-feesPct").hidden = S.feesMode === "chf";
+  $("field-feesChf").hidden = S.feesMode !== "chf";
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.fm === S.feesMode));
+}
+
+for (const f of ALL) {
+  const t = $("in-" + f.id), r = $("rg-" + f.id);
+  t.addEventListener("input", () => {
+    const v = parseFloat(t.value.replace(/[’'\s ]/g, "").replace(",", "."));
+    if (!isFinite(v)) return;
+    S[f.id] = Math.max(f.min < 0 ? -Infinity : 0, v);
+    update(t);
+  });
+  t.addEventListener("blur", () => { t.value = fmtField(f, S[f.id]); });
+  t.addEventListener("keydown", e => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const d = decimals(f.step), step = f.step * (e.shiftKey ? 10 : 1) * (e.key === "ArrowUp" ? 1 : -1);
+    const v = Math.min(Math.max(f.max, S[f.id]), Math.max(f.min, Math.round((S[f.id] + step) / f.step) * f.step));
+    S[f.id] = d ? +v.toFixed(d) : v;
+    t.value = fmtField(f, S[f.id]);
+    update(t);
+  });
+  if (r) r.addEventListener("input", () => {
+    S[f.id] = parseFloat(r.value);
+    update(r);
+  });
+}
+for (const id of ["menage", "fonds"]) {
+  try { if (localStorage.getItem(KEY + "-" + id) === "closed") $(id).open = false; } catch (e) {}
+  $(id).addEventListener("toggle", () => { try { localStorage.setItem(KEY + "-" + id, $(id).open ? "open" : "closed"); } catch (e) {} });
+}
+// Retirer / remettre la 2e personne : ses montants sont mis de côté puis restaurés
+$("rmP2").addEventListener("click", () => {
+  S.p2saved = Object.fromEntries(P2_KEYS.map(k => [k, S[k]]));
+  P2_KEYS.forEach(k => { S[k] = 0; });
+  S.solo = true; touched = true; update(); $("addP2").focus();
+});
+$("addP2").addEventListener("click", () => {
+  if (S.p2saved) Object.assign(S, S.p2saved);
+  S.p2saved = null; S.solo = false; touched = true; update(); $("rmP2").focus();
+});
+$("allocCount").addEventListener("change", e => { S.allocCount = e.target.checked; update(); });
+$("lockPrice").addEventListener("change", e => { S.lockPrice = e.target.checked; update(); });
+$("canton").addEventListener("change", e => {
+  S.canton = e.target.value; const c = CANTONS[S.canton];
+  if (c.fees != null) { S.feesPct = c.fees; S.alloc = c.alloc; S.feesMode = "pct"; }
+  update();
+});
+$("reset").addEventListener("click", () => { S = { ...DEFAULTS }; touched = false; try { localStorage.removeItem(KEY); } catch (e) {} update(); });
+
+/* ---------- Modèle ---------- */
+function income(s) {
+  return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? s.kids * s.alloc * 12 : 0);
+}
+function amortYears(s) {
+  const oldest = Math.max(s.age1, s.inc2 > 0 ? s.age2 : 0);
+  return Math.max(1, Math.min(s.amortMax, s.retireAge - oldest));
+}
+function equity(s) {
+  const t = s.taxPct / 100;
+  const hard = s.cash1 + s.cash2 + (s.p3a1 + s.p3a2) * (1 - t) + s.gift;
+  const lpp = (s.lpp1 + s.lpp2) * (1 - t);
+  return { hard, lpp, total: hard + lpp };
+}
+function model(s, P) {
+  const eq = equity(s);
+  const fees = s.feesMode === "chf" ? s.feesChf : P * s.feesPct / 100;
+  const avail = eq.total - fees - s.reserve;          // apport disponible pour le prix
+  const hardAvail = eq.hard - fees - s.reserve;        // part dure après frais
+  const apport = Math.max(0, Math.min(avail, P));
+  const loan = P - apport;
+  const k = s.rank1Pct / 100;
+  const rank1 = Math.min(loan, k * P), rank2 = loan - rank1;
+  const years = amortYears(s);
+  const amort = rank2 / years;
+  const interest = loan * s.rate / 100;
+  const maint = P * s.maintPct / 100;
+  const charges = interest + amort + maint + s.debt;
+  const inc = income(s);
+  const ratio = inc > 0 ? charges / inc : Infinity;
+  const incRet = (s.inc1 + s.inc2) * s.retirePct / 100;
+  const chargesRet = rank1 * s.rate / 100 + maint + s.debt;
+  const ratioRet = incRet > 0 ? chargesRet / incRet : Infinity;
+  return { P, eq, fees, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, charges, inc, ratio, incRet, chargesRet, ratioRet,
+    eqPct: Math.max(0, avail) / P, hardPct: Math.max(0, hardAvail) / P, ltv: loan / P, unused: Math.max(0, avail - P) };
+}
+function bisect(ok, hi = 3e7) {
+  if (!ok(1000)) return 0;
+  let lo = 1000;
+  for (let i = 0; i < 70; i++) { const m = (lo + hi) / 2; ok(m) ? lo = m : hi = m; }
+  return lo;
+}
+function solve(s) {
+  const eq = equity(s), chfMode = s.feesMode === "chf", f = chfMode ? 0 : s.feesPct / 100, fx = chfMode ? s.feesChf : 0, minEq = 1 - s.ltvMax / 100;
+  const pEq = Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
+  const pHard = Math.max(0, (eq.hard - s.reserve - fx) / (0.10 + f));
+  const lim = s.ratioMax / 100;
+  const pInc = bisect(P => model(s, P).charges <= lim * income(s));
+  const pRet = bisect(P => model(s, P).chargesRet <= lim * (s.inc1 + s.inc2) * s.retirePct / 100);
+  const cands = [["vos revenus", pInc], ["vos fonds propres", pEq], ["vos fonds propres durs", pHard]];
+  cands.sort((a, b) => a[1] - b[1]);
+  return { pEq, pHard, pInc, pRet, pMax: cands[0][1], by: cands[0][0] };
+}
+function required(s, m) {
+  const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
+  const reqIncome = m.charges / lim;
+  // Hypothèque max supportable par le revenu
+  const B = lim * income(s) - m.maint - s.debt;
+  let L;
+  if (B <= 0) L = -1;
+  else if (B / r <= kP) L = B / r;
+  else L = kP + (B - r * kP) / (r + 1 / n);
+  const Lmax = Math.min(Math.max(L, 0), P * s.ltvMax / 100);
+  const reqTotal = (P - Lmax) + m.fees + s.reserve;
+  const reqHard = P * 0.10 + m.fees + s.reserve;
+  return { reqIncome, reqTotal, reqHard, impossible: L < 0 };
+}
+
+/* ---------- Rendu ---------- */
+function gauge(id, val, limit, scaleMax, text, sub, state) {
+  const g = $(id);
+  g.className = "gauge st-" + state;
+  g.querySelector(".gv").innerHTML = text + (sub ? ` <small>${sub}</small>` : "");
+  g.querySelector(".fill").style.width = Math.min(100, Math.max(0, val / scaleMax * 100)) + "%";
+  g.querySelector(".mark").style.left = `calc(${Math.min(100, limit / scaleMax * 100)}% - 1px)`;
+  g.querySelector(".state").textContent = { ok: "OK", warn: "Limite", bad: "Insuffisant" }[state];
+}
+
+function update(skip) {
+  const sol0 = solve(S);
+  if (S.lockPrice) S.price = Math.max(10000, Math.floor(sol0.pMax / 5000) * 5000);
+  syncInputs(skip);
+  const m = model(S, S.price), sol = sol0, req = required(S, m);
+  const lim = S.ratioMax / 100, minEq = 1 - S.ltvMax / 100;
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  if (skip) touched = true;
+  $("exampleTag").hidden = touched;
+
+  // Contrôles
+  const okRatio = m.ratio <= lim, okEq = m.avail >= minEq * m.P - 0.5, okHard = m.hardAvail >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
+  const reasons = [];
+  if (!okRatio) reasons.push(`Charges théoriques à ${pc(m.ratio)} du revenu, au-delà de ${S.ratioMax} %.`);
+  if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
+  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 % hors 2e pilier.`);
+  if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
+  if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
+  const near = okRatio && m.ratio > lim - 0.015;
+  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
+  const label = { ok: "Finançable", warn: "À la limite", bad: "Non finançable" }[status];
+  for (const id of ["vpill", "m-pill"]) { $(id).className = "pill " + status; $(id).textContent = label; }
+  if (near) reasons.unshift(`Taux d'effort proche du plafond : peu de marge si la banque est plus stricte.`);
+  $("reasons").innerHTML = reasons.map(r => `<li>${r.replace(/(\d)e /g, "$1<sup>e</sup> ")}</li>`).join("");
+  $("vprice").textContent = chf(m.P);
+  LAST = { m, sol, req, reasons, status, label };
+  $("casatax").hidden = S.canton !== "GE";
+
+  gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
+  gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}`, okEq ? "ok" : "bad");
+  gauge("g-hard", m.hardPct, 0.10, Math.max(0.2, m.hardPct), pc(m.hardPct), "min 10 %", okHard ? "ok" : "bad");
+  gauge("g-ret", m.ratioRet, lim, Math.max(lim * 1.6, m.ratioRet), pc(m.ratioRet), `revenu ${S.retirePct} %`, okRet ? "ok" : "warn");
+
+  // Ce qui est possible
+  $("s-pmax").textContent = chf(sol.pMax);
+  $("s-pmax-d").innerHTML = `Limité par <b>${sol.by}</b>. Revenus : ${short(sol.pInc)} · fonds propres : ${short(sol.pEq)} · durs : ${short(sol.pHard)} · retraite : ${short(sol.pRet)}`;
+  $("use-pmax").disabled = !!S.lockPrice;
+  const dInc = income(S) - req.reqIncome;
+  $("s-inc").textContent = chf(req.reqIncome) + " / an";
+  $("s-inc-d").innerHTML = `Vous : ${chf(income(S))} · <b class="${dInc >= 0 ? "delta-pos" : "delta-neg"}">${dInc >= 0 ? "marge" : "manque"} ${chf(Math.abs(dInc))}</b> · soit ${chf(req.reqIncome / 12)} / mois`;
+  $("use-inc").disabled = !!S.lockPrice;
+  const needTotal = req.reqTotal - m.eq.total, needHard = req.reqHard - m.eq.hard, need = Math.max(needTotal, needHard);
+  if (req.impossible) {
+    $("s-eq").textContent = "Hors de portée";
+    $("s-eq-d").innerHTML = `Même sans hypothèque, l'entretien et les autres charges dépassent ${S.ratioMax} % du revenu.`;
+  } else {
+    $("s-eq").textContent = chf(req.reqTotal);
+    $("s-eq-d").innerHTML = `Vous : ${chf(m.eq.total)} · dont durs requis ${chf(req.reqHard)} · <b class="${need <= 0 ? "delta-pos" : "delta-neg"}">${need <= 0 ? "marge " + chf(-need) : "manque " + chf(need)}</b>`;
+  }
+  $("use-eq").disabled = !!S.lockPrice || req.impossible || need <= 0;
+
+  // Tallies
+  const allocY = S.kids * S.alloc * 12;
+  $("t-income").textContent = `allocations ${chf(allocY)}/an`;
+  $("t-retenu").textContent = chf(income(S)) + " / an";
+  const bonusTot = S.bonus1 + S.bonus2, noBonus = bonusTot <= 0;
+  $("field-bonusPct").classList.toggle("off", noBonus);
+  $("in-bonusPct").disabled = noBonus;
+  $("hint-bonusPct").textContent = noBonus ? "Aucun bonus saisi : rien à retenir."
+    : `Soit ${chf(bonusTot * S.bonusPct / 100)} retenus sur ${chf(bonusTot)}. Souvent la moyenne des 3 dernières années.`;
+  const noKids = S.kids <= 0;
+  $("allocGroup").classList.toggle("off", noKids);
+  $("in-alloc").disabled = $("allocCount").disabled = noKids;
+  $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
+    : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
+  $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
+  $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
+  $("hint-maintPct").textContent = `Soit ${chf(m.maint)} par an, ${chf(m.maint / 12)} par mois.`;
+  const who = [[S.inc1, S.bonus1, S.age1, S.name1], [S.inc2, S.bonus2, S.age2, S.name2]].filter(p => p[0] > 0)
+    .map(p => `${esc(p[3])} ${short(p[0])}${p[1] ? " + bonus " + short(p[1]) : ""} (${p[2]} ans)`);
+  $("m-sum").innerHTML = `${who.join(" · ") || "Aucun salaire"} · ${S.kids} enfant${S.kids > 1 ? "s" : ""} · revenu retenu <b>${chf(income(S))}</b>`;
+  $("t-fp").textContent = `net ${chf(m.eq.total)}`;
+  $("t-hard").textContent = `${chf(m.eq.hard)} / ${chf(m.eq.lpp)}`;
+  const tx = 1 - S.taxPct / 100;
+  $("hint-taxPct").textContent = `Soit ${chf((S.p3a1 + S.p3a2 + S.lpp1 + S.lpp2) * S.taxPct / 100)} d'impôt estimé.`;
+  const e1 = S.cash1 + (S.p3a1 + S.lpp1) * tx, e2 = S.cash2 + (S.p3a2 + S.lpp2) * tx, eSum = e1 + e2;
+  $("t-eq1").textContent = "net " + short(e1);
+  $("t-eq2").textContent = "net " + short(e2);
+  const sh1 = eSum > 0 ? e1 / eSum : 0.5;
+  $("sp1").innerHTML = `${esc(S.name1)} <b>${eSum > 0 ? pc(sh1, 0) : "–"}</b>`;
+  $("sp2").innerHTML = `<b>${eSum > 0 ? pc(1 - sh1, 0) : "–"}</b> ${esc(S.name2)}`;
+  document.querySelectorAll(".pname").forEach(el => { el.textContent = S["name" + el.dataset.p]; });
+  document.querySelectorAll(".pen").forEach(b => b.setAttribute("aria-label", "Renommer " + S["name" + b.dataset.p]));
+  // Réserve répartie selon la part de chacun, prise sur son épargne
+  const resv = p => Math.min(S["cash" + p], S.reserve * (p === 1 ? sh1 : 1 - sh1));
+  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", S["lpp" + p] * tx], ["3a", S["p3a" + p] * tx]];
+  const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${eSum > 0 ? v / eSum * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
+  $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("");
+  const kinds = [["cash", "Épargne", S.cash1 + S.cash2], ["lpp", "2<sup>e</sup> pilier", (S.lpp1 + S.lpp2) * tx], ["3a", "3<sup>e</sup> pilier", (S.p3a1 + S.p3a2) * tx]];
+  const resTot = resv(1) + resv(2);
+  kinds[0][2] -= resTot;
+  if (resTot > 0) kinds.unshift(["res", "Réserve", resTot]);
+  $("splg").innerHTML = kinds.map(([k, n, v]) => `<span><i class="sw ${k === "res" ? "hatch" : ""}" style="${k === "res" ? "" : `background:var(--c-${k})`}"></i>${n} <b>${short(v)}</b></span>`).join("");
+  $("spbar2").innerHTML = $("spbar").innerHTML;
+  $("splg2").innerHTML = $("splg").innerHTML;
+  $("f-sum").innerHTML = `Disponible après réserve <b>${chf(m.eq.total - S.reserve)}</b>`;
+
+  // Structure
+  const segs = [
+    ["Fonds propres", m.apport, "var(--c-eq)"],
+    ["1er rang", m.rank1, "var(--c-r1)"],
+    ["2e rang", m.rank2, "var(--c-r2)"]
+  ];
+  const em = $("eqmin");
+  em.style.left = minEq * 100 + "%";
+  em.querySelector("span").textContent = `min ${pc(minEq, 0)}`;
+  em.classList.toggle("bad", !okEq);
+  $("stack").innerHTML = segs.map(([n, v, c]) => `<div style="flex-basis:${v / m.P * 100}%;background:${c}" title="${n}">${v / m.P > 0.09 ? pc(v / m.P, 0) : ""}</div>`).join("");
+  $("t-ltv").textContent = `hypothèque ${pc(m.ltv)} du prix`;
+  const lg = [
+    ...segs.map(([n, v, c]) => [n.replace(/(\d)(er|e) /, "$1<sup>$2</sup> "), v, c]),
+    ["Frais d'achat", m.fees, "var(--c-fee)"]
+  ];
+  $("legend").innerHTML = lg.map(([n, v, c]) => `<div class="lg"><i style="background:${c}"></i><span>${n}</span><b>${chf(v)}</b></div>`).join("")
+    + `<div class="lg"><i style="background:linear-gradient(135deg, var(--c-r1) 50%, var(--c-r2) 50%)"></i><span class="lg-info">Hypothèque totale <button type="button" class="info" aria-controls="info-loan" aria-expanded="${!$("info-loan").hidden}" aria-label="Explication : hypothèque totale">i</button></span><b>${chf(m.loan)}</b></div>`
+    + (m.unused > 0 ? `<div class="lg"><i style="background:transparent;border:1px dashed var(--line)"></i><span>Fonds propres non utilisés</span><b>${chf(m.unused)}</b></div>` : "")
+    + (m.avail < 0 ? `<div class="lg"><i style="background:var(--bad)"></i><span>Frais non couverts</span><b>${chf(-m.avail)}</b></div>` : "");
+
+  // Charges
+  const realInt = m.loan * S.realRate / 100;
+  const rows = [
+    [`Intérêts (${S.rate} % / ${S.realRate} %)`, m.interest, realInt],
+    [`Amortissement 2<sup>e</sup> rang (${m.years} ans)`, m.amort, m.amort],
+    [`Entretien et frais (${S.maintPct} %)`, m.maint, m.maint]
+  ];
+  if (S.debt > 0) rows.push(["Autres charges", S.debt, S.debt]);
+  const tB = rows.reduce((a, r) => a + r[1], 0), tR = rows.reduce((a, r) => a + r[2], 0);
+  $("costs").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${nf.format(Math.round(r[1]))}</td><td>${nf.format(Math.round(r[1] / 12))}</td><td>${nf.format(Math.round(r[2] / 12))}</td></tr>`).join("")
+    + `<tr class="total"><td>Total CHF</td><td>${nf.format(Math.round(tB))}</td><td>${nf.format(Math.round(tB / 12))}</td><td>${nf.format(Math.round(tR / 12))}</td></tr>`;
+  const diff = tR / 12 - S.rent;
+  $("rentNote").innerHTML = S.rent > 0
+    ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
+    : `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.`;
+
+  drawChart(m, sol);
+  $("m-ratio").textContent = pc(m.ratio);
+  $("m-pmax").textContent = short(sol.pMax);
+}
+
+function niceStep(range, ticks) {
+  const raw = range / ticks, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw);
+}
+function drawChart(m, sol) {
+  const W = 640, H = 300, L = 48, R = 16, T = 18, B = 34;
+  const lim = S.ratioMax / 100;
+  const pEqLim = Math.min(sol.pEq, sol.pHard);
+  const xMaxRaw = Math.max(m.P, sol.pInc, Math.min(pEqLim, m.P * 2.5)) * 1.25;
+  const xs = niceStep(xMaxRaw, 5), xMax = Math.ceil(xMaxRaw / xs) * xs;
+  const yMax = Math.max(0.6, Math.ceil(Math.min(1, m.ratio * 1.1) * 10) / 10);
+  const X = v => L + v / xMax * (W - L - R), Y = v => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
+  let o = "";
+  for (let y = 0; y <= yMax + 1e-9; y += 0.1) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${Math.round(y * 100)}%</text>`;
+  for (let x = 0; x <= xMax + 1; x += xs) o += `<text x="${X(x)}" y="${H - 12}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
+  if (pEqLim < xMax) o += `<rect class="noeq" x="${X(pEqLim)}" y="${T}" width="${W - R - X(pEqLim)}" height="${H - T - B}"/><text class="lbl-bad" x="${W - R - 6}" y="${T + 14}" text-anchor="end">fonds propres insuffisants</text>`;
+  const pts = [];
+  for (let i = 0; i <= 120; i++) { const P = Math.max(1000, xMax * i / 120); pts.push([X(P), Y(model(S, P).ratio)]); }
+  const path = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+  o += `<path class="area" d="${path}L${X(xMax)} ${Y(0)}L${X(0)} ${Y(0)}Z"/><path class="curve" d="${path}"/>`;
+  o += `<line class="limit" x1="${L}" x2="${W - R}" y1="${Y(lim)}" y2="${Y(lim)}"/><text class="lbl-bad" x="${L + 6}" y="${Y(lim) - 6}">plafond ${S.ratioMax}%</text>`;
+  if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${T}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) - 5}" y="${H - B - 8}" text-anchor="end">max ${short(sol.pMax)}</text>`;
+  const cx = X(m.P), cy = Y(m.ratio);
+  o += `<line class="now" x1="${cx}" x2="${cx}" y1="${cy}" y2="${H - B}" stroke-dasharray="3 3"/><circle class="dot" cx="${cx}" cy="${cy}" r="6"/>`;
+  const right = cx > W - 160;
+  o += `<text class="lbl-ink" x="${cx + (right ? -10 : 10)}" y="${Math.max(T + 12, cy - 10)}" text-anchor="${right ? "end" : "start"}">${short(m.P)} → ${pc(m.ratio)}</text>`;
+  o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
+  $("chart").innerHTML = o;
+}
+
+$("use-pmax").addEventListener("click", () => { S.price = Math.floor(solve(S).pMax / 5000) * 5000; touched = true; update(); });
+$("use-inc").addEventListener("click", () => {
+  const m = model(S, S.price), req = required(S, m);
+  const other = income(S) - S.inc1 - S.inc2, base = S.inc1 + S.inc2, target = req.reqIncome - other;
+  if (base > 0) { const k = target / base; S.inc1 = Math.ceil(S.inc1 * k / 1000) * 1000; S.inc2 = Math.ceil(S.inc2 * k / 1000) * 1000; }
+  else S.inc1 = Math.ceil(target / 1000) * 1000;
+  touched = true; update();
+});
+$("use-eq").addEventListener("click", () => {
+  const m = model(S, S.price), req = required(S, m);
+  const need = Math.max(req.reqTotal - m.eq.total, req.reqHard - m.eq.hard);
+  if (need > 0) S.cash1 = Math.ceil((S.cash1 + need) / 1000) * 1000;
+  touched = true; update();
+});
+
+/* ---------- Export PDF ---------- */
+let LAST = null, DL = null;
+function loadJsPDF() {
+  if (window.jspdf) return Promise.resolve(window.jspdf.jsPDF);
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload = () => res(window.jspdf.jsPDF); s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+// Texte compatible avec les polices standard du PDF
+const tx = s => String(s).replace(/[  ]/g, " ").replace(/[’‘]/g, "'").replace(/[–—]/g, "-").replace(/<[^>]+>/g, "");
+const chfT = v => tx(chf(v));
+
+async function exportPdf() {
+  const btn = $("export"), old = btn.textContent;
+  btn.disabled = true; btn.textContent = "Préparation…";
+  try {
+    let jsPDF;
+    try { jsPDF = await loadJsPDF(); }
+    catch (err) {
+      // Fichier ouvert hors ligne : impression du navigateur (« Enregistrer en PDF »)
+      if (!STANDALONE) throw err;
+      btn.textContent = old; btn.disabled = false;
+      const closed = [...document.querySelectorAll("details.fold:not([open])")];
+      closed.forEach(d => { d.open = true; });
+      window.print();
+      closed.forEach(d => { d.open = false; });
+      return;
+    }
+    const { m, sol, req, reasons, status, label } = LAST;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const L = 18, R = 192, INK = [21, 25, 30], MUTED = [91, 101, 112], LINE = [220, 225, 230];
+    let y = 18;
+    const ensure = h => { if (y + h > 282) { doc.addPage(); y = 18; } };
+    const section = title => {
+      ensure(16); y += 5;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...INK); doc.text(tx(title), L, y);
+      y += 2; doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 5;
+    };
+    const row = (lab, val, bold) => {
+      ensure(6);
+      doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(10);
+      doc.setTextColor(...MUTED); doc.text(tx(lab), L, y);
+      doc.setTextColor(...INK); doc.text(tx(val), R, y, { align: "right" });
+      y += 5.5;
+    };
+    const para = (txt, color = MUTED, size = 9.5) => {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(size);
+      const lines = doc.splitTextToSize(tx(txt), R - L);
+      ensure(lines.length * 4.4); doc.setTextColor(...color); doc.text(lines, L, y); y += lines.length * 4.4 + 1;
+    };
+
+    // En-tête
+    doc.setFillColor(213, 43, 30); doc.rect(L, y - 6, 9, 9, "F");
+    doc.setFillColor(255, 255, 255); doc.rect(L + 3.6, y - 4.6, 1.8, 6.2, "F"); doc.rect(L + 1.4, y - 2.4, 6.2, 1.8, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...INK);
+    doc.text("Simulation d'achat immobilier", L + 13, y + 1);
+    y += 8;
+    para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · Canton : ${CANTONS[S.canton].label}`);
+
+    // Verdict
+    y += 2; ensure(16);
+    const vc = { ok: [30, 122, 76], warn: [168, 99, 0], bad: [179, 38, 30] }[status];
+    const vbg = { ok: [226, 242, 233], warn: [251, 239, 217], bad: [249, 227, 225] }[status];
+    doc.setFillColor(...vbg); doc.roundedRect(L, y, R - L, 12, 2, 2, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...vc); doc.text(label, L + 4, y + 8);
+    doc.setTextColor(...INK); doc.text(`Prix ${chfT(m.P)}`, R - 4, y + 8, { align: "right" });
+    y += 17;
+    reasons.forEach(r => para("- " + r));
+
+    section("Contrôles de la banque");
+    row("Charges théoriques / revenu", `${tx(pc(m.ratio))}  (max ${S.ratioMax} %)`);
+    row("Fonds propres après frais", `${tx(pc(m.eqPct))}  (min ${tx(pc(1 - S.ltvMax / 100, 0))})`);
+    row("Fonds propres hors 2e pilier après frais", `${tx(pc(m.hardPct))}  (min 10 %)`);
+    row("Charges à la retraite", `${tx(pc(m.ratioRet))}  (revenu ${S.retirePct} %)`);
+
+    section("Ce qui est possible");
+    row(`Prix maximum (limité par ${sol.by})`, chfT(sol.pMax), true);
+    row("Revenu annuel retenu nécessaire pour ce prix", chfT(req.reqIncome));
+    row("Fonds propres nets nécessaires (frais inclus)", req.impossible ? "Hors de portée" : chfT(req.reqTotal));
+
+    section("Le ménage");
+    const persons = S.solo ? [1] : [1, 2];
+    persons.forEach(p => {
+      row(`${S["name" + p]} : salaire brut / bonus / âge`, `${chfT(S["inc" + p])} / ${chfT(S["bonus" + p])} / ${S["age" + p]} ans`);
+    });
+    row("Part du bonus retenue", `${S.bonusPct} %`);
+    row("Enfants / allocations", `${S.kids} · ${chfT(S.kids * S.alloc * 12)} par an${S.allocCount ? " (comptées)" : " (non comptées)"}`);
+    if (S.debt) row("Autres charges fixes annuelles", chfT(S.debt));
+    row("Revenu retenu par la banque", chfT(income(S)) + " / an", true);
+
+    section("Fonds propres");
+    const t = 1 - S.taxPct / 100;
+    persons.forEach(p => {
+      row(`${S["name" + p]} : épargne / 2e pilier / 3e pilier`, `${chfT(S["cash" + p])} / ${chfT(S["lpp" + p])} / ${chfT(S["p3a" + p])}`);
+    });
+    if (S.gift) row("Donation / avance d'hoirie", chfT(S.gift));
+    row(`Impôt estimé sur retraits (${S.taxPct} %)`, chfT((S.p3a1 + S.p3a2 + S.lpp1 + S.lpp2) * S.taxPct / 100));
+    if (S.reserve) row("Réserve gardée de côté", chfT(S.reserve));
+    row("Total net", chfT(m.eq.total));
+    row("Disponible après réserve", chfT(m.eq.total - S.reserve), true);
+    if (!S.solo) {
+      const e1 = S.cash1 + (S.p3a1 + S.lpp1) * t, e2 = S.cash2 + (S.p3a2 + S.lpp2) * t, es = e1 + e2;
+      if (es > 0) row("Répartition de l'apport", `${S.name1} ${tx(pc(e1 / es, 0))} · ${S.name2} ${tx(pc(e2 / es, 0))}`);
+    }
+
+    section("Le bien et le financement");
+    row("Prix d'achat", chfT(m.P), true);
+    row(`Frais d'achat${S.feesMode === "chf" ? "" : ` (${S.feesPct} %)`}`, chfT(m.fees));
+    // Barre de financement
+    ensure(14); y += 1;
+    const bw = R - L, segs = [[m.apport, [46, 125, 107], "Fonds propres"], [m.rank1, [31, 79, 134], "1er rang"], [m.rank2, [127, 163, 207], "2e rang"]];
+    let x = L;
+    segs.forEach(([v, c]) => { const w = v / m.P * bw; if (w > 0) { doc.setFillColor(...c); doc.rect(x, y, w, 6, "F"); x += w; } });
+    y += 10;
+    segs.forEach(([v, , n]) => row(n, `${chfT(v)}  (${tx(pc(v / m.P, 0))})`));
+    row("Hypothèque totale", `${chfT(m.loan)}  (${tx(pc(m.ltv))} du prix)`, true);
+    row("Amortissement du 2e rang", `${m.years} ans`);
+
+    section("Charges");
+    const realInt = m.loan * S.realRate / 100;
+    const lines = [[`Intérêts (${S.rate} % banque / ${S.realRate} % réel)`, m.interest, realInt], ["Amortissement 2e rang", m.amort, m.amort], [`Entretien et frais (${S.maintPct} %)`, m.maint, m.maint]];
+    if (S.debt) lines.push(["Autres charges", S.debt, S.debt]);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...MUTED);
+    ensure(6); doc.text("BANQUE / AN", 130, y, { align: "right" }); doc.text("BANQUE / MOIS", 162, y, { align: "right" }); doc.text("RÉEL / MOIS", R, y, { align: "right" }); y += 5;
+    const crow = (n, a, b, bold) => {
+      ensure(6); doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(10);
+      doc.setTextColor(...MUTED); doc.text(tx(n), L, y); doc.setTextColor(...INK);
+      doc.text(tx(nf.format(Math.round(a))), 130, y, { align: "right" });
+      doc.text(tx(nf.format(Math.round(a / 12))), 162, y, { align: "right" });
+      doc.text(tx(nf.format(Math.round(b / 12))), R, y, { align: "right" }); y += 5.5;
+    };
+    lines.forEach(l => crow(l[0], l[1], l[2]));
+    crow("Total CHF", lines.reduce((s, l) => s + l[1], 0), lines.reduce((s, l) => s + l[2], 0), true);
+    if (S.rent) row("Loyer actuel", chfT(S.rent) + " / mois");
+
+    section("Hypothèses");
+    row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
+    row("Limite 1er rang / financement max.", `${S.rank1Pct} % / ${S.ltvMax} %`);
+    row("Âge de la retraite / revenu à la retraite", `${S.retireAge} ans / ${S.retirePct} %`);
+
+    y += 4;
+    para("Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
+
+    const name = `simulation-hypotheque-${new Date().toISOString().slice(0, 10)}.pdf`;
+    if (DL) await DL.save({ filename: name, data: doc.output("blob") });
+    else doc.save(name);
+    btn.textContent = old;
+  } catch (e) {
+    btn.textContent = e && e.code === "declined" ? old : "Export indisponible";
+    if (btn.textContent !== old) setTimeout(() => { btn.textContent = old; }, 2500);
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("export").addEventListener("click", exportPdf);
+// Dans claude.ai : téléchargement via la capacité downloads. Fichier ouvert seul : téléchargement direct.
+const STANDALONE = !(window.claude && window.claude.use);
+if (STANDALONE) $("export").hidden = false;
+else window.claude.use("downloads").then(d => { DL = d; $("export").hidden = !d; }).catch(() => {});
+
+update();
+</script>
+
+</body></html>
