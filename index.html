@@ -359,16 +359,22 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <div class="tally"><span>Durs nets / 2<sup>e</sup> pilier net</span><b id="t-hard">–</b></div>
       </details>
 
-      <section class="panel">
-        <h2>Le bien</h2>
+      <details class="panel fold" id="bien" open>
+        <summary>
+          <h2>Le bien</h2>
+          <span class="msum" id="b-sum"></span>
+        </summary>
         <div class="fields" id="f-bien"></div>
-      </section>
+      </details>
 
-      <section class="panel">
-        <h2>Hypothèses bancaires</h2>
+      <details class="panel fold" id="hyp" open>
+        <summary>
+          <h2>Hypothèses bancaires</h2>
+          <span class="msum" id="h-sum"></span>
+        </summary>
         <p class="lead">Valeurs usuelles. Chaque banque a ses propres curseurs.</p>
         <div class="duo" id="f-hyp"></div>
-      </section>
+      </details>
 
       <section class="panel">
         <h2>Coût réel</h2>
@@ -683,7 +689,7 @@ for (const f of ALL) {
     update(r);
   });
 }
-for (const id of ["menage", "fonds"]) {
+for (const id of ["menage", "fonds", "bien", "hyp"]) {
   try { if (localStorage.getItem(KEY + "-" + id) === "closed") $(id).open = false; } catch (e) {}
   $(id).addEventListener("toggle", () => { try { localStorage.setItem(KEY + "-" + id, $(id).open ? "open" : "closed"); } catch (e) {} });
 }
@@ -872,6 +878,10 @@ function update(skip) {
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
+  $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`
+    + (S.canton === "GE" ? ` · Casatax ${chf(CASATAX)}` : "");
+  $("h-sum").innerHTML = `Taux théorique <b>${S.rate}&nbsp;%</b> · charges max. <b>${S.ratioMax}&nbsp;%</b> · entretien ${S.maintPct}&nbsp;% · `
+    + `1<sup>er</sup> rang ${S.rank1Pct}&nbsp;% · financement max. ${S.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
   $("hint-realCharges").innerHTML = S.realChargesAuto
     ? "Forfait de la banque repris. Saisissez vos charges PPE et votre entretien réels."
     : `Forfait de la banque : ${chf(m.maint / 12)} / mois. <button type="button" class="linkbtn" id="useForfait">Reprendre le forfait</button>`;
