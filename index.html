@@ -878,8 +878,7 @@ function update(skip) {
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
-  $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`
-    + (S.canton === "GE" ? ` · Casatax ${chf(CASATAX)}` : "");
+  $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`;
   $("h-sum").innerHTML = `Taux théorique <b>${S.rate}&nbsp;%</b> · charges max. <b>${S.ratioMax}&nbsp;%</b> · entretien ${S.maintPct}&nbsp;% · `
     + `1<sup>er</sup> rang ${S.rank1Pct}&nbsp;% · financement max. ${S.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
   $("hint-realCharges").innerHTML = S.realChargesAuto
