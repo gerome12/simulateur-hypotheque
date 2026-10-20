@@ -163,6 +163,7 @@ select, button { font: inherit; }
 .apport { padding: 4px 0 6px; }
 .apport input[type=range] { accent-color: var(--c-eq); }
 .apport-v { font-family: var(--font-data); font-weight: 500; font-size: 13.5px; font-variant-numeric: tabular-nums; color: var(--c-eq); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 .lg-info { display: inline-flex; align-items: center; gap: 6px; }
 .lg-info .info { width: 17px; height: 17px; font-size: 11px; }
 #info-loan { margin: 0 0 12px; }
@@ -456,7 +457,7 @@ const DEFAULTS = {
   price: 1200000, feesPct: 5, maintPct: 1,
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, reserve: 0,
   rate: 5, ratioMax: 33, rank1Pct: 66.7, ltvMax: 80, amortMax: 15, retireAge: 65, retirePct: 60,
-  realRate: 1.6, rent: 3200,
+  realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   lockPrice: false,
   name1: "Personne 1", name2: "Personne 2",
   feesMode: "pct", feesChf: 60000,
@@ -486,8 +487,7 @@ const F = {
   bien: [
     { id: "price", label: "Prix d'achat", min: 200000, max: 4000000, step: 10000, unit: "CHF" },
     { id: "feesPct", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 7, step: 0.1, unit: "%", seg: true, dyn: true },
-    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true },
-    { id: "maintPct", label: "Entretien et frais accessoires", min: 0.5, max: 1.5, step: 0.1, unit: "%/an", dyn: true }
+    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true }
   ],
   eq1: [
     { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
@@ -507,7 +507,7 @@ const F = {
   hyp: [
     { id: "rate", label: "Taux théorique", min: 3, max: 7, step: 0.25, unit: "%" },
     { id: "ratioMax", label: "Charges max. / revenu", min: 25, max: 40, step: 1, unit: "%" },
-    { id: "rank1Pct", label: "Limite 1er rang", min: 60, max: 70, step: 0.1, unit: "%" },
+    { id: "maintPct", label: "Entretien et frais accessoires", min: 0.5, max: 1.5, step: 0.1, unit: "%/an", dyn: true },    { id: "rank1Pct", label: "Limite 1er rang", min: 60, max: 70, step: 0.1, unit: "%" },
     { id: "ltvMax", label: "Financement max.", min: 70, max: 90, step: 1, unit: "%" },
     { id: "amortMax", label: "Durée d'amortissement 2e rang", min: 5, max: 20, step: 1, unit: "ans" },
     { id: "retireAge", label: "Âge de la retraite", min: 60, max: 70, step: 1, unit: "ans" },
@@ -515,6 +515,7 @@ const F = {
   ],
   real: [
     { id: "realRate", label: "Taux réel (fixe ou SARON + marge)", min: 0.3, max: 5, step: 0.05, unit: "%" },
+    { id: "realCharges", label: "Charges réelles (PPE, entretien)", min: 0, max: 3000, step: 10, unit: "CHF/mois", dyn: true },
     { id: "rent", label: "Loyer actuel", min: 0, max: 10000, step: 50, unit: "CHF/mois" }
   ]
 };
@@ -544,6 +545,9 @@ const fmtField = (f, v) => { const d = decimals(f.step); return d ? Number(v).to
 
 /* ---------- Construction du formulaire ---------- */
 const INFO = {
+  maintPct: `<p>Forfait que la banque ajoute aux charges pour l'entretien, les réparations et les frais du logement : chauffage, eau, assurance du bâtiment, taxes, charges PPE et fonds de rénovation.</p>
+    <ul><li>Le plus souvent 1&nbsp;% du prix par an. Certaines banques prennent 0,7 à 0,8&nbsp;%, ou calculent sur la valeur du bâtiment seul.</li>
+    <li>Il sert au contrôle « Charges / revenu ». Pour votre budget, indiquez vos vraies charges dans « Coût réel ».</li></ul>`,
   rate: `<p>Taux fictif que la banque utilise pour vérifier que vous pourrez payer même si les taux remontent. Il est sans rapport avec le taux que vous paierez réellement.</p>
     <ul><li>5&nbsp;% est l'usage dans la plupart des banques. Certaines prennent 4,5&nbsp;%, d'autres plus.</li>
     <li>Il sert seulement au contrôle « Charges / revenu ». Le coût réel par mois utilise le taux réel, dans « Coût réel ».</li></ul>`,
@@ -693,6 +697,14 @@ $("addP2").addEventListener("click", () => {
   if (S.p2saved) Object.assign(S, S.p2saved);
   S.p2saved = null; S.solo = false; touched = true; update(); $("rmP2").focus();
 });
+// Toute saisie sur les charges réelles les détache du forfait de la banque (phase de capture : avant le recalcul)
+const offAuto = e => { if (e.target.id === "in-realCharges" || e.target.id === "rg-realCharges") S.realChargesAuto = false; };
+document.addEventListener("input", offAuto, true);
+document.addEventListener("keydown", e => { if (e.key === "ArrowUp" || e.key === "ArrowDown") offAuto(e); }, true);
+document.addEventListener("click", e => {
+  if (e.target.id !== "useForfait") return;
+  S.realChargesAuto = true; touched = true; update();
+});
 $("rg-apport").addEventListener("input", e => {
   // Montant choisi parmi ce qui est investissable ; au maximum = tout investir
   const v = parseFloat(e.target.value), max = parseFloat(e.target.max);
@@ -794,6 +806,8 @@ function gauge(id, val, limit, scaleMax, text, sub, state) {
 function update(skip) {
   const sol0 = solve(S);
   if (S.lockPrice) S.price = Math.max(10000, Math.floor(sol0.pMax / 5000) * 5000);
+  // Charges réelles : reprennent le forfait de la banque tant qu'on ne les a pas modifiées
+  if (S.realChargesAuto) S.realCharges = Math.round(S.price * S.maintPct / 100 / 12 / 10) * 10;
   syncInputs(skip);
   const m = model(S, S.price), sol = sol0, req = required(S, m);
   const lim = S.ratioMax / 100, minEq = 1 - S.ltvMax / 100;
@@ -858,6 +872,9 @@ function update(skip) {
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
+  $("hint-realCharges").innerHTML = S.realChargesAuto
+    ? "Forfait de la banque repris. Saisissez vos charges PPE et votre entretien réels."
+    : `Forfait de la banque : ${chf(m.maint / 12)} / mois. <button type="button" class="linkbtn" id="useForfait">Reprendre le forfait</button>`;
   $("hint-maintPct").textContent = `Soit ${chf(m.maint)} par an, ${chf(m.maint / 12)} par mois.`;
   const who = [[S.inc1, S.bonus1, S.age1, S.name1], [S.inc2, S.bonus2, S.age2, S.name2]].filter(p => p[0] > 0)
     .map(p => `${esc(p[3])} ${short(p[0])}${p[1] ? " + bonus " + short(p[1]) : ""} (${p[2]} ans)`);
@@ -925,7 +942,7 @@ function update(skip) {
   const rows = [
     [`Intérêts (${S.rate} % / ${S.realRate} %)`, m.interest, realInt],
     [`Amortissement 2<sup>e</sup> rang (${m.years} ans)`, m.amort, m.amort],
-    [`Entretien et frais (${S.maintPct} %)`, m.maint, m.maint]
+    [`Entretien et frais (${S.maintPct} % / réel)`, m.maint, S.realCharges * 12]
   ];
   if (S.debt > 0) rows.push(["Autres charges", S.debt, S.debt]);
   const tB = rows.reduce((a, r) => a + r[1], 0), tR = rows.reduce((a, r) => a + r[2], 0);
@@ -1110,7 +1127,7 @@ async function exportPdf() {
 
     section("Charges");
     const realInt = m.loan * S.realRate / 100;
-    const lines = [[`Intérêts (${S.rate} % banque / ${S.realRate} % réel)`, m.interest, realInt], ["Amortissement 2e rang", m.amort, m.amort], [`Entretien et frais (${S.maintPct} %)`, m.maint, m.maint]];
+    const lines = [[`Intérêts (${S.rate} % banque / ${S.realRate} % réel)`, m.interest, realInt], ["Amortissement 2e rang", m.amort, m.amort], [`Entretien et frais (${S.maintPct} % / réel)`, m.maint, S.realCharges * 12]];
     if (S.debt) lines.push(["Autres charges", S.debt, S.debt]);
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...MUTED);
     ensure(6); doc.text("BANQUE / AN", 130, y, { align: "right" }); doc.text("BANQUE / MOIS", 162, y, { align: "right" }); doc.text("RÉEL / MOIS", R, y, { align: "right" }); y += 5;
