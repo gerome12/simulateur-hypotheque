@@ -508,7 +508,7 @@ const F = {
   fp2: [
     { id: "gift", label: "Donation / avance d'hoirie", min: 0, max: 1000000, step: 5000, unit: "CHF" },
     { id: "taxPct", label: "Impôt sur retraits 2e et 3e pilier", min: 0, max: 15, step: 0.5, unit: "%", dyn: true },
-    { id: "reserve", label: "Réserve gardée de côté", min: 0, max: 300000, step: 5000, unit: "CHF", note: "Non investie dans l'achat" }
+    { id: "reserve", label: "Réserve gardée de côté", min: 0, max: 300000, step: 5000, unit: "CHF", note: "Non investie dans l'achat", dyn: true }
   ],
   hyp: [
     { id: "rate", label: "Taux théorique", min: 3, max: 7, step: 0.25, unit: "%" },
@@ -526,7 +526,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2].map(f => f.id));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 
 const KEY = "simu-hypo-ch-v1";
@@ -810,10 +810,14 @@ function gauge(id, val, limit, scaleMax, text, sub, state) {
 }
 
 function update(skip) {
+  // La réserve ne peut pas dépasser l'argent liquide : épargne des deux personnes + donation.
+  const resMax = S.cash1 + S.cash2 + S.gift;
+  if (S.reserve > resMax) S.reserve = resMax;
   const sol0 = solve(S);
   if (S.lockPrice) S.price = Math.max(10000, Math.floor(sol0.pMax / 5000) * 5000);
   // Charges réelles : reprennent le forfait de la banque tant qu'on ne les a pas modifiées
   if (S.realChargesAuto) S.realCharges = Math.round(S.price * S.maintPct / 100 / 12 / 10) * 10;
+  $("rg-reserve").max = Math.max(resMax, 0);
   syncInputs(skip);
   const m = model(S, S.price), sol = sol0, req = required(S, m);
   const lim = S.ratioMax / 100, minEq = 1 - S.ltvMax / 100;
@@ -881,6 +885,7 @@ function update(skip) {
   $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`;
   $("h-sum").innerHTML = `Taux théorique <b>${S.rate}&nbsp;%</b> · charges max. <b>${S.ratioMax}&nbsp;%</b> · entretien ${S.maintPct}&nbsp;% · `
     + `1<sup>er</sup> rang ${S.rank1Pct}&nbsp;% · financement max. ${S.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
+  $("hint-reserve").textContent = `Maximum : ${chf(resMax)} (épargne${S.gift ? " + donation" : ""}).`;
   $("hint-realCharges").innerHTML = S.realChargesAuto
     ? "Forfait de la banque repris. Saisissez vos charges PPE et votre entretien réels."
     : `Forfait de la banque : ${chf(m.maint / 12)} / mois. <button type="button" class="linkbtn" id="useForfait">Reprendre le forfait</button>`;
