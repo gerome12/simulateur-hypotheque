@@ -527,7 +527,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 
 const KEY = "simu-hypo-ch-v1";
