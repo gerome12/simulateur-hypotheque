@@ -1176,11 +1176,6 @@ async function exportPdf() {
     row("Fonds propres hors 2e pilier après frais", `${tx(pc(m.hardPct))}  (min 10 %)`);
     row("Charges à la retraite", `${tx(pc(m.ratioRet))}  (revenu ${S.retirePct} %)`);
 
-    section("Ce qui est possible");
-    row(`Prix maximum (limité par ${sol.by})`, chfT(sol.pMax), true);
-    row("Revenu annuel retenu nécessaire pour ce prix", chfT(req.reqIncome));
-    row("Fonds propres nets nécessaires (frais inclus)", req.impossible ? "Hors de portée" : chfT(req.reqTotal));
-
     section("Le ménage");
     const persons = S.solo ? [1] : [1, 2];
     persons.forEach(p => {
@@ -1241,6 +1236,11 @@ async function exportPdf() {
     row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
     row("Limite 1er rang / financement max.", `${S.rank1Pct} % / ${S.ltvMax} %`);
     row("Âge de la retraite / revenu à la retraite", `${S.retireAge} ans / ${S.retirePct} %`);
+
+    section("Ce qui est possible");
+    row(`Prix maximum (limité par ${sol.by})`, chfT(sol.pMax), true);
+    row("Revenu annuel retenu nécessaire pour ce prix", chfT(req.reqIncome));
+    row("Fonds propres nets nécessaires (frais inclus)", req.impossible ? "Hors de portée" : chfT(req.reqTotal));
 
     y += 4;
     para("Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
