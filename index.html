@@ -190,6 +190,11 @@ select.canton { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--li
 .vprice { text-align: right; }
 .vprice .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .vprice .v { font-family: var(--font-data); font-size: 20px; font-weight: 500; }
+.vkeys { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+@media (max-width: 460px) { .vkeys { grid-template-columns: 1fr; } }
+.vkeys .k { font-size: 12px; color: var(--muted); }
+.vkeys .v { font-family: var(--font-data); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.vkeys small { display: block; font-size: 12px; color: var(--muted); }
 .reasons { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
 .reasons:empty { display: none; }
 
@@ -302,6 +307,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <div class="vhead">
           <span class="pill ok" id="vpill">Finançable</span>
           <div class="vprice"><div class="k">Prix d'achat</div><div class="v" id="vprice">–</div></div>
+        </div>
+        <div class="vkeys">
+          <div><div class="k">Revenu retenu</div><div class="v" id="k-inc">–</div><small>par an</small></div>
+          <div><div class="k">Fortune investie</div><div class="v" id="k-eq">–</div><small id="k-eq-d"></small></div>
+          <div><div class="k">Charges réelles estimées</div><div class="v" id="k-real">–</div><small>par mois, amortissement compris</small></div>
         </div>
         <ul class="reasons" id="reasons"></ul>
         <div class="gauges">
@@ -852,6 +862,10 @@ function update(skip) {
   if (near) reasons.unshift(`Taux d'effort proche du plafond : peu de marge si la banque est plus stricte.`);
   $("reasons").innerHTML = reasons.map(r => `<li>${r.replace(/(\d)e /g, "$1<sup>e</sup> ")}</li>`).join("");
   $("vprice").textContent = chf(m.P);
+  const invFees = Math.min(m.fees, Math.max(0, m.eq.total - S.reserve));
+  $("k-inc").textContent = chf(income(S));
+  $("k-eq").textContent = chf(m.apport + invFees);
+  $("k-eq-d").textContent = `apport ${short(m.apport)} + frais ${short(invFees)}`;
   LAST = { m, sol, req, reasons, status, label };
   $("casatax").hidden = S.canton !== "GE";
 
@@ -972,6 +986,7 @@ function update(skip) {
   const tB = rows.reduce((a, r) => a + r[1], 0), tR = rows.reduce((a, r) => a + r[2], 0);
   $("costs").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${nf.format(Math.round(r[1]))}</td><td>${nf.format(Math.round(r[1] / 12))}</td><td>${nf.format(Math.round(r[2] / 12))}</td></tr>`).join("")
     + `<tr class="total"><td>Total CHF</td><td>${nf.format(Math.round(tB))}</td><td>${nf.format(Math.round(tB / 12))}</td><td>${nf.format(Math.round(tR / 12))}</td></tr>`;
+  $("k-real").textContent = chf(tR / 12);
   const diff = tR / 12 - S.rent;
   $("rentNote").innerHTML = S.rent > 0
     ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
