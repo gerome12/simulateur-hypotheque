@@ -209,7 +209,7 @@ select.canton { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--li
 
 /* Ce qui est possible */
 .solve { display: grid; gap: 0; }
-.srow { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 14px; padding: 12px 0; border-top: 1px solid var(--line); align-items: center; }
+.srow { padding: 12px 0; border-top: 1px solid var(--line); }
 .srow:first-of-type { border-top: 0; }
 .srow .sl { font-size: 13px; color: var(--muted); }
 .srow .sv { font-family: var(--font-data); font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -418,20 +418,17 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 
       <section class="panel">
         <h2>Ce qui est possible <small>recalculé en direct</small></h2>
-        <p class="lead">Fixez certains chiffres, laissez le simulateur trouver les autres.</p>
+        <p class="lead">Calculé à partir de vos revenus et fonds propres actuels.</p>
         <label class="lockbar" for="lockPrice"><input type="checkbox" id="lockPrice"> <span>Bloquer le prix sur le maximum finançable : le prix suit vos revenus et vos fonds propres.</span></label>
         <div class="solve">
           <div class="srow">
-            <div><div class="sl">Prix maximum avec vos revenus et fonds propres</div><div class="sv" id="s-pmax">–</div><div class="sd" id="s-pmax-d"></div></div>
-            <button class="btn" id="use-pmax" type="button">Utiliser ce prix</button>
+            <div class="sl">Prix maximum avec vos revenus et fonds propres</div><div class="sv" id="s-pmax">–</div><div class="sd" id="s-pmax-d"></div>
           </div>
           <div class="srow">
-            <div><div class="sl">Revenu annuel retenu nécessaire pour ce prix</div><div class="sv" id="s-inc">–</div><div class="sd" id="s-inc-d"></div></div>
-            <button class="btn" id="use-inc" type="button">Ajuster les salaires</button>
+            <div class="sl">Revenu annuel minimum pour le bien actuel</div><div class="sv" id="s-inc">–</div><div class="sd" id="s-inc-d"></div>
           </div>
           <div class="srow">
-            <div><div class="sl">Fonds propres nets nécessaires pour ce prix (frais inclus)</div><div class="sv" id="s-eq">–</div><div class="sd" id="s-eq-d"></div></div>
-            <button class="btn" id="use-eq" type="button">Compléter en épargne</button>
+            <div class="sl">Fonds propres minimum pour le bien actuel (frais inclus)</div><div class="sv" id="s-eq">–</div><div class="sd" id="s-eq-d"></div>
           </div>
         </div>
       </section>
@@ -866,20 +863,18 @@ function update(skip) {
   // Ce qui est possible
   $("s-pmax").textContent = chf(sol.pMax);
   $("s-pmax-d").innerHTML = `Limité par <b>${sol.by}</b>. Revenus : ${short(sol.pInc)} · fonds propres : ${short(sol.pEq)} · durs : ${short(sol.pHard)} · retraite : ${short(sol.pRet)}`;
-  $("use-pmax").disabled = !!S.lockPrice;
+  const delta = d => `<b class="${d >= 0 ? "delta-pos" : "delta-neg"}">${d >= 0 ? "marge" : "manque"} ${chf(Math.abs(d))}</b>`;
   const dInc = income(S) - req.reqIncome;
   $("s-inc").textContent = chf(req.reqIncome) + " / an";
-  $("s-inc-d").innerHTML = `Vous : ${chf(income(S))} · <b class="${dInc >= 0 ? "delta-pos" : "delta-neg"}">${dInc >= 0 ? "marge" : "manque"} ${chf(Math.abs(dInc))}</b> · soit ${chf(req.reqIncome / 12)} / mois`;
-  $("use-inc").disabled = !!S.lockPrice;
-  const needTotal = req.reqTotal - m.eq.total, needHard = req.reqHard - m.eq.hard, need = Math.max(needTotal, needHard);
+  $("s-inc-d").innerHTML = `Vous : ${chf(income(S))} · ${delta(dInc)} · soit ${chf(req.reqIncome / 12)} / mois`;
   if (req.impossible) {
     $("s-eq").textContent = "Hors de portée";
     $("s-eq-d").innerHTML = `Même sans hypothèque, l'entretien et les autres charges dépassent ${S.ratioMax} % du revenu.`;
   } else {
     $("s-eq").textContent = chf(req.reqTotal);
-    $("s-eq-d").innerHTML = `Vous : ${chf(m.eq.total)} · dont durs requis ${chf(req.reqHard)} · <b class="${need <= 0 ? "delta-pos" : "delta-neg"}">${need <= 0 ? "marge " + chf(-need) : "manque " + chf(need)}</b>`;
+    $("s-eq-d").innerHTML = `Total : vous ${chf(m.eq.total)} · ${delta(m.eq.total - req.reqTotal)}<br>`
+      + `Dont durs (hors 2<sup>e</sup> pilier) : minimum ${chf(req.reqHard)} · vous ${chf(m.eq.hard)} · ${delta(m.eq.hard - req.reqHard)}`;
   }
-  $("use-eq").disabled = !!S.lockPrice || req.impossible || need <= 0;
 
   // Tallies
   const allocY = S.kids * S.alloc * 12;
@@ -1083,21 +1078,6 @@ function drawChart(m, sol) {
   CH = { L, R, W, T, B, H, xMax, yMax, pEqLim, X, Y };
 }
 
-$("use-pmax").addEventListener("click", () => { S.price = Math.floor(solve(S).pMax / 5000) * 5000; touched = true; update(); });
-$("use-inc").addEventListener("click", () => {
-  const m = model(S, S.price), req = required(S, m);
-  const other = income(S) - S.inc1 - S.inc2, base = S.inc1 + S.inc2, target = req.reqIncome - other;
-  if (base > 0) { const k = target / base; S.inc1 = Math.ceil(S.inc1 * k / 1000) * 1000; S.inc2 = Math.ceil(S.inc2 * k / 1000) * 1000; }
-  else S.inc1 = Math.ceil(target / 1000) * 1000;
-  touched = true; update();
-});
-$("use-eq").addEventListener("click", () => {
-  const m = model(S, S.price), req = required(S, m);
-  const need = Math.max(req.reqTotal - m.eq.total, req.reqHard - m.eq.hard);
-  if (need > 0) S.cash1 = Math.ceil((S.cash1 + need) / 1000) * 1000;
-  touched = true; update();
-});
-
 /* ---------- Export PDF ---------- */
 let LAST = null, DL = null;
 function loadJsPDF() {
@@ -1239,8 +1219,13 @@ async function exportPdf() {
 
     section("Ce qui est possible");
     row(`Prix maximum (limité par ${sol.by})`, chfT(sol.pMax), true);
-    row("Revenu annuel retenu nécessaire pour ce prix", chfT(req.reqIncome));
-    row("Fonds propres nets nécessaires (frais inclus)", req.impossible ? "Hors de portée" : chfT(req.reqTotal));
+    const dTx = d => `${d >= 0 ? "marge" : "manque"} ${chfT(Math.abs(d))}`;
+    row("Revenu annuel minimum pour ce prix", `${chfT(req.reqIncome)}  (${dTx(income(S) - req.reqIncome)})`);
+    if (req.impossible) row("Fonds propres minimum (frais inclus)", "Hors de portée");
+    else {
+      row("Fonds propres minimum (frais inclus)", `${chfT(req.reqTotal)}  (${dTx(m.eq.total - req.reqTotal)})`);
+      row("Dont fonds propres durs minimum", `${chfT(req.reqHard)}  (${dTx(m.eq.hard - req.reqHard)})`);
+    }
 
     y += 4;
     para("Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
