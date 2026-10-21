@@ -987,6 +987,7 @@ function update(skip) {
   $("costs").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${nf.format(Math.round(r[1]))}</td><td>${nf.format(Math.round(r[1] / 12))}</td><td>${nf.format(Math.round(r[2] / 12))}</td></tr>`).join("")
     + `<tr class="total"><td>Total CHF</td><td>${nf.format(Math.round(tB))}</td><td>${nf.format(Math.round(tB / 12))}</td><td>${nf.format(Math.round(tR / 12))}</td></tr>`;
   $("k-real").textContent = chf(tR / 12);
+  LAST.keys = { inc: income(S), apport: m.apport, fees: invFees, real: tR / 12 };
   const diff = tR / 12 - S.rent;
   $("rentNote").innerHTML = S.rent > 0
     ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
@@ -1124,7 +1125,7 @@ async function exportPdf() {
       closed.forEach(d => { d.open = false; });
       return;
     }
-    const { m, sol, req, reasons, status, label } = LAST;
+    const { m, sol, req, reasons, status, label, keys } = LAST;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const L = 18, R = 192, INK = [21, 25, 30], MUTED = [91, 101, 112], LINE = [220, 225, 230];
     let y = 18;
@@ -1165,6 +1166,11 @@ async function exportPdf() {
     y += 17;
     reasons.forEach(r => para("- " + r));
 
+    section("En résumé");
+    row("Revenu retenu par la banque", chfT(keys.inc) + " / an", true);
+    row("Fortune investie", `${chfT(keys.apport + keys.fees)}  (apport ${chfT(keys.apport)} + frais ${chfT(keys.fees)})`, true);
+    row("Charges réelles estimées, amortissement compris", chfT(keys.real) + " / mois", true);
+
     section("Contrôles de la banque");
     row("Charges théoriques / revenu", `${tx(pc(m.ratio))}  (max ${S.ratioMax} %)`);
     row("Fonds propres après frais", `${tx(pc(m.eqPct))}  (min ${tx(pc(1 - S.ltvMax / 100, 0))})`);
@@ -1173,10 +1179,12 @@ async function exportPdf() {
 
     section("Le ménage");
     const persons = S.solo ? [1] : [1, 2];
+    const hasBonus = persons.some(p => S["bonus" + p] > 0);
     persons.forEach(p => {
-      row(`${S["name" + p]} : salaire brut / bonus / âge`, `${chfT(S["inc" + p])} / ${chfT(S["bonus" + p])} / ${S["age" + p]} ans`);
+      if (hasBonus) row(`${S["name" + p]} : salaire brut / bonus / âge`, `${chfT(S["inc" + p])} / ${chfT(S["bonus" + p])} / ${S["age" + p]} ans`);
+      else row(`${S["name" + p]} : salaire brut / âge`, `${chfT(S["inc" + p])} / ${S["age" + p]} ans`);
     });
-    row("Part du bonus retenue", `${S.bonusPct} %`);
+    if (hasBonus) row("Part du bonus retenue", `${S.bonusPct} %`);
     row("Enfants / allocations", `${S.kids} · ${chfT(S.kids * S.alloc * 12)} par an${S.allocCount ? " (comptées)" : " (non comptées)"}`);
     if (S.debt) row("Autres charges fixes annuelles", chfT(S.debt));
     row("Revenu retenu par la banque", chfT(income(S)) + " / an", true);
