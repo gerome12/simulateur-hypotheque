@@ -275,12 +275,22 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 .tabs button:hover { color: var(--ink); }
 .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .rates { display: grid; gap: 16px; max-width: 900px; }
+.gset { border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; margin-bottom: 12px; }
+.gset > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 24px 10px 0; position: relative; font-size: 13.5px; font-weight: 600; }
+.gset > summary::-webkit-details-marker { display: none; }
+.gset > summary::after { content: ""; position: absolute; right: 4px; top: 14px; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
+.gset[open] > summary::after { transform: rotate(-135deg); top: 18px; }
+.gset[open] > summary { border-bottom: 1px solid var(--line); }
+.gset[open] .gsum { display: none; }
+#field-gFees { grid-column: 1 / -1; }
+.gsum { font-weight: 400; font-size: 13px; color: var(--muted); }
+.gsum b { color: var(--ink); font-family: var(--font-data); font-weight: 500; }
 .rlegend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
 .rlegend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: 3px; }
 .ctip dl { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin: 6px 0 0; }
 .ctip dt { color: var(--muted); } .ctip dd { margin: 0; font-family: var(--font-data); text-align: right; }
 .ctip .t-theo { color: var(--warn); font-weight: 600; } .ctip .t-real { color: var(--accent); font-weight: 600; }
-.ctip .t-eq { color: var(--c-eq); font-weight: 600; } .ctip .t-hard { color: var(--c-3a); font-weight: 600; }
+.ctip .t-eq { color: var(--c-eq); font-weight: 600; }
 .mbar { display: none; }
 @media (max-width: 900px) {
   .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 12px; justify-content: space-between; align-items: center;
@@ -478,8 +488,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <div class="rates" id="tab-rates" role="tabpanel" aria-labelledby="t-rates" hidden>
     <section class="panel">
       <h2>Mensualités selon le prix <small>apport de 20 %</small></h2>
-      <p class="lead">Hypothèque de 80&nbsp;% du prix, sans lien avec vos revenus ni vos fonds propres. Les deux taux ci-dessous ne servent qu'à ce graphique.</p>
-      <div class="duo" id="f-rates"></div>
+      <p class="lead">Hypothèque de 80&nbsp;% du prix, sans lien avec vos revenus ni vos fonds propres. Les réglages ne servent qu'à ce graphique.</p>
+      <details class="gset" id="rset" open>
+        <summary>Réglages <span class="gsum" id="rset-sum"></span></summary>
+        <div class="duo" id="f-rates"></div>
+      </details>
       <div class="chartwrap">
         <svg class="chart" id="rchart" viewBox="0 0 640 340" role="img" aria-label="Mensualités théoriques et réelles en fonction du prix"></svg>
         <div class="ctip" hidden></div>
@@ -489,7 +502,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
     </section>
     <section class="panel">
       <h2>Fonds propres minimum selon le prix</h2>
-      <p class="lead">Ce qu'il faut apporter au minimum : 20&nbsp;% du prix, dont 10&nbsp;% hors 2<sup>e</sup> pilier, plus les frais d'achat payés en fonds propres durs.</p>
+      <p class="lead">Ce qu'il faut apporter au minimum : 20&nbsp;% du prix plus les frais d'achat. Les réglages ne servent qu'à ce graphique.</p>
+      <details class="gset" id="eset" open>
+        <summary>Réglages <span class="gsum" id="eset-sum"></span></summary>
+        <div class="duo" id="f-eqg"></div>
+      </details>
       <div class="chartwrap">
         <svg class="chart" id="echart" viewBox="0 0 640 340" role="img" aria-label="Fonds propres minimum en fonction du prix"></svg>
         <div class="ctip" hidden></div>
@@ -527,7 +544,7 @@ const DEFAULTS = {
   rate: 5, ratioMax: 33, rank1Pct: 66.7, ltvMax: 80, amortMax: 15, retireAge: 65, retirePct: 60,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   lockPrice: false,
-  gRate: 5, gReal: 1.6,
+  gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
   name1: "Personne 1", name2: "Personne 2",
   feesMode: "pct", feesChf: 60000,
   solo: false, p2saved: null,
@@ -584,7 +601,14 @@ const F = {
   ],
   rates: [
     { id: "gRate", label: "Taux théorique", min: 0.5, max: 8, step: 0.1, unit: "%" },
-    { id: "gReal", label: "Taux réel", min: 0.3, max: 6, step: 0.05, unit: "%" }
+    { id: "gReal", label: "Taux réel", min: 0.3, max: 6, step: 0.05, unit: "%" },
+    { id: "gMin", label: "Prix d'achat min.", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "gMax", label: "Prix d'achat max.", min: 0, max: 20000000, step: 10000, unit: "CHF" }
+  ],
+  eqg: [
+    { id: "eMin", label: "Prix d'achat min.", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "eMax", label: "Prix d'achat max.", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "gFees", label: "Frais d'achat (notaire, mutation, cédule)", min: 0, max: 10, step: 0.1, unit: "%" }
   ],
   real: [
     { id: "realRate", label: "Taux réel (fixe ou SARON + marge)", min: 0.3, max: 5, step: 0.05, unit: "%" },
@@ -593,7 +617,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent"));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "gMin", "gMax", "eMin", "eMax"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 
 const KEY = "simu-hypo-ch-v1";
@@ -756,7 +780,7 @@ for (const f of ALL) {
     update(r);
   });
 }
-for (const id of ["menage", "fonds", "bien", "hyp"]) {
+for (const id of ["menage", "fonds", "bien", "hyp", "rset", "eset"]) {
   try { if (localStorage.getItem(KEY + "-" + id) === "closed") $(id).open = false; } catch (e) {}
   $(id).addEventListener("toggle", () => { try { localStorage.setItem(KEY + "-" + id, $(id).open ? "open" : "closed"); } catch (e) {} });
 }
@@ -1146,38 +1170,38 @@ function monthly(P) {
   const loan = P * 0.8, rank1 = Math.min(loan, P * S.rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
   return { loan, amort, maint, theo: (loan * S.gRate / 100 + amort + maint) / 12, real: (loan * S.gReal / 100 + amort + maint) / 12 };
 }
-const feesAt = P => S.feesMode === "chf" ? S.feesChf : P * S.feesPct / 100;
-// Fonds propres minimum : 20 % du prix, dont 10 % hors 2e pilier, plus les frais d'achat payés en fonds propres durs
+// Fonds propres minimum : 20 % du prix plus les frais d'achat
 function minEquity(P) {
-  const fees = feesAt(P);
-  return { p20: P * 0.2, fees, total: P * 0.2 + fees, hard: P * 0.1 + fees };
+  const fees = P * S.gFees / 100;
+  return { p20: P * 0.2, fees, total: P * 0.2 + fees };
 }
 
 // Graphique en lignes en fonction du prix, avec infobulle au survol
 const LC = {};
-function lineChart(id, { f, series, yTitle, tip }) {
+function lineChart(id, { f, series, yTitle, tip, xMin, xMax }) {
   const W = 640, H = 340, L = 64, R = 16, T = 34, B = 52;
-  const xs0 = niceStep(Math.max(2e6, S.price * 1.5), 5), xMax = Math.ceil(Math.max(2e6, S.price * 1.5) / xs0) * xs0;
+  if (!(xMax > xMin)) xMax = xMin + 100000;
+  const xs0 = niceStep(xMax - xMin, 5);
   const end = f(xMax), yRaw = Math.max(...series.map(sr => end[sr.key])), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
-  const X = v => L + v / xMax * (W - L - R), Y = v => T + (1 - v / yMax) * (H - T - B);
+  const X = v => L + (v - xMin) / (xMax - xMin) * (W - L - R), Y = v => T + (1 - v / yMax) * (H - T - B);
   let o = "";
   for (let y = 0; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : y >= 1e5 ? short(y) : nf.format(y)}</text>`;
-  for (let x = 0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - B + 20}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
+  for (let x = Math.ceil(xMin / xs0) * xs0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - B + 20}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
   o += `<text class="lbl-ink" x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">Prix du bien (CHF)</text>`;
   o += `<text class="lbl-ink" x="${L}" y="${T - 16}">${yTitle}</text>`;
-  for (const sr of series) o += `<path style="fill:none;stroke:${sr.color};stroke-width:2.5" d="${Array.from({ length: 61 }, (_, i) => { const P = xMax * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(f(P)[sr.key]).toFixed(1); }).join("")}"/>`;
+  for (const sr of series) o += `<path style="fill:none;stroke:${sr.color};stroke-width:2.5" d="${Array.from({ length: 61 }, (_, i) => { const P = xMin + (xMax - xMin) * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(f(P)[sr.key]).toFixed(1); }).join("")}"/>`;
   o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
   $(id).innerHTML = o;
   $(id).parentElement.nextElementSibling.innerHTML = [...series].sort((p, q) => end[q.key] - end[p.key])
     .map(sr => `<span><i style="background:${sr.color}"></i>${sr.label}</span>`).join("");
-  LC[id] = { L, R, W, H, T, B, xMax, X, Y, f, series, tip };
+  LC[id] = { L, R, W, H, T, B, xMin, xMax, X, Y, f, series, tip };
 }
 function lineTip(e) {
   const svg = e.currentTarget, c = LC[svg.id]; if (!c) return;
   const r = svg.getBoundingClientRect(), wrap = svg.parentElement.getBoundingClientRect(), tipEl = svg.nextElementSibling;
   const vx = (e.clientX - r.left) * c.W / r.width;
   if (vx < c.L || vx > c.W - c.R) { lineHide(e); return; }
-  const P = Math.round((vx - c.L) / (c.W - c.L - c.R) * c.xMax / 10000) * 10000, v = c.f(P);
+  const P = Math.round((c.xMin + (vx - c.L) / (c.W - c.L - c.R) * (c.xMax - c.xMin)) / 10000) * 10000, v = c.f(P);
   tipEl.innerHTML = `<b>Prix ${chf(P)}</b><dl>${c.tip(P, v)}</dl>`;
   tipEl.hidden = false;
   let g = svg.querySelector(".hovering");
@@ -1197,24 +1221,24 @@ function lineHide(e) {
 for (const id of ["rchart", "echart"]) { $(id).addEventListener("pointermove", lineTip); $(id).addEventListener("pointerleave", lineHide); }
 
 function drawRates() {
-  const feesLbl = S.feesMode === "chf" ? chf(S.feesChf) : `${S.feesPct} %`;
+  const range = (lo, hi) => `prix <b>${short(lo)}</b> à <b>${short(hi > lo ? hi : lo + 100000)}</b>`;
   lineChart("rchart", {
-    f: monthly, yTitle: "Charges mensuelles (CHF / mois)",
+    f: monthly, yTitle: "Charges mensuelles (CHF / mois)", xMin: S.gMin, xMax: S.gMax,
     series: [{ key: "theo", color: "var(--warn)", label: `théorique ${S.gRate} %` }, { key: "real", color: "var(--accent)", label: `réel ${S.gReal} %` }],
     tip: (P, m) => `<dt>Apport 20 %</dt><dd>${chf(P * 0.2)}</dd><dt>Hypothèque</dt><dd>${chf(m.loan)}</dd>`
       + `<dt class="t-theo">Théorique ${S.gRate} %</dt><dd class="t-theo">${chf(m.theo)}</dd><dt class="t-real">Réel ${S.gReal} %</dt><dd class="t-real">${chf(m.real)}</dd>`
       + `<dt>dont amortissement</dt><dd>${chf(m.amort / 12)}</dd><dt>dont entretien</dt><dd>${chf(m.maint / 12)}</dd>`
   });
   lineChart("echart", {
-    f: minEquity, yTitle: "Fonds propres minimum (CHF)",
-    series: [{ key: "total", color: "var(--c-eq)", label: "total à apporter" }, { key: "p20", color: "var(--accent)", label: "20 % du prix" }, { key: "hard", color: "var(--c-3a)", label: "dont durs minimum" }],
-    tip: (P, e) => `<dt>20 % du prix</dt><dd>${chf(e.p20)}</dd><dt>Frais d'achat (${feesLbl})</dt><dd>${chf(e.fees)}</dd>`
+    f: minEquity, yTitle: "Fonds propres minimum (CHF)", xMin: S.eMin, xMax: S.eMax,
+    series: [{ key: "total", color: "var(--c-eq)", label: `total à apporter (20 % + frais ${S.gFees} %)` }],
+    tip: (P, e) => `<dt>20 % du prix</dt><dd>${chf(e.p20)}</dd><dt>Frais d'achat (${S.gFees} %)</dt><dd>${chf(e.fees)}</dd>`
       + `<dt class="t-eq">Total à apporter</dt><dd class="t-eq">${chf(e.total)}</dd>`
-      + `<dt class="t-hard">dont durs minimum</dt><dd class="t-hard">${chf(e.hard)}</dd><dt>2<sup>e</sup> pilier possible au plus</dt><dd>${chf(e.total - e.hard)}</dd>`
   });
-  const m = monthly(S.price), q = minEquity(S.price);
-  $("rates-h").textContent = `Survolez le graphique pour lire les mensualités à un prix donné. Exemple à ${short(S.price)} : ${chf(m.theo)} théorique, ${chf(m.real)} réel par mois. Amortissement du 2e rang sur ${S.amortMax} ans et entretien de ${S.maintPct} % inclus.`;
-  $("eq-h").textContent = `Exemple à ${short(S.price)} : ${chf(q.total)} à apporter, dont au moins ${chf(q.hard)} hors 2e pilier. Frais d'achat : ${feesLbl}${S.feesMode === "chf" ? "" : " du prix"} (${CANTONS[S.canton].label}), modifiables dans « Le bien ».`;
+  $("rset-sum").innerHTML = `théorique <b>${S.gRate} %</b> · réel <b>${S.gReal} %</b> · ${range(S.gMin, S.gMax)}`;
+  $("eset-sum").innerHTML = `frais <b>${S.gFees} %</b> · ${range(S.eMin, S.eMax)}`;
+  $("rates-h").textContent = `Survolez le graphique pour lire les mensualités à un prix donné. Amortissement du 2e rang sur ${S.amortMax} ans et entretien de ${S.maintPct} % du prix inclus.`;
+  $("eq-h").textContent = `Survolez le graphique pour lire le montant à un prix donné.`;
 }
 
 function showTab(id) {
