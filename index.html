@@ -483,7 +483,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <p class="lead">Hypothèque de 80&nbsp;% du prix, sans lien avec vos revenus ni vos fonds propres. Les deux taux ci-dessous ne servent qu'à ce graphique.</p>
       <div class="duo" id="f-rates"></div>
       <div class="chartwrap">
-        <svg class="chart" id="rchart" viewBox="0 0 640 320" role="img" aria-label="Mensualités théoriques et réelles en fonction du prix"></svg>
+        <svg class="chart" id="rchart" viewBox="0 0 640 340" role="img" aria-label="Mensualités théoriques et réelles en fonction du prix"></svg>
         <div class="ctip" id="rtip" hidden></div>
       </div>
       <p class="hint" id="rates-h"></p>
@@ -1139,13 +1139,14 @@ function monthly(P) {
 }
 let RC = null;
 function drawRates() {
-  const W = 640, H = 320, L = 58, R = 16, T = 34, B = 34;
+  const W = 640, H = 340, L = 58, R = 16, T = 34, B = 52;
   const xs0 = niceStep(Math.max(2e6, S.price * 1.5), 5), xMax = Math.ceil(Math.max(2e6, S.price * 1.5) / xs0) * xs0;
   const yRaw = Math.max(monthly(xMax).theo, monthly(xMax).real), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
   const X = v => L + v / xMax * (W - L - R), Y = v => T + (1 - v / yMax) * (H - T - B);
   let o = "";
   for (let y = 0; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : nf.format(y)}</text>`;
-  for (let x = 0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - 12}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
+  for (let x = 0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - B + 20}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
+  o += `<text class="lbl-ink" x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">Prix du bien (CHF)</text>`;
   const path = k => Array.from({ length: 61 }, (_, i) => { const P = xMax * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(monthly(P)[k]).toFixed(1); }).join("");
   o += `<path class="c-theo" d="${path("theo")}"/><path class="c-real" d="${path("real")}"/>`;
   // Étiquettes au-dessus de la fin de chaque droite, écartées si elles se chevauchent
@@ -1154,7 +1155,7 @@ function drawRates() {
   if (Math.abs(yT - yR) < 16) { if (hi === "theo") yT = yR - 16; else yR = yT - 16; }
   o += `<text class="lbl-theo halo" x="${W - R - 14}" y="${yT}" text-anchor="end">théorique ${S.gRate} %</text>`;
   o += `<text class="lbl-real halo" x="${W - R - 14}" y="${yR}" text-anchor="end">réel ${S.gReal} %</text>`;
-  o += `<text x="${L}" y="${T - 16}">CHF / mois</text>`;
+  o += `<text class="lbl-ink" x="${L}" y="${T - 16}">Charges mensuelles (CHF / mois)</text>`;
   o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
   $("rchart").innerHTML = o;
   RC = { L, R, W, H, T, B, xMax, X, Y };
