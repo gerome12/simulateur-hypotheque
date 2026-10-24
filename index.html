@@ -270,8 +270,8 @@ details.rules { font-size: 13.5px; }
 details.rules summary { cursor: pointer; font-weight: 600; padding: 4px 0 10px; }
 details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; max-width: 70ch; }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
-.tabs button { border: 0; background: none; color: var(--muted); font: 600 14px var(--font-body); padding: 10px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; box-shadow: inset 0 -1px var(--line); }
+.tabs button { border: 0; background: none; color: var(--muted); font: 600 14px var(--font-body); padding: 10px 14px; border-bottom: 2px solid transparent; cursor: pointer; }
 .tabs button:hover { color: var(--ink); }
 .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .rates { display: grid; gap: 16px; max-width: 900px; }
@@ -323,7 +323,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 
   <nav class="tabs" role="tablist" aria-label="Vues">
     <button type="button" role="tab" id="t-simu" aria-controls="tab-simu" aria-selected="true">Ma simulation</button>
-    <button type="button" role="tab" id="t-rates" aria-controls="tab-rates" aria-selected="false">Mensualités selon les taux</button>
+    <button type="button" role="tab" id="t-rates" aria-controls="tab-rates" aria-selected="false">Repères selon le prix</button>
   </nav>
 
   <div class="grid" id="tab-simu" role="tabpanel" aria-labelledby="t-simu">
@@ -818,7 +818,14 @@ $("canton").addEventListener("change", e => {
   if (c.fees != null) { S.feesPct = c.fees; S.alloc = c.alloc; S.feesMode = "pct"; }
   update();
 });
-$("reset").addEventListener("click", () => { S = { ...DEFAULTS }; touched = false; try { localStorage.removeItem(KEY); } catch (e) {} update(); });
+// Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
+const RATE_KEYS = [...F.rates, ...F.eqg].map(f => f.id);
+$("reset").addEventListener("click", () => {
+  const keep = Object.fromEntries(RATE_KEYS.map(k => [k, TAB === "rates" ? DEFAULTS[k] : S[k]]));
+  if (TAB === "rates") Object.assign(S, keep);
+  else { S = { ...DEFAULTS, ...keep }; touched = false; }
+  update();
+});
 
 /* ---------- Modèle ---------- */
 function income(s) {
@@ -1241,7 +1248,11 @@ function drawRates() {
   $("eq-h").textContent = `Survolez le graphique pour lire le montant à un prix donné.`;
 }
 
+let TAB = "simu", canExport = false;
+const syncExport = () => { $("export").hidden = !canExport || TAB !== "simu"; };
 function showTab(id) {
+  TAB = id;
+  syncExport();
   for (const t of ["simu", "rates"]) {
     $("t-" + t).setAttribute("aria-selected", t === id);
     $("tab-" + t).hidden = t !== id;
@@ -1426,8 +1437,8 @@ async function exportPdf() {
 $("export").addEventListener("click", exportPdf);
 // Dans claude.ai : téléchargement via la capacité downloads. Fichier ouvert seul : téléchargement direct.
 const STANDALONE = !(window.claude && window.claude.use);
-if (STANDALONE) $("export").hidden = false;
-else window.claude.use("downloads").then(d => { DL = d; $("export").hidden = !d; }).catch(() => {});
+if (STANDALONE) { canExport = true; syncExport(); }
+else window.claude.use("downloads").then(d => { DL = d; canExport = !!d; syncExport(); }).catch(() => {});
 
 update();
 </script>
