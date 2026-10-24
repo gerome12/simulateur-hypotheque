@@ -275,14 +275,12 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 .tabs button:hover { color: var(--ink); }
 .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .rates { display: grid; gap: 16px; max-width: 900px; }
-.chart .c-theo { fill: none; stroke: var(--warn); stroke-width: 2.5; }
-.chart .c-real { fill: none; stroke: var(--accent); stroke-width: 2.5; }
-.chart .d-theo { fill: var(--warn); stroke: var(--surface); stroke-width: 2; }
-.chart .d-real { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
-.chart text.lbl-theo { fill: var(--warn); font-weight: 500; } .chart text.lbl-real { fill: var(--accent); font-weight: 500; }
+.rlegend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.rlegend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: 3px; }
 .ctip dl { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin: 6px 0 0; }
 .ctip dt { color: var(--muted); } .ctip dd { margin: 0; font-family: var(--font-data); text-align: right; }
 .ctip .t-theo { color: var(--warn); font-weight: 600; } .ctip .t-real { color: var(--accent); font-weight: 600; }
+.ctip .t-eq { color: var(--c-eq); font-weight: 600; } .ctip .t-hard { color: var(--c-3a); font-weight: 600; }
 .mbar { display: none; }
 @media (max-width: 900px) {
   .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 12px; justify-content: space-between; align-items: center;
@@ -484,9 +482,20 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <div class="duo" id="f-rates"></div>
       <div class="chartwrap">
         <svg class="chart" id="rchart" viewBox="0 0 640 340" role="img" aria-label="Mensualités théoriques et réelles en fonction du prix"></svg>
-        <div class="ctip" id="rtip" hidden></div>
+        <div class="ctip" hidden></div>
       </div>
+      <div class="rlegend"></div>
       <p class="hint" id="rates-h"></p>
+    </section>
+    <section class="panel">
+      <h2>Fonds propres minimum selon le prix</h2>
+      <p class="lead">Ce qu'il faut apporter au minimum : 20&nbsp;% du prix, dont 10&nbsp;% hors 2<sup>e</sup> pilier, plus les frais d'achat payés en fonds propres durs.</p>
+      <div class="chartwrap">
+        <svg class="chart" id="echart" viewBox="0 0 640 340" role="img" aria-label="Fonds propres minimum en fonction du prix"></svg>
+        <div class="ctip" hidden></div>
+      </div>
+      <div class="rlegend"></div>
+      <p class="hint" id="eq-h"></p>
     </section>
   </div>
 </div>
@@ -1137,55 +1146,76 @@ function monthly(P) {
   const loan = P * 0.8, rank1 = Math.min(loan, P * S.rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
   return { loan, amort, maint, theo: (loan * S.gRate / 100 + amort + maint) / 12, real: (loan * S.gReal / 100 + amort + maint) / 12 };
 }
-let RC = null;
-function drawRates() {
-  const W = 640, H = 340, L = 58, R = 16, T = 34, B = 52;
+const feesAt = P => S.feesMode === "chf" ? S.feesChf : P * S.feesPct / 100;
+// Fonds propres minimum : 20 % du prix, dont 10 % hors 2e pilier, plus les frais d'achat payés en fonds propres durs
+function minEquity(P) {
+  const fees = feesAt(P);
+  return { p20: P * 0.2, fees, total: P * 0.2 + fees, hard: P * 0.1 + fees };
+}
+
+// Graphique en lignes en fonction du prix, avec infobulle au survol
+const LC = {};
+function lineChart(id, { f, series, yTitle, tip }) {
+  const W = 640, H = 340, L = 64, R = 16, T = 34, B = 52;
   const xs0 = niceStep(Math.max(2e6, S.price * 1.5), 5), xMax = Math.ceil(Math.max(2e6, S.price * 1.5) / xs0) * xs0;
-  const yRaw = Math.max(monthly(xMax).theo, monthly(xMax).real), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
+  const end = f(xMax), yRaw = Math.max(...series.map(sr => end[sr.key])), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
   const X = v => L + v / xMax * (W - L - R), Y = v => T + (1 - v / yMax) * (H - T - B);
   let o = "";
-  for (let y = 0; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : nf.format(y)}</text>`;
+  for (let y = 0; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : y >= 1e5 ? short(y) : nf.format(y)}</text>`;
   for (let x = 0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - B + 20}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
   o += `<text class="lbl-ink" x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">Prix du bien (CHF)</text>`;
-  const path = k => Array.from({ length: 61 }, (_, i) => { const P = xMax * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(monthly(P)[k]).toFixed(1); }).join("");
-  o += `<path class="c-theo" d="${path("theo")}"/><path class="c-real" d="${path("real")}"/>`;
-  // Étiquettes au-dessus de la fin de chaque droite, écartées si elles se chevauchent
-  const end = monthly(xMax), hi = end.theo >= end.real ? "theo" : "real";
-  let yT = Y(end.theo) - 10, yR = Y(end.real) - 10;
-  if (Math.abs(yT - yR) < 16) { if (hi === "theo") yT = yR - 16; else yR = yT - 16; }
-  o += `<text class="lbl-theo halo" x="${W - R - 14}" y="${yT}" text-anchor="end">théorique ${S.gRate} %</text>`;
-  o += `<text class="lbl-real halo" x="${W - R - 14}" y="${yR}" text-anchor="end">réel ${S.gReal} %</text>`;
-  o += `<text class="lbl-ink" x="${L}" y="${T - 16}">Charges mensuelles (CHF / mois)</text>`;
+  o += `<text class="lbl-ink" x="${L}" y="${T - 16}">${yTitle}</text>`;
+  for (const sr of series) o += `<path style="fill:none;stroke:${sr.color};stroke-width:2.5" d="${Array.from({ length: 61 }, (_, i) => { const P = xMax * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(f(P)[sr.key]).toFixed(1); }).join("")}"/>`;
   o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
-  $("rchart").innerHTML = o;
-  RC = { L, R, W, H, T, B, xMax, X, Y };
-  const m = monthly(S.price);
+  $(id).innerHTML = o;
+  $(id).parentElement.nextElementSibling.innerHTML = [...series].sort((p, q) => end[q.key] - end[p.key])
+    .map(sr => `<span><i style="background:${sr.color}"></i>${sr.label}</span>`).join("");
+  LC[id] = { L, R, W, H, T, B, xMax, X, Y, f, series, tip };
+}
+function lineTip(e) {
+  const svg = e.currentTarget, c = LC[svg.id]; if (!c) return;
+  const r = svg.getBoundingClientRect(), wrap = svg.parentElement.getBoundingClientRect(), tipEl = svg.nextElementSibling;
+  const vx = (e.clientX - r.left) * c.W / r.width;
+  if (vx < c.L || vx > c.W - c.R) { lineHide(e); return; }
+  const P = Math.round((vx - c.L) / (c.W - c.L - c.R) * c.xMax / 10000) * 10000, v = c.f(P);
+  tipEl.innerHTML = `<b>Prix ${chf(P)}</b><dl>${c.tip(P, v)}</dl>`;
+  tipEl.hidden = false;
+  let g = svg.querySelector(".hovering");
+  if (!g) { g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("class", "hovering"); svg.appendChild(g); }
+  const x = c.X(P);
+  g.innerHTML = `<line class="hover" x1="${x}" x2="${x}" y1="${c.T}" y2="${c.H - c.B}"/>`
+    + c.series.map(sr => `<circle style="fill:${sr.color};stroke:var(--surface);stroke-width:2" cx="${x}" cy="${c.Y(v[sr.key])}" r="5"/>`).join("");
+  const tw = tipEl.offsetWidth, px = e.clientX - wrap.left;
+  tipEl.style.left = Math.max(0, Math.min(px + 14 + tw > wrap.width ? px - 14 - tw : px + 14, wrap.width - tw)) + "px";
+  tipEl.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
+}
+function lineHide(e) {
+  const svg = e.currentTarget;
+  svg.nextElementSibling.hidden = true;
+  const g = svg.querySelector(".hovering"); if (g) g.remove();
+}
+for (const id of ["rchart", "echart"]) { $(id).addEventListener("pointermove", lineTip); $(id).addEventListener("pointerleave", lineHide); }
+
+function drawRates() {
+  const feesLbl = S.feesMode === "chf" ? chf(S.feesChf) : `${S.feesPct} %`;
+  lineChart("rchart", {
+    f: monthly, yTitle: "Charges mensuelles (CHF / mois)",
+    series: [{ key: "theo", color: "var(--warn)", label: `théorique ${S.gRate} %` }, { key: "real", color: "var(--accent)", label: `réel ${S.gReal} %` }],
+    tip: (P, m) => `<dt>Apport 20 %</dt><dd>${chf(P * 0.2)}</dd><dt>Hypothèque</dt><dd>${chf(m.loan)}</dd>`
+      + `<dt class="t-theo">Théorique ${S.gRate} %</dt><dd class="t-theo">${chf(m.theo)}</dd><dt class="t-real">Réel ${S.gReal} %</dt><dd class="t-real">${chf(m.real)}</dd>`
+      + `<dt>dont amortissement</dt><dd>${chf(m.amort / 12)}</dd><dt>dont entretien</dt><dd>${chf(m.maint / 12)}</dd>`
+  });
+  lineChart("echart", {
+    f: minEquity, yTitle: "Fonds propres minimum (CHF)",
+    series: [{ key: "total", color: "var(--c-eq)", label: "total à apporter" }, { key: "p20", color: "var(--accent)", label: "20 % du prix" }, { key: "hard", color: "var(--c-3a)", label: "dont durs minimum" }],
+    tip: (P, e) => `<dt>20 % du prix</dt><dd>${chf(e.p20)}</dd><dt>Frais d'achat (${feesLbl})</dt><dd>${chf(e.fees)}</dd>`
+      + `<dt class="t-eq">Total à apporter</dt><dd class="t-eq">${chf(e.total)}</dd>`
+      + `<dt class="t-hard">dont durs minimum</dt><dd class="t-hard">${chf(e.hard)}</dd><dt>2<sup>e</sup> pilier possible au plus</dt><dd>${chf(e.total - e.hard)}</dd>`
+  });
+  const m = monthly(S.price), q = minEquity(S.price);
   $("rates-h").textContent = `Survolez le graphique pour lire les mensualités à un prix donné. Exemple à ${short(S.price)} : ${chf(m.theo)} théorique, ${chf(m.real)} réel par mois. Amortissement du 2e rang sur ${S.amortMax} ans et entretien de ${S.maintPct} % inclus.`;
+  $("eq-h").textContent = `Exemple à ${short(S.price)} : ${chf(q.total)} à apporter, dont au moins ${chf(q.hard)} hors 2e pilier. Frais d'achat : ${feesLbl}${S.feesMode === "chf" ? "" : " du prix"} (${CANTONS[S.canton].label}), modifiables dans « Le bien ».`;
 }
-function ratesTip(e) {
-  if (!RC) return;
-  const svg = $("rchart"), r = svg.getBoundingClientRect(), wrap = svg.parentElement.getBoundingClientRect(), tip = $("rtip");
-  const vx = (e.clientX - r.left) * RC.W / r.width;
-  if (vx < RC.L || vx > RC.W - RC.R) { hideRatesTip(); return; }
-  const P = Math.round((vx - RC.L) / (RC.W - RC.L - RC.R) * RC.xMax / 10000) * 10000, m = monthly(P);
-  tip.innerHTML = `<b>Prix ${chf(P)}</b><dl><dt>Apport 20 %</dt><dd>${chf(P * 0.2)}</dd><dt>Hypothèque</dt><dd>${chf(m.loan)}</dd>`
-    + `<dt class="t-theo">Théorique ${S.gRate} %</dt><dd class="t-theo">${chf(m.theo)}</dd><dt class="t-real">Réel ${S.gReal} %</dt><dd class="t-real">${chf(m.real)}</dd>`
-    + `<dt>dont amortissement</dt><dd>${chf(m.amort / 12)}</dd><dt>dont entretien</dt><dd>${chf(m.maint / 12)}</dd></dl>`;
-  tip.hidden = false;
-  let g = svg.querySelector("#rhover");
-  if (!g) { g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "rhover"; svg.appendChild(g); }
-  const x = RC.X(P);
-  g.innerHTML = `<line class="hover" x1="${x}" x2="${x}" y1="${RC.T}" y2="${RC.H - RC.B}"/><circle class="d-theo" cx="${x}" cy="${RC.Y(m.theo)}" r="5"/><circle class="d-real" cx="${x}" cy="${RC.Y(m.real)}" r="5"/>`;
-  const tw = tip.offsetWidth, px = e.clientX - wrap.left;
-  tip.style.left = Math.max(0, Math.min(px + 14 + tw > wrap.width ? px - 14 - tw : px + 14, wrap.width - tw)) + "px";
-  tip.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
-}
-function hideRatesTip() {
-  $("rtip").hidden = true;
-  const g = $("rchart").querySelector("#rhover"); if (g) g.remove();
-}
-$("rchart").addEventListener("pointermove", ratesTip);
-$("rchart").addEventListener("pointerleave", hideRatesTip);
 
 function showTab(id) {
   for (const t of ["simu", "rates"]) {
