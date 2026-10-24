@@ -243,7 +243,7 @@ table.costs { width: 100%; border-collapse: collapse; font-size: 13.5px; font-va
 .tablewrap { overflow-x: auto; }
 .note { font-size: 12.5px; color: var(--muted); margin: 10px 0; }
 
-svg.chart { width: 100%; height: auto; display: block; }
+svg.chart { width: 100%; height: auto; display: block; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 .chart text { fill: var(--muted); font-family: var(--font-data); font-size: 11px; }
 .chart .axis { stroke: var(--line); }
 .chart .grid { stroke: var(--line); stroke-dasharray: 2 4; }
@@ -449,7 +449,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Taux d'effort en fonction du prix"></svg>
           <div class="ctip" id="ctip" hidden></div>
         </div>
-        <p class="hint">Survolez la courbe pour voir pourquoi la pente change.</p>
+        <p class="hint">Survolez ou touchez la courbe pour voir pourquoi la pente change.</p>
       </section>
 
       <section class="panel">
@@ -1075,6 +1075,23 @@ function update(skip) {
   $("m-pmax").textContent = short(sol.pMax);
 }
 
+// Dessin à la largeur réelle du graphique : le texte garde sa taille sur téléphone au lieu d'être réduit
+function chartSize(svg, H0) {
+  const w = Math.round(svg.parentElement.clientWidth), W = w > 0 ? Math.max(300, w) : 640, H = W < 560 ? Math.round(H0 * 0.8) : H0;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  return [W, H];
+}
+// Redessine quand la largeur d'un graphique change (rotation, redimensionnement, onglet affiché)
+{
+  const widths = new Map();
+  let raf = 0;
+  const ro = new ResizeObserver(entries => {
+    let changed = false;
+    for (const en of entries) { const w = Math.round(en.contentRect.width); if (w && widths.get(en.target) !== w) { widths.set(en.target, w); changed = true; } }
+    if (changed && !raf) raf = requestAnimationFrame(() => { raf = 0; update(); });
+  });
+  document.querySelectorAll(".chartwrap").forEach(el => ro.observe(el));
+}
 function niceStep(range, ticks) {
   const raw = range / ticks, p = Math.pow(10, Math.floor(Math.log10(raw)));
   return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw);
@@ -1110,19 +1127,34 @@ function chartTip(e) {
   const yv = Math.min(m.ratio, CH.yMax);
   hl.setAttribute("x1", vx); hl.setAttribute("x2", vx); hl.setAttribute("y1", CH.Y(yv)); hl.setAttribute("y2", CH.H - CH.B);
   // Position : à côté du curseur, sans sortir du cadre
-  const tw = tip.offsetWidth, x = e.clientX - wrap.left;
-  tip.style.left = Math.max(0, Math.min(x + 14 + tw > wrap.width ? x - 14 - tw : x + 14, wrap.width - tw)) + "px";
-  tip.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
+  placeTip(tip, wrap, e);
 }
 function hideTip() {
   $("ctip").hidden = true;
   const hl = $("chart").querySelector("#hoverline"); if (hl) hl.remove();
 }
-$("chart").addEventListener("pointermove", chartTip);
-$("chart").addEventListener("pointerleave", hideTip);
+// Souris : à côté du curseur. Tactile : au-dessus du graphique (ou en dessous faute de place), pour ne pas être caché par le doigt.
+function placeTip(tip, wrap, e) {
+  const tw = tip.offsetWidth, th = tip.offsetHeight, x = e.clientX - wrap.left;
+  if (e.pointerType === "touch") {
+    tip.style.left = Math.max(0, Math.min(x - tw / 2, wrap.width - tw)) + "px";
+    tip.style.top = (wrap.top - th - 8 > 0 ? -th - 8 : wrap.height + 8) + "px";
+    return;
+  }
+  tip.style.left = Math.max(0, Math.min(x + 14 + tw > wrap.width ? x - 14 - tw : x + 14, wrap.width - tw)) + "px";
+  tip.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
+}
+// Tactile : toucher ou glisser horizontalement sur le graphique ; l'infobulle reste affichée jusqu'à un toucher ailleurs.
+function chartEvents(svg, show, hide) {
+  svg.addEventListener("pointerdown", show);
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerleave", e => { if (e.pointerType !== "touch") hide(e); });
+  document.addEventListener("pointerdown", e => { if (!svg.contains(e.target)) hide({ currentTarget: svg }); });
+}
+chartEvents($("chart"), chartTip, hideTip);
 
 function drawChart(m, sol) {
-  const W = 640, H = 300, L = 48, R = 16, T = 18, B = 34;
+  const [W, H] = chartSize($("chart"), 300), L = 48, R = 16, T = 18, B = 34;
   const lim = S.ratioMax / 100;
   const pEqLim = Math.min(sol.pEq, sol.pHard);
   const xMaxRaw = Math.max(m.P, sol.pInc, Math.min(pEqLim, m.P * 2.5)) * 1.25;
@@ -1156,7 +1188,7 @@ function drawChart(m, sol) {
   const partial = S.apportSel != null;
   if (partial) o += `<path class="curve-all" d="${curve({ ...S, apportSel: null })}"/>`;
   o += `<path class="curve" d="${path}"/>`;
-  o += `<line class="limit" x1="${L}" x2="${W - R}" y1="${Y(lim)}" y2="${Y(lim)}"/><text class="lbl-bad" x="${L + 6}" y="${Y(lim) - 6}">plafond ${S.ratioMax}%</text>`;
+  o += `<line class="limit" x1="${L}" x2="${W - R}" y1="${Y(lim)}" y2="${Y(lim)}"/><text class="lbl-bad halo" x="${L + 6}" y="${Y(lim) + 15}">plafond ${S.ratioMax}%</text>`;
   // Le trait du maximum s'arrête sur la courbe « tout investi »
   const yTop = Y(Math.min(model({ ...S, apportSel: null }, sol.pMax).ratio, yMax));
   if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${yTop}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) + (X(sol.pMax) > W - 170 ? -5 : 5)}" y="${H - B - 8}" text-anchor="${X(sol.pMax) > W - 170 ? "end" : "start"}">max ${short(sol.pMax)}${partial ? " (tout investi)" : ""}</text>`;
@@ -1186,7 +1218,7 @@ function minEquity(P) {
 // Graphique en lignes en fonction du prix, avec infobulle au survol
 const LC = {};
 function lineChart(id, { f, series, yTitle, tip, xMin, xMax }) {
-  const W = 640, H = 340, L = 64, R = 16, T = 34, B = 52;
+  const [W, H] = chartSize($(id), 340), L = 64, R = 16, T = 34, B = 52;
   if (!(xMax > xMin)) xMax = xMin + 100000;
   const xs0 = niceStep(xMax - xMin, 5);
   const end = f(xMax), yRaw = Math.max(...series.map(sr => end[sr.key])), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
@@ -1216,16 +1248,14 @@ function lineTip(e) {
   const x = c.X(P);
   g.innerHTML = `<line class="hover" x1="${x}" x2="${x}" y1="${c.T}" y2="${c.H - c.B}"/>`
     + c.series.map(sr => `<circle style="fill:${sr.color};stroke:var(--surface);stroke-width:2" cx="${x}" cy="${c.Y(v[sr.key])}" r="5"/>`).join("");
-  const tw = tipEl.offsetWidth, px = e.clientX - wrap.left;
-  tipEl.style.left = Math.max(0, Math.min(px + 14 + tw > wrap.width ? px - 14 - tw : px + 14, wrap.width - tw)) + "px";
-  tipEl.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
+  placeTip(tipEl, wrap, e);
 }
 function lineHide(e) {
   const svg = e.currentTarget;
   svg.nextElementSibling.hidden = true;
   const g = svg.querySelector(".hovering"); if (g) g.remove();
 }
-for (const id of ["rchart", "echart"]) { $(id).addEventListener("pointermove", lineTip); $(id).addEventListener("pointerleave", lineHide); }
+for (const id of ["rchart", "echart"]) chartEvents($(id), lineTip, lineHide);
 
 function drawRates() {
   const range = (lo, hi) => `prix <b>${short(lo)}</b> à <b>${short(hi > lo ? hi : lo + 100000)}</b>`;
@@ -1244,8 +1274,8 @@ function drawRates() {
   });
   $("rset-sum").innerHTML = `théorique <b>${S.gRate} %</b> · réel <b>${S.gReal} %</b> · ${range(S.gMin, S.gMax)}`;
   $("eset-sum").innerHTML = `frais <b>${S.gFees} %</b> · ${range(S.eMin, S.eMax)}`;
-  $("rates-h").textContent = `Survolez le graphique pour lire les mensualités à un prix donné. Amortissement du 2e rang sur ${S.amortMax} ans et entretien de ${S.maintPct} % du prix inclus.`;
-  $("eq-h").textContent = `Survolez le graphique pour lire le montant à un prix donné.`;
+  $("rates-h").textContent = `Survolez ou touchez le graphique pour lire les mensualités à un prix donné. Amortissement du 2e rang sur ${S.amortMax} ans et entretien de ${S.maintPct} % du prix inclus.`;
+  $("eq-h").textContent = `Survolez ou touchez le graphique pour lire le montant à un prix donné.`;
 }
 
 let TAB = "simu", canExport = false;
