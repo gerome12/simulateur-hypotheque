@@ -143,7 +143,7 @@ select, button { font: inherit; }
 .casatax .tick { width: 2px; height: 24px; background: var(--warn); border-radius: 1px; }
 .casatax .lbl { font: 500 11px/1.2 var(--font-data); color: var(--warn); white-space: nowrap; transform: translateX(-50%); }
 @media print {
-  .top-actions, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
+  .tabs, #tab-rates, .top-actions, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
   body { padding-block: 0; background: #fff; color: #000; }
   .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "inputs" "details"; }
   .panel, .verdict { break-inside: avoid; }
@@ -270,6 +270,19 @@ details.rules { font-size: 13.5px; }
 details.rules summary { cursor: pointer; font-weight: 600; padding: 4px 0 10px; }
 details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; max-width: 70ch; }
 
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { border: 0; background: none; color: var(--muted); font: 600 14px var(--font-body); padding: 10px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.rates { display: grid; gap: 16px; max-width: 900px; }
+.chart .c-theo { fill: none; stroke: var(--warn); stroke-width: 2.5; }
+.chart .c-real { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.chart .d-theo { fill: var(--warn); stroke: var(--surface); stroke-width: 2; }
+.chart .d-real { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.chart text.lbl-theo { fill: var(--warn); font-weight: 500; } .chart text.lbl-real { fill: var(--accent); font-weight: 500; }
+.ctip dl { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin: 6px 0 0; }
+.ctip dt { color: var(--muted); } .ctip dd { margin: 0; font-family: var(--font-data); text-align: right; }
+.ctip .t-theo { color: var(--warn); font-weight: 600; } .ctip .t-real { color: var(--accent); font-weight: 600; }
 .mbar { display: none; }
 @media (max-width: 900px) {
   .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 12px; justify-content: space-between; align-items: center;
@@ -300,7 +313,12 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
     </div>
   </header>
 
-  <div class="grid">
+  <nav class="tabs" role="tablist" aria-label="Vues">
+    <button type="button" role="tab" id="t-simu" aria-controls="tab-simu" aria-selected="true">Ma simulation</button>
+    <button type="button" role="tab" id="t-rates" aria-controls="tab-rates" aria-selected="false">Mensualités selon les taux</button>
+  </nav>
+
+  <div class="grid" id="tab-simu" role="tabpanel" aria-labelledby="t-simu">
     <!-- RÉSULTATS : synthèse -->
     <div class="summary">
       <div class="verdict" id="verdict">
@@ -458,9 +476,22 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       </section>
     </div>
   </div>
+
+  <div class="rates" id="tab-rates" role="tabpanel" aria-labelledby="t-rates" hidden>
+    <section class="panel">
+      <h2>Mensualités selon le prix <small>apport de 20 %</small></h2>
+      <p class="lead">Hypothèque de 80&nbsp;% du prix, sans lien avec vos revenus ni vos fonds propres. Les deux taux ci-dessous ne servent qu'à ce graphique.</p>
+      <div class="duo" id="f-rates"></div>
+      <div class="chartwrap">
+        <svg class="chart" id="rchart" viewBox="0 0 640 320" role="img" aria-label="Mensualités théoriques et réelles en fonction du prix"></svg>
+        <div class="ctip" id="rtip" hidden></div>
+      </div>
+      <p class="hint" id="rates-h"></p>
+    </section>
+  </div>
 </div>
 
-<div class="mbar" aria-live="polite">
+<div class="mbar" id="mbar" aria-live="polite">
   <span class="pill ok" id="m-pill">Finançable</span>
   <span>Effort <b id="m-ratio">–</b></span>
   <span>Max <b id="m-pmax">–</b></span>
@@ -487,6 +518,7 @@ const DEFAULTS = {
   rate: 5, ratioMax: 33, rank1Pct: 66.7, ltvMax: 80, amortMax: 15, retireAge: 65, retirePct: 60,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   lockPrice: false,
+  gRate: 5, gReal: 1.6,
   name1: "Personne 1", name2: "Personne 2",
   feesMode: "pct", feesChf: 60000,
   solo: false, p2saved: null,
@@ -540,6 +572,10 @@ const F = {
     { id: "amortMax", label: "Durée d'amortissement 2e rang", min: 5, max: 20, step: 1, unit: "ans" },
     { id: "retireAge", label: "Âge de la retraite", min: 60, max: 70, step: 1, unit: "ans" },
     { id: "retirePct", label: "Revenu à la retraite", min: 30, max: 100, step: 5, unit: "% actuel" }
+  ],
+  rates: [
+    { id: "gRate", label: "Taux théorique", min: 0.5, max: 8, step: 0.1, unit: "%" },
+    { id: "gReal", label: "Taux réel", min: 0.3, max: 6, step: 0.05, unit: "%" }
   ],
   real: [
     { id: "realRate", label: "Taux réel (fixe ou SARON + marge)", min: 0.3, max: 5, step: 0.05, unit: "%" },
@@ -994,6 +1030,7 @@ function update(skip) {
     : `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.`;
 
   drawChart(m, sol);
+  drawRates();
   $("m-ratio").textContent = pc(m.ratio);
   $("m-pmax").textContent = short(sol.pMax);
 }
@@ -1093,6 +1130,73 @@ function drawChart(m, sol) {
   $("chart").innerHTML = o;
   CH = { L, R, W, T, B, H, xMax, yMax, pEqLim, X, Y };
 }
+
+/* ---------- Onglet : mensualités selon les taux ---------- */
+// Apport de 20 % : hypothèque à 80 % du prix, 2e rang amorti sur la durée maximale
+function monthly(P) {
+  const loan = P * 0.8, rank1 = Math.min(loan, P * S.rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
+  return { loan, amort, maint, theo: (loan * S.gRate / 100 + amort + maint) / 12, real: (loan * S.gReal / 100 + amort + maint) / 12 };
+}
+let RC = null;
+function drawRates() {
+  const W = 640, H = 320, L = 58, R = 16, T = 34, B = 34;
+  const xs0 = niceStep(Math.max(2e6, S.price * 1.5), 5), xMax = Math.ceil(Math.max(2e6, S.price * 1.5) / xs0) * xs0;
+  const yRaw = Math.max(monthly(xMax).theo, monthly(xMax).real), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
+  const X = v => L + v / xMax * (W - L - R), Y = v => T + (1 - v / yMax) * (H - T - B);
+  let o = "";
+  for (let y = 0; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : nf.format(y)}</text>`;
+  for (let x = 0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - 12}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
+  const path = k => Array.from({ length: 61 }, (_, i) => { const P = xMax * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(monthly(P)[k]).toFixed(1); }).join("");
+  o += `<path class="c-theo" d="${path("theo")}"/><path class="c-real" d="${path("real")}"/>`;
+  // Étiquettes au-dessus de la fin de chaque droite, écartées si elles se chevauchent
+  const end = monthly(xMax), hi = end.theo >= end.real ? "theo" : "real";
+  let yT = Y(end.theo) - 10, yR = Y(end.real) - 10;
+  if (Math.abs(yT - yR) < 16) { if (hi === "theo") yT = yR - 16; else yR = yT - 16; }
+  o += `<text class="lbl-theo halo" x="${W - R - 14}" y="${yT}" text-anchor="end">théorique ${S.gRate} %</text>`;
+  o += `<text class="lbl-real halo" x="${W - R - 14}" y="${yR}" text-anchor="end">réel ${S.gReal} %</text>`;
+  o += `<text x="${L}" y="${T - 16}">CHF / mois</text>`;
+  o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
+  $("rchart").innerHTML = o;
+  RC = { L, R, W, H, T, B, xMax, X, Y };
+  const m = monthly(S.price);
+  $("rates-h").textContent = `Survolez le graphique pour lire les mensualités à un prix donné. Exemple à ${short(S.price)} : ${chf(m.theo)} théorique, ${chf(m.real)} réel par mois. Amortissement du 2e rang sur ${S.amortMax} ans et entretien de ${S.maintPct} % inclus.`;
+}
+function ratesTip(e) {
+  if (!RC) return;
+  const svg = $("rchart"), r = svg.getBoundingClientRect(), wrap = svg.parentElement.getBoundingClientRect(), tip = $("rtip");
+  const vx = (e.clientX - r.left) * RC.W / r.width;
+  if (vx < RC.L || vx > RC.W - RC.R) { hideRatesTip(); return; }
+  const P = Math.round((vx - RC.L) / (RC.W - RC.L - RC.R) * RC.xMax / 10000) * 10000, m = monthly(P);
+  tip.innerHTML = `<b>Prix ${chf(P)}</b><dl><dt>Apport 20 %</dt><dd>${chf(P * 0.2)}</dd><dt>Hypothèque</dt><dd>${chf(m.loan)}</dd>`
+    + `<dt class="t-theo">Théorique ${S.gRate} %</dt><dd class="t-theo">${chf(m.theo)}</dd><dt class="t-real">Réel ${S.gReal} %</dt><dd class="t-real">${chf(m.real)}</dd>`
+    + `<dt>dont amortissement</dt><dd>${chf(m.amort / 12)}</dd><dt>dont entretien</dt><dd>${chf(m.maint / 12)}</dd></dl>`;
+  tip.hidden = false;
+  let g = svg.querySelector("#rhover");
+  if (!g) { g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "rhover"; svg.appendChild(g); }
+  const x = RC.X(P);
+  g.innerHTML = `<line class="hover" x1="${x}" x2="${x}" y1="${RC.T}" y2="${RC.H - RC.B}"/><circle class="d-theo" cx="${x}" cy="${RC.Y(m.theo)}" r="5"/><circle class="d-real" cx="${x}" cy="${RC.Y(m.real)}" r="5"/>`;
+  const tw = tip.offsetWidth, px = e.clientX - wrap.left;
+  tip.style.left = Math.max(0, Math.min(px + 14 + tw > wrap.width ? px - 14 - tw : px + 14, wrap.width - tw)) + "px";
+  tip.style.top = Math.max(0, e.clientY - wrap.top - 20) + "px";
+}
+function hideRatesTip() {
+  $("rtip").hidden = true;
+  const g = $("rchart").querySelector("#rhover"); if (g) g.remove();
+}
+$("rchart").addEventListener("pointermove", ratesTip);
+$("rchart").addEventListener("pointerleave", hideRatesTip);
+
+function showTab(id) {
+  for (const t of ["simu", "rates"]) {
+    $("t-" + t).setAttribute("aria-selected", t === id);
+    $("tab-" + t).hidden = t !== id;
+  }
+  $("mbar").hidden = id !== "simu";
+  try { localStorage.setItem(KEY + "-tab", id); } catch (e) {}
+}
+$("t-simu").addEventListener("click", () => showTab("simu"));
+$("t-rates").addEventListener("click", () => showTab("rates"));
+try { if (localStorage.getItem(KEY + "-tab") === "rates") showTab("rates"); } catch (e) {}
 
 /* ---------- Export PDF ---------- */
 let LAST = null, DL = null;
