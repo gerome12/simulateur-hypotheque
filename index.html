@@ -251,6 +251,16 @@ svg.chart { width: 100%; height: auto; display: block; touch-action: pan-y; -web
 .chart .curve-all { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .55; }
 .chart text.lbl-all { fill: var(--muted); }
 .chartwrap { position: relative; }
+.chart text.axis-title { fill: var(--muted); font-family: var(--font-body); font-size: 11.5px; font-weight: 500; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 4px; font-size: 12.5px; color: var(--muted); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { flex: none; display: inline-block; }
+.lg-line { width: 18px; height: 0; border-top: 2.5px solid var(--accent); }
+.lg-dash { border-top: 1.5px dashed var(--accent); opacity: .7; }
+.lg-limit { border-top: 1.5px dashed var(--bad); }
+.lg-max { width: 0; height: 12px; border-top: 0; border-left: 1.5px solid var(--ok); margin: 0 8px; }
+.lg-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink); }
+.lg-zone { width: 14px; height: 10px; border-radius: 2px; background: var(--bad); opacity: .18; }
 .chart .hover { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
 .ctip { position: absolute; z-index: 2; width: min(260px, 80%); padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size: 12.5px; line-height: 1.45; pointer-events: none; }
 .ctip b { display: block; font-family: var(--font-data); font-weight: 500; font-size: 13px; }
@@ -449,6 +459,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Taux d'effort en fonction du prix"></svg>
           <div class="ctip" id="ctip" hidden></div>
         </div>
+        <div class="chart-legend" id="chartLegend"></div>
         <p class="hint">Survolez ou touchez la courbe pour voir pourquoi la pente change.</p>
       </section>
 
@@ -1154,7 +1165,7 @@ function chartEvents(svg, show, hide) {
 chartEvents($("chart"), chartTip, hideTip);
 
 function drawChart(m, sol) {
-  const [W, H] = chartSize($("chart"), 300), L = 48, R = 16, T = 18, B = 34;
+  const [W, H] = chartSize($("chart"), 300), L = 62, R = 16, T = 12, B = 48;
   const lim = S.ratioMax / 100;
   const pEqLim = Math.min(sol.pEq, sol.pHard);
   const xMaxRaw = Math.max(m.P, sol.pInc, Math.min(pEqLim, m.P * 2.5)) * 1.25;
@@ -1163,7 +1174,7 @@ function drawChart(m, sol) {
   const X = v => L + v / xMax * (W - L - R), Y = v => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
   let o = "";
   for (let y = 0; y <= yMax + 1e-9; y += 0.1) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${Math.round(y * 100)}%</text>`;
-  for (let x = 0; x <= xMax + 1; x += xs) o += `<text x="${X(x)}" y="${H - 12}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
+  for (let x = 0; x <= xMax + 1; x += xs) o += `<text x="${X(x)}" y="${H - B + 18}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
   if (pEqLim < xMax) o += `<rect class="noeq" x="${X(pEqLim)}" y="${T}" width="${W - R - X(pEqLim)}" height="${H - T - B}"/><text class="lbl-bad" x="${W - R - 6}" y="${T + 14}" text-anchor="end">fonds propres insuffisants</text>`;
   // La courbe s'arrête au bord haut du graphique au lieu de faire un plateau.
   let endX = X(xMax);
@@ -1191,15 +1202,24 @@ function drawChart(m, sol) {
   o += `<line class="limit" x1="${L}" x2="${W - R}" y1="${Y(lim)}" y2="${Y(lim)}"/><text class="lbl-bad halo" x="${L + 6}" y="${Y(lim) + 15}">plafond ${S.ratioMax}%</text>`;
   // Le trait du maximum s'arrête sur la courbe « tout investi »
   const yTop = Y(Math.min(model({ ...S, apportSel: null }, sol.pMax).ratio, yMax));
-  if (sol.pMax > 0 && sol.pMax < xMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${yTop}" y2="${H - B}"/><text class="lbl-ok" x="${X(sol.pMax) + (X(sol.pMax) > W - 170 ? -5 : 5)}" y="${H - B - 8}" text-anchor="${X(sol.pMax) > W - 170 ? "end" : "start"}">max ${short(sol.pMax)}${partial ? " (tout investi)" : ""}</text>`;
+  const showMax = sol.pMax > 0 && sol.pMax < xMax;
+  if (showMax) o += `<line class="pmax" x1="${X(sol.pMax)}" x2="${X(sol.pMax)}" y1="${yTop}" y2="${H - B}"/><text class="lbl-ok halo" x="${X(sol.pMax) + (X(sol.pMax) > W - 170 ? -5 : 5)}" y="${H - B - 8}" text-anchor="${X(sol.pMax) > W - 170 ? "end" : "start"}">max ${short(sol.pMax)}${partial ? " (tout investi)" : ""}</text>`;
   const cx = X(m.P), cy = Y(m.ratio);
   o += `<line class="now" x1="${cx}" x2="${cx}" y1="${cy}" y2="${H - B}" stroke-dasharray="3 3"/><circle class="dot" cx="${cx}" cy="${cy}" r="6"/>`;
   // Étiquette du point du côté opposé à la ligne du maximum
   const left = (sol.pMax > m.P && cx > L + 130) || cx > W - 160;
   o += `<text class="lbl-ink halo" x="${cx + (left ? -10 : 10)}" y="${Math.max(T + 12, cy - 10)}" text-anchor="${left ? "end" : "start"}">${short(m.P)} → ${pc(m.ratio)}</text>`;
-  if (partial) o += `<text class="lbl-all" x="${L + 6}" y="${T + 14}">pointillé : tout investi · plein : votre apport</text>`;
   o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
+  // Titres des axes
+  o += `<text class="axis-title" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">Prix d'achat (CHF)</text>`;
+  o += `<text class="axis-title" transform="translate(13 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle">Taux d'effort (% du revenu)</text>`;
   $("chart").innerHTML = o;
+  // Légende sous le graphique, hors du tracé
+  const items = [
+    `<span><i class="lg-line"></i>${partial ? "Votre apport" : "Taux d'effort avec votre apport"}</span>`,
+    partial ? `<span><i class="lg-line lg-dash"></i>Tout investi</span>` : ""
+  ];
+  $("chartLegend").innerHTML = items.join("");
   CH = { L, R, W, T, B, H, xMax, yMax, pEqLim, X, Y };
 }
 
