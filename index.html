@@ -414,6 +414,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <div class="field" id="field-feesGe" hidden>
           <div class="frow"><span class="flabel">Frais d'achat (barème des notaires de Genève)</span><span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span><b class="ge-total" id="ge-total">–</b></div>
           <label class="check" for="casataxOn"><input type="checkbox" id="casataxOn"><span>Casatax : résidence principale<small>Achat d'au plus CHF 1'394'928 habité au moins 3 ans : droits d'achat réduits de CHF 20'924 au plus, droits de la cédule réduits de moitié.</small></span></label>
+          <div class="fields" id="f-ced"></div>
           <div class="ge-detail" id="ge-detail"></div>
         </div>
       </details>
@@ -571,7 +572,7 @@ const DEFAULTS = {
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
   name1: "Personne 1", name2: "Personne 2",
-  feesMode: "ge", feesChf: 60000, casatax: true,
+  feesMode: "ge", feesChf: 60000, casatax: true, cedReprise: 0,
   solo: false, p2saved: null,
   apportSel: null
 };
@@ -635,6 +636,9 @@ const F = {
     { id: "eMax", label: "Prix d'achat max.", min: 0, max: 20000000, step: 10000, unit: "CHF" },
     { id: "gFees", label: "Frais d'achat (notaire, mutation, cédule)", min: 0, max: 10, step: 0.1, unit: "%" }
   ],
+  ced: [
+    { id: "cedReprise", label: "Cédules du vendeur reprises", min: 0, max: 5000000, step: 10000, unit: "CHF", dyn: true }
+  ],
   real: [
     { id: "realRate", label: "Taux réel (fixe ou SARON + marge)", min: 0.3, max: 5, step: 0.05, unit: "%" },
     { id: "realCharges", label: "Charges réelles (PPE, entretien)", min: 0, max: 3000, step: 10, unit: "CHF/mois", dyn: true },
@@ -642,7 +646,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "gMin", "gMax", "eMin", "eMax"));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 
 const KEY = "simu-hypo-ch-v1";
@@ -903,7 +907,8 @@ function model(s, P) {
   let fees = ge ? 0 : s.feesMode === "chf" ? s.feesChf : P * s.feesPct / 100, feeGE = null;
   let avail, hardAvail, apport, loan = 0.8 * P;
   for (let i = 0; i < (ge ? 6 : 1); i++) {
-    if (ge) { feeGE = feesGE(P, loan, s.casatax); fees = feeGE.total; }
+    // Les cédules reprises au vendeur ne sont pas recréées : seule la différence avec l'hypothèque l'est
+    if (ge) { feeGE = feesGE(P, Math.max(0, loan - (s.cedReprise || 0)), s.casatax); fees = feeGE.total; }
     avail = eq.total - fees - s.reserve;          // apport disponible pour le prix
     hardAvail = eq.hard - fees - s.reserve;       // part dure après frais
     apport = Math.max(0, Math.min(avail, P, s.apportSel ?? Infinity));
@@ -1044,11 +1049,14 @@ function update(skip) {
   $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   if (m.feeGE) {
+    $("hint-cedReprise").textContent = S.cedReprise > 0
+      ? `Nouvelle cédule : ${chf(m.feeGE.ced.montant)} au lieu de ${chf(m.loan)}. Le prix de reprise convenu avec le vendeur n'est pas compté.`
+      : "Montant des cédules existantes que vous reprenez au vendeur. Laissez 0 pour en créer une nouvelle sur toute l'hypothèque.";
     const v = m.feeGE.vente, c = m.feeGE.ced, line = (n, x) => `<span>${n}</span><b>${chf(x)}</b>`;
     $("ge-total").textContent = `${chf(m.fees)} · ${pc(m.fees / m.P)}`;
     $("ge-detail").innerHTML = `<div class="ge-col"><h4>Acte de vente</h4>${line("Droits d'enregistrement 3 %", v.droits)}${v.red ? line("Réduction Casatax", -v.red) : ""}${line("Registre foncier 0.21 %", v.rf)}${line("Notaire (barème)", v.notaire)}${line("TVA 8.1 % et frais divers", v.tva + v.divers)}${line("Total vente", v.total)}</div>`
       + (c.montant ? `<div class="ge-col"><h4>Cédule hypothécaire de ${short(c.montant)}</h4>${line("Droits 1.365 %", c.droits)}${c.red ? line("Réduction Casatax (50 %)", -c.red) : ""}${line("Registre foncier 0.085 %", c.rf)}${line("Notaire (barème)", c.notaire)}${line("TVA 8.1 % et frais divers", c.tva + c.divers)}${line("Total cédule", c.total)}</div>` : "")
-      + `<p class="hint">Cédule calculée sur toute l'hypothèque : moins si le vendeur a des cédules à reprendre. Source : calculateur de la <a href="https://notaires-geneve.ch/fr/frais-immobiliers" target="_blank" rel="noopener">Chambre des notaires de Genève</a>.</p>`;
+      + `<p class="hint">${S.cedReprise > 0 ? "" : "Cédule calculée sur toute l'hypothèque. "}Source : calculateur de la <a href="https://notaires-geneve.ch/fr/frais-immobiliers" target="_blank" rel="noopener">Chambre des notaires de Genève</a>.</p>`;
   }
   $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
