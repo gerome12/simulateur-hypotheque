@@ -133,7 +133,7 @@ select, button { font: inherit; }
 .infobox { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 13px; line-height: 1.5; max-width: 70ch; }
 .infobox p { margin: 0 0 6px; }
 .infobox ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
-.seg { display: inline-grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-left: auto; flex: none; }
+.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 40px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-left: auto; flex: none; }
 .seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
 .seg + .num { margin-left: 0; }
@@ -164,6 +164,15 @@ select, button { font: inherit; }
 .apport input[type=range] { accent-color: var(--c-eq); }
 .apport-v { font-family: var(--font-data); font-weight: 500; font-size: 13.5px; font-variant-numeric: tabular-nums; color: var(--c-eq); }
 #field-p3a1, #field-p3a2 { border-top: 0; padding-top: 0; }
+.flabel { font-size: 13.5px; font-weight: 500; }
+.ge-total { font-family: var(--font-data); font-weight: 500; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+#field-feesGe .check { border-top: 0; padding-bottom: 4px; }
+.ge-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 20px; }
+.ge-col { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 12.5px; color: var(--muted); align-content: start; }
+.ge-col h4 { grid-column: 1 / -1; margin: 4px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink); }
+.ge-col b { font-family: var(--font-data); font-weight: 500; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.ge-col b:last-of-type, .ge-col span:nth-last-of-type(1) { font-weight: 600; }
+.ge-detail .hint { grid-column: 1 / -1; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 .lg-info { display: inline-flex; align-items: center; gap: 6px; }
 .lg-info .info { width: 17px; height: 17px; font-size: 11px; }
@@ -402,6 +411,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <span class="msum" id="b-sum"></span>
         </summary>
         <div class="fields" id="f-bien"></div>
+        <div class="field" id="field-feesGe" hidden>
+          <div class="frow"><span class="flabel">Frais d'achat (barème des notaires de Genève)</span><span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span><b class="ge-total" id="ge-total">–</b></div>
+          <label class="check" for="casataxOn"><input type="checkbox" id="casataxOn"><span>Casatax : résidence principale<small>Achat d'au plus CHF 1'394'928 habité au moins 3 ans : droits d'achat réduits de CHF 20'924 au plus, droits de la cédule réduits de moitié.</small></span></label>
+          <div class="ge-detail" id="ge-detail"></div>
+        </div>
       </details>
 
       <details class="panel fold" id="hyp" open>
@@ -557,7 +571,7 @@ const DEFAULTS = {
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
   name1: "Personne 1", name2: "Personne 2",
-  feesMode: "pct", feesChf: 60000,
+  feesMode: "ge", feesChf: 60000, casatax: true,
   solo: false, p2saved: null,
   apportSel: null
 };
@@ -688,7 +702,7 @@ const INFO = {
 function fieldHTML(f) {
   return `<div class="field" id="field-${f.id}">
     <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="Explication : ${f.label}">i</button>` : ""}
-      ${f.seg ? `<span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></div>
+      ${f.seg ? `<span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></div>
     ${NO_RANGE.has(f.id) ? "" : `<input id="rg-${f.id}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" aria-label="${f.who ? f.who + " – " : ""}${f.label}">`}
     ${f.hint || f.dyn ? `<p class="hint" id="hint-${f.id}">${f.hint || ""}</p>` : ""}
     ${INFO[f.id] ? `<div class="infobox" id="info-${f.id}" hidden>${INFO[f.id]}</div>` : ""}
@@ -716,11 +730,13 @@ document.addEventListener("click", e => {
   if (fm) {
     const mode = fm.dataset.fm;
     if (mode === S.feesMode) return;
-    if (mode === "chf") S.feesChf = Math.round(S.price * S.feesPct / 100 / 500) * 500;
-    else S.feesPct = Math.round(S.feesChf / S.price * 1000) / 10;
+    // Le nouveau mode reprend le montant des frais actuel
+    const cur = model(S, S.price).fees;
+    if (mode === "chf") S.feesChf = Math.round(cur / 500) * 500;
+    if (mode === "pct") S.feesPct = Math.round(cur / S.price * 1000) / 10;
     S.feesMode = mode; touched = true;
     update();
-    const next = $("field-" + (mode === "chf" ? "feesChf" : "feesPct")).querySelector(`.seg button[data-fm="${mode}"]`);
+    const next = $("field-" + { chf: "feesChf", pct: "feesPct", ge: "feesGe" }[mode]).querySelector(`.seg button[data-fm="${mode}"]`);
     if (next) next.focus();
     return;
   }
@@ -763,8 +779,11 @@ function syncInputs(skip) {
   document.querySelectorAll(".people").forEach(el => el.classList.toggle("solo", !!S.solo));
   $("addP2").hidden = !S.solo;
   $("sp2").hidden = !!S.solo;
-  $("field-feesPct").hidden = S.feesMode === "chf";
+  $("field-feesPct").hidden = S.feesMode !== "pct";
   $("field-feesChf").hidden = S.feesMode !== "chf";
+  $("field-feesGe").hidden = S.feesMode !== "ge";
+  document.querySelectorAll(".seg-ge").forEach(b => { b.hidden = S.canton !== "GE"; });
+  $("casataxOn").checked = !!S.casatax;
   document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.fm === S.feesMode));
 }
 
@@ -824,9 +843,10 @@ $("rg-apport").addEventListener("input", e => {
 });
 $("allocCount").addEventListener("change", e => { S.allocCount = e.target.checked; update(); });
 $("lockPrice").addEventListener("change", e => { S.lockPrice = e.target.checked; update(); });
+$("casataxOn").addEventListener("change", e => { S.casatax = e.target.checked; touched = true; update(); });
 $("canton").addEventListener("change", e => {
   S.canton = e.target.value; const c = CANTONS[S.canton];
-  if (c.fees != null) { S.feesPct = c.fees; S.alloc = c.alloc; S.feesMode = "pct"; }
+  if (c.fees != null) { S.feesPct = c.fees; S.alloc = c.alloc; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
   update();
 });
 // Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
@@ -839,6 +859,30 @@ $("reset").addEventListener("click", () => {
 });
 
 /* ---------- Modèle ---------- */
+// Frais d'achat à Genève selon le calculateur de la Chambre des notaires (notaires-geneve.ch/fr/frais-immobiliers)
+const CASATAX_RED = 20924;   // réduction max. des droits d'enregistrement sur l'achat (2026)
+const NOT_VENTE = [[2e5, .007], [4e5, .006], [8e5, .0045], [1e6, .004], [1.5e6, .0035], [2e6, .003], [3.5e6, .0025], [5e6, .002], [7.5e6, .0015], [Infinity, .001]];
+const NOT_CEDULE = [[2e5, .005], [5e5, .004], [2e6, .003], [5e6, .002], [Infinity, .001]];
+function tranches(v, t) {
+  let f = 0, lo = 0;
+  for (const [hi, r] of t) { if (v > lo) f += (Math.min(v, hi) - lo) * r; lo = hi; }
+  return f;
+}
+function feesGE(P, C, casatax) {
+  const rf = (v, r, max) => Math.min(Math.ceil(v / 1000) * 1000 * r, max);   // registre foncier, arrondi au millier supérieur
+  const nV = Math.max(200, tranches(P, NOT_VENTE));
+  const vente = { droits: 0.03 * P, red: casatax && P <= CASATAX ? Math.min(0.03 * P, CASATAX_RED) : 0, rf: rf(P, 0.0021, 40000), notaire: nV, tva: 0.081 * (nV + 1000), divers: 1000 };
+  vente.total = vente.droits - vente.red + vente.rf + vente.notaire + vente.tva + vente.divers;
+  let ced = { montant: 0, total: 0 };
+  if (C > 0) {
+    const nC = Math.max(100, tranches(C, NOT_CEDULE)), dC = 0.01365 * C;
+    // LDE 8A al. 2 : moitié des droits de la cédule, plafond apprécié sur le prix d'achat (al. 1)
+    ced = { montant: C, droits: dC, red: casatax && P <= CASATAX ? dC / 2 : 0, rf: rf(C, 0.00085, 20000), notaire: nC, tva: 0.081 * (nC + 1000), divers: 1000 };
+    ced.total = ced.droits - ced.red + ced.rf + ced.notaire + ced.tva + ced.divers;
+  }
+  return { vente, ced, total: vente.total + ced.total };
+}
+
 function income(s) {
   return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? s.kids * s.alloc * 12 : 0);
 }
@@ -854,12 +898,18 @@ function equity(s) {
 }
 function model(s, P) {
   const eq = equity(s);
-  const fees = s.feesMode === "chf" ? s.feesChf : P * s.feesPct / 100;
-  const avail = eq.total - fees - s.reserve;          // apport disponible pour le prix
-  const hardAvail = eq.hard - fees - s.reserve;        // part dure après frais
-  const apport = Math.max(0, Math.min(avail, P, s.apportSel ?? Infinity));
+  // Barème genevois : la cédule dépend de l'hypothèque, qui dépend des frais ; quelques itérations suffisent
+  const ge = s.feesMode === "ge";
+  let fees = ge ? 0 : s.feesMode === "chf" ? s.feesChf : P * s.feesPct / 100, feeGE = null;
+  let avail, hardAvail, apport, loan = 0.8 * P;
+  for (let i = 0; i < (ge ? 6 : 1); i++) {
+    if (ge) { feeGE = feesGE(P, loan, s.casatax); fees = feeGE.total; }
+    avail = eq.total - fees - s.reserve;          // apport disponible pour le prix
+    hardAvail = eq.hard - fees - s.reserve;       // part dure après frais
+    apport = Math.max(0, Math.min(avail, P, s.apportSel ?? Infinity));
+    loan = P - apport;
+  }
   const hardIn = Math.max(0, Math.min(hardAvail, apport));   // le 2e pilier est le dernier investi
-  const loan = P - apport;
   const k = s.rank1Pct / 100;
   const rank1 = Math.min(loan, k * P), rank2 = loan - rank1;
   const years = amortYears(s);
@@ -872,7 +922,7 @@ function model(s, P) {
   const incRet = (s.inc1 + s.inc2) * s.retirePct / 100;
   const chargesRet = rank1 * s.rate / 100 + maint + s.debt;
   const ratioRet = incRet > 0 ? chargesRet / incRet : Infinity;
-  return { P, eq, fees, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, charges, inc, ratio, incRet, chargesRet, ratioRet,
+  return { P, eq, fees, feeGE, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, charges, inc, ratio, incRet, chargesRet, ratioRet,
     eqPct: apport / P, hardPct: hardIn / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
 }
 function bisect(ok, hi = 3e7) {
@@ -884,8 +934,9 @@ function bisect(ok, hi = 3e7) {
 function solve(s) {
   s = { ...s, apportSel: null };   // le prix maximum suppose que tout l'investissable est investi
   const eq = equity(s), chfMode = s.feesMode === "chf", f = chfMode ? 0 : s.feesPct / 100, fx = chfMode ? s.feesChf : 0, minEq = 1 - s.ltvMax / 100;
-  const pEq = Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
-  const pHard = Math.max(0, (eq.hard - s.reserve - fx) / (0.10 + f));
+  const ge = s.feesMode === "ge";
+  const pEq = ge ? bisect(P => model(s, P).avail >= minEq * P - 0.5) : Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
+  const pHard = ge ? bisect(P => model(s, P).hardAvail >= 0.10 * P - 0.5) : Math.max(0, (eq.hard - s.reserve - fx) / (0.10 + f));
   const lim = s.ratioMax / 100;
   const pInc = bisect(P => model(s, P).charges <= lim * income(s));
   const pRet = bisect(P => model(s, P).chargesRet <= lim * (s.inc1 + s.inc2) * s.retirePct / 100);
@@ -919,6 +970,7 @@ function gauge(id, val, limit, scaleMax, text, sub, state) {
 }
 
 function update(skip) {
+  if (S.feesMode === "ge" && S.canton !== "GE") S.feesMode = "pct";   // la formule ne vaut que pour Genève
   // La réserve ne peut pas dépasser l'argent liquide : épargne des deux personnes + donation.
   const resMax = S.cash1 + S.cash2 + S.gift;
   if (S.reserve > resMax) S.reserve = resMax;
@@ -991,6 +1043,13 @@ function update(skip) {
   $("in-alloc").disabled = $("allocCount").disabled = noKids;
   $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
+  if (m.feeGE) {
+    const v = m.feeGE.vente, c = m.feeGE.ced, line = (n, x) => `<span>${n}</span><b>${chf(x)}</b>`;
+    $("ge-total").textContent = `${chf(m.fees)} · ${pc(m.fees / m.P)}`;
+    $("ge-detail").innerHTML = `<div class="ge-col"><h4>Acte de vente</h4>${line("Droits d'enregistrement 3 %", v.droits)}${v.red ? line("Réduction Casatax", -v.red) : ""}${line("Registre foncier 0.21 %", v.rf)}${line("Notaire (barème)", v.notaire)}${line("TVA 8.1 % et frais divers", v.tva + v.divers)}${line("Total vente", v.total)}</div>`
+      + (c.montant ? `<div class="ge-col"><h4>Cédule hypothécaire de ${short(c.montant)}</h4>${line("Droits 1.365 %", c.droits)}${c.red ? line("Réduction Casatax (50 %)", -c.red) : ""}${line("Registre foncier 0.085 %", c.rf)}${line("Notaire (barème)", c.notaire)}${line("TVA 8.1 % et frais divers", c.tva + c.divers)}${line("Total cédule", c.total)}</div>` : "")
+      + `<p class="hint">Cédule calculée sur toute l'hypothèque : moins si le vendeur a des cédules à reprendre. Source : calculateur de la <a href="https://notaires-geneve.ch/fr/frais-immobiliers" target="_blank" rel="noopener">Chambre des notaires de Genève</a>.</p>`;
+  }
   $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
   $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`;
@@ -1426,7 +1485,7 @@ async function exportPdf() {
 
     section("Le bien et le financement");
     row("Prix d'achat", chfT(m.P), true);
-    row(`Frais d'achat${S.feesMode === "chf" ? "" : ` (${S.feesPct} %)`}`, chfT(m.fees));
+    row(`Frais d'achat${S.feesMode === "pct" ? ` (${S.feesPct} %)` : S.feesMode === "ge" ? ` (barème notaires GE${S.casatax ? ", Casatax" : ""})` : ""}`, chfT(m.fees));
     // Barre de financement
     ensure(14); y += 1;
     const bw = R - L, segs = [[m.apport, [46, 125, 107], "Fonds propres"], [m.rank1, [31, 79, 134], "1er rang"], [m.rank2, [127, 163, 207], "2e rang"]];
