@@ -413,7 +413,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <div class="fields" id="f-bien"></div>
         <div class="field" id="field-feesGe" hidden>
           <div class="frow"><span class="flabel">Frais d'achat (barème des notaires de Genève)</span><span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span><b class="ge-total" id="ge-total">–</b></div>
-          <label class="check" for="casataxOn"><input type="checkbox" id="casataxOn"><span>Casatax : résidence principale<small>Achat d'au plus CHF 1'394'928 habité au moins 3 ans : droits d'achat réduits de CHF 20'924 au plus, droits de la cédule réduits de moitié.</small></span></label>
+          <label class="check" for="casataxOn"><input type="checkbox" id="casataxOn"><span>Casatax : résidence principale<small id="casataxTxt"></small></span></label>
           <div class="fields" id="f-ced"></div>
           <div class="ge-detail" id="ge-detail"></div>
         </div>
@@ -549,7 +549,11 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <span>Max <b id="m-pmax">–</b></span>
 </div>
 
+<script src="config.js"></script>
 <script>
+// Réglages lisibles dans config.js ; les valeurs écrites ici servent de repli si le fichier manque
+const CFG = window.SIMU_CONFIG || {};
+
 const CANTONS = {
   GE: { label: "Genève",    fees: 5.0, alloc: 311 },
   VD: { label: "Vaud",      fees: 4.5, alloc: 322 },
@@ -576,6 +580,8 @@ const DEFAULTS = {
   solo: false, p2saved: null,
   apportSel: null
 };
+if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
+Object.assign(DEFAULTS, CFG.exemple || {}, CFG.banque || {});
 const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -648,6 +654,7 @@ const F = {
 const ALL = Object.values(F).flat();
 const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
+for (const [id, b] of Object.entries(CFG.curseurs || {})) if (BY[id]) Object.assign(BY[id], b);
 
 const KEY = "simu-hypo-ch-v1";
 let S = { ...DEFAULTS };
@@ -723,7 +730,7 @@ for (const [group, list] of Object.entries(F)) $("f-" + group).innerHTML = list.
 }
 
 // Repère Casatax (Genève) sur le curseur du prix, à titre indicatif
-const CASATAX = 1394928;
+const CASATAX = CFG.geneve?.casatax?.plafondPrix ?? 1394928;
 {
   const r = $("rg-price"), w = document.createElement("div"), f = BY.price;
   w.className = "rwrap"; r.before(w); w.append(r);
@@ -864,9 +871,15 @@ $("reset").addEventListener("click", () => {
 
 /* ---------- Modèle ---------- */
 // Frais d'achat à Genève selon le calculateur de la Chambre des notaires (notaires-geneve.ch/fr/frais-immobiliers)
-const CASATAX_RED = 20924;   // réduction max. des droits d'enregistrement sur l'achat (2026)
-const NOT_VENTE = [[2e5, .007], [4e5, .006], [8e5, .0045], [1e6, .004], [1.5e6, .0035], [2e6, .003], [3.5e6, .0025], [5e6, .002], [7.5e6, .0015], [Infinity, .001]];
-const NOT_CEDULE = [[2e5, .005], [5e5, .004], [2e6, .003], [5e6, .002], [Infinity, .001]];
+const GE_CFG = CFG.geneve || {};
+const trancheList = (list, repli) => Array.isArray(list) ? list.map(t => [t.jusqua ?? Infinity, t.pourMille / 1000]) : repli;
+const CASATAX_RED = GE_CFG.casatax?.reductionAchat ?? 20924;            // réduction max. des droits sur l'achat
+const CED_RED = (GE_CFG.casatax?.reductionCedulePct ?? 50) / 100;       // réduction des droits de la cédule
+const NOT_VENTE = trancheList(GE_CFG.vente?.notaire, [[2e5, .007], [4e5, .006], [8e5, .0045], [1e6, .004], [1.5e6, .0035], [2e6, .003], [3.5e6, .0025], [5e6, .002], [7.5e6, .0015], [Infinity, .001]]);
+const NOT_CEDULE = trancheList(GE_CFG.cedule?.notaire, [[2e5, .005], [5e5, .004], [2e6, .003], [5e6, .002], [Infinity, .001]]);
+const GE_V = { droits: GE_CFG.vente?.droitsPct ?? 3, rf: GE_CFG.vente?.registreFoncierPct ?? 0.21, rfMax: GE_CFG.vente?.registreFoncierMax ?? 40000, min: GE_CFG.vente?.notaireMin ?? 200 };
+const GE_C = { droits: GE_CFG.cedule?.droitsPct ?? 1.365, rf: GE_CFG.cedule?.registreFoncierPct ?? 0.085, rfMax: GE_CFG.cedule?.registreFoncierMax ?? 20000, min: GE_CFG.cedule?.notaireMin ?? 100 };
+const GE_TVA = GE_CFG.tvaPct ?? 8.1, GE_DIVERS = GE_CFG.fraisDivers ?? 1000;
 function tranches(v, t) {
   let f = 0, lo = 0;
   for (const [hi, r] of t) { if (v > lo) f += (Math.min(v, hi) - lo) * r; lo = hi; }
@@ -874,14 +887,14 @@ function tranches(v, t) {
 }
 function feesGE(P, C, casatax) {
   const rf = (v, r, max) => Math.min(Math.ceil(v / 1000) * 1000 * r, max);   // registre foncier, arrondi au millier supérieur
-  const nV = Math.max(200, tranches(P, NOT_VENTE));
-  const vente = { droits: 0.03 * P, red: casatax && P <= CASATAX ? Math.min(0.03 * P, CASATAX_RED) : 0, rf: rf(P, 0.0021, 40000), notaire: nV, tva: 0.081 * (nV + 1000), divers: 1000 };
+  const nV = Math.max(GE_V.min, tranches(P, NOT_VENTE)), dV = GE_V.droits / 100 * P;
+  const vente = { droits: dV, red: casatax && P <= CASATAX ? Math.min(dV, CASATAX_RED) : 0, rf: rf(P, GE_V.rf / 100, GE_V.rfMax), notaire: nV, tva: GE_TVA / 100 * (nV + GE_DIVERS), divers: GE_DIVERS };
   vente.total = vente.droits - vente.red + vente.rf + vente.notaire + vente.tva + vente.divers;
   let ced = { montant: 0, total: 0 };
   if (C > 0) {
-    const nC = Math.max(100, tranches(C, NOT_CEDULE)), dC = 0.01365 * C;
+    const nC = Math.max(GE_C.min, tranches(C, NOT_CEDULE)), dC = GE_C.droits / 100 * C;
     // LDE 8A al. 2 : moitié des droits de la cédule, plafond apprécié sur le prix d'achat (al. 1)
-    ced = { montant: C, droits: dC, red: casatax && P <= CASATAX ? dC / 2 : 0, rf: rf(C, 0.00085, 20000), notaire: nC, tva: 0.081 * (nC + 1000), divers: 1000 };
+    ced = { montant: C, droits: dC, red: casatax && P <= CASATAX ? dC * CED_RED : 0, rf: rf(C, GE_C.rf / 100, GE_C.rfMax), notaire: nC, tva: GE_TVA / 100 * (nC + GE_DIVERS), divers: GE_DIVERS };
     ced.total = ced.droits - ced.red + ced.rf + ced.notaire + ced.tva + ced.divers;
   }
   return { vente, ced, total: vente.total + ced.total };
@@ -1054,8 +1067,8 @@ function update(skip) {
       : "Montant des cédules existantes que vous reprenez au vendeur. Laissez 0 pour en créer une nouvelle sur toute l'hypothèque.";
     const v = m.feeGE.vente, c = m.feeGE.ced, line = (n, x) => `<span>${n}</span><b>${chf(x)}</b>`;
     $("ge-total").textContent = `${chf(m.fees)} · ${pc(m.fees / m.P)}`;
-    $("ge-detail").innerHTML = `<div class="ge-col"><h4>Acte de vente</h4>${line("Droits d'enregistrement 3 %", v.droits)}${v.red ? line("Réduction Casatax", -v.red) : ""}${line("Registre foncier 0.21 %", v.rf)}${line("Notaire (barème)", v.notaire)}${line("TVA 8.1 % et frais divers", v.tva + v.divers)}${line("Total vente", v.total)}</div>`
-      + (c.montant ? `<div class="ge-col"><h4>Cédule hypothécaire de ${short(c.montant)}</h4>${line("Droits 1.365 %", c.droits)}${c.red ? line("Réduction Casatax (50 %)", -c.red) : ""}${line("Registre foncier 0.085 %", c.rf)}${line("Notaire (barème)", c.notaire)}${line("TVA 8.1 % et frais divers", c.tva + c.divers)}${line("Total cédule", c.total)}</div>` : "")
+    $("ge-detail").innerHTML = `<div class="ge-col"><h4>Acte de vente</h4>${line(`Droits d'enregistrement ${GE_V.droits} %`, v.droits)}${v.red ? line("Réduction Casatax", -v.red) : ""}${line(`Registre foncier ${GE_V.rf} %`, v.rf)}${line("Notaire (barème)", v.notaire)}${line(`TVA ${GE_TVA} % et frais divers`, v.tva + v.divers)}${line("Total vente", v.total)}</div>`
+      + (c.montant ? `<div class="ge-col"><h4>Cédule hypothécaire de ${short(c.montant)}</h4>${line(`Droits ${GE_C.droits} %`, c.droits)}${c.red ? line(`Réduction Casatax (${CED_RED * 100} %)`, -c.red) : ""}${line(`Registre foncier ${GE_C.rf} %`, c.rf)}${line("Notaire (barème)", c.notaire)}${line(`TVA ${GE_TVA} % et frais divers`, c.tva + c.divers)}${line("Total cédule", c.total)}</div>` : "")
       + `<p class="hint">${S.cedReprise > 0 ? "" : "Cédule calculée sur toute l'hypothèque. "}Source : calculateur de la <a href="https://notaires-geneve.ch/fr/frais-immobiliers" target="_blank" rel="noopener">Chambre des notaires de Genève</a>.</p>`;
   }
   $("hint-feesPct").textContent = `Soit ${chf(m.fees)} pour ce prix.`;
@@ -1557,6 +1570,7 @@ const STANDALONE = !(window.claude && window.claude.use);
 if (STANDALONE) { canExport = true; syncExport(); }
 else window.claude.use("downloads").then(d => { DL = d; canExport = !!d; syncExport(); }).catch(() => {});
 
+$("casataxTxt").textContent = `Achat d'au plus ${chf(CASATAX)} habité au moins 3 ans : droits d'achat réduits de ${chf(CASATAX_RED)} au plus, droits de la cédule réduits de ${CED_RED === 0.5 ? "moitié" : CED_RED * 100 + " %"}.`;
 update();
 </script>
 

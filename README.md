@@ -17,6 +17,18 @@ Les chiffres saisis restent dans le navigateur (`localStorage`). Rien n'est envo
 
 Ouvrir `index.html` dans un navigateur. Aucune installation. Sans internet, la page fonctionne avec les polices du système, et l'export PDF passe par l'impression du navigateur.
 
+## Personnaliser
+
+Les valeurs réglables sont dans [`config.js`](config.js), commenté en français :
+
+- les valeurs d'exemple au premier affichage ;
+- les hypothèses de la banque (taux théorique, charges maximales, 1er rang, financement maximal…) ;
+- les cantons (frais d'achat en %, allocations familiales) ;
+- le barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
+- les bornes des curseurs.
+
+Modifiez le fichier en local ou directement sur GitHub, puis rechargez la page. Les nouvelles valeurs d'exemple ne remplacent pas les chiffres déjà saisis dans un navigateur : cliquez « Réinitialiser » pour les voir. Sans `config.js`, la page utilise ses propres valeurs par défaut.
+
 ## Avertissement
 
 Simulation indicative. Les frais d'achat par canton, les allocations familiales et l'impôt sur les retraits sont des ordres de grandeur à vérifier. Cette page ne remplace pas une offre bancaire.
