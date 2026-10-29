@@ -27,7 +27,7 @@ Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par
 - [`cantons.js`](config/cantons.js) : frais d'achat en % et allocations familiales ;
 - [`geneve.js`](config/geneve.js) : barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
 - [`curseurs.js`](config/curseurs.js) : bornes des curseurs.
-- [`textes.js`](config/textes.js) : textes explicatifs (titre, bulles (i), règles appliquées, avertissement du PDF).
+- [`textes.js`](config/textes.js) : textes explicatifs (titre, bulles (i), règles appliquées, avertissement du PDF), en texte simple. C'est leur seule source : sans ce fichier, ces textes n'apparaissent pas.
 
 Si la configuration contient des banques ou des conseillers, un onglet « Ma config » les affiche en lecture seule.
 

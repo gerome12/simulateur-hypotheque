@@ -8,7 +8,8 @@
 //
 // Chaque bulle (i) a un « texte » (paragraphe) et des « points » (liste à puces).
 // Écrivez chaque texte entre guillemets droits "…" et gardez la virgule à la fin.
-// Si un texte est supprimé, la page reprend son texte d'origine.
+// Ce fichier est la seule source de ces textes : supprimer une bulle (i) ici
+// la retire de la page. Pour ajouter une bulle, utilisez le nom du réglage.
 window.SIMU_CONFIG = window.SIMU_CONFIG || {};
 
 SIMU_CONFIG.textes = {
