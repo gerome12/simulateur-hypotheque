@@ -1512,6 +1512,12 @@ function showTab(id) {
     $("tab-" + t).hidden = t !== id;
   }
   $("mbar").hidden = id !== "simu";
+  // En arrivant sur « Ma config », les explications (i) sont refermées
+  if (id === "config") $("tab-config").querySelectorAll(".infobox").forEach(box => {
+    box.hidden = true;
+    const btn = document.querySelector(`button.info[aria-controls="${box.id}"]`);
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  });
   try { localStorage.setItem(KEY + "-tab", id); } catch (e) {}
 }
 $("t-simu").addEventListener("click", () => showTab("simu"));
