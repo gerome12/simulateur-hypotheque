@@ -1,6 +1,8 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>Simulateur hypothécaire suisse</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -624,7 +626,7 @@ if (TH) {
   if (logoSrc) document.querySelector(".brand .cross").outerHTML = `<img class="brand-logo" src="${logoSrc}" alt="${TH.nom || ""}">`;
   if (TH.titre) { document.querySelector(".brand h1").textContent = TH.titre; document.title = TH.titre; }
   // Icône d'onglet du thème (une ou plusieurs tailles)
-  if (TH.favicon) document.querySelectorAll('link[rel="icon"]').forEach(l => l.remove());   // remplace l'icône d'origine
+  if (TH.favicon) document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(l => l.remove());   // remplace l'icône d'origine
   for (const f of [].concat(TH.favicon || [])) {
     const { href, sizes } = typeof f === "string" ? { href: f } : f;
     document.head.insertAdjacentHTML("beforeend", `<link rel="icon" type="image/png" href="${href}"${sizes ? ` sizes="${sizes}"` : ""}>`);
