@@ -19,15 +19,16 @@ Ouvrir `index.html` dans un navigateur. Aucune installation. Sans internet, la p
 
 ## Personnaliser
 
-Les valeurs réglables sont dans [`config.js`](config.js), commenté en français :
+Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par sujet, commentés en français :
 
-- les valeurs d'exemple au premier affichage ;
-- les hypothèses de la banque (taux théorique, charges maximales, 1er rang, financement maximal…) ;
-- les cantons (frais d'achat en %, allocations familiales) ;
-- le barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
-- les bornes des curseurs.
+- [`configs.js`](config/configs.js) : la liste des fichiers chargés par la page, et le mode d'emploi ;
+- [`valeurs-par-defaut.js`](config/valeurs-par-defaut.js) : les valeurs d'exemple au premier affichage ;
+- [`hypotheses-bancaires.js`](config/hypotheses-bancaires.js) : les hypothèses de la banque (taux théorique, charges maximales, 1er rang, financement maximal…) ;
+- [`cantons.js`](config/cantons.js) : frais d'achat en % et allocations familiales ;
+- [`geneve.js`](config/geneve.js) : barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
+- [`curseurs.js`](config/curseurs.js) : bornes des curseurs.
 
-Modifiez le fichier en local ou directement sur GitHub, puis rechargez la page. Les nouvelles valeurs d'exemple ne remplacent pas les chiffres déjà saisis dans un navigateur : cliquez « Réinitialiser » pour les voir. Sans `config.js`, la page utilise ses propres valeurs par défaut.
+Modifiez un fichier en local ou directement sur GitHub, puis rechargez la page. Les nouvelles valeurs d'exemple ne remplacent pas les chiffres déjà saisis dans un navigateur : cliquez « Réinitialiser » pour les voir. Si un fichier manque, la page utilise ses propres valeurs par défaut.
 
 ## Avertissement
 

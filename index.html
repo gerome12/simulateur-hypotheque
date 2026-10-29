@@ -549,9 +549,13 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <span>Max <b id="m-pmax">–</b></span>
 </div>
 
-<script src="config.js"></script>
+<script src="config/configs.js"></script>
 <script>
-// Réglages lisibles dans config.js ; les valeurs écrites ici servent de repli si le fichier manque
+// Charge chaque fichier listé dans config/configs.js, dans l'ordre
+(window.SIMU_CONFIG_FICHIERS || []).forEach(n => { if (/^[a-z0-9-]+$/.test(n)) document.write('<script src="config/' + n + '.js"><\/script>'); });
+</script>
+<script>
+// Réglages lisibles dans le dossier config/ ; les valeurs écrites ici servent de repli si un fichier manque
 const CFG = window.SIMU_CONFIG || {};
 
 const CANTONS = {
@@ -581,7 +585,7 @@ const DEFAULTS = {
   apportSel: null
 };
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
-Object.assign(DEFAULTS, CFG.exemple || {}, CFG.banque || {});
+Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
 const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
