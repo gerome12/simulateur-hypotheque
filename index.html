@@ -1636,7 +1636,9 @@ async function exportPdf() {
     doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...vc); doc.text(label, L + 4, y + 8);
     doc.setTextColor(...INK); doc.text(`Prix ${chfT(m.P)}`, R - 4, y + 8, { align: "right" });
     y += 17;
-    reasons.forEach(r => para("- " + r));
+    // Avec des banques comparées, les raisons et limites dépendent de chaque banque : on ne les écrit pas (comme sur la page)
+    const multi = !!LAST.banks;
+    if (!multi) reasons.forEach(r => para("- " + r));
 
     section("En résumé");
     row("Revenu retenu par la banque", chfT(keys.inc) + " / an", true);
@@ -1644,10 +1646,10 @@ async function exportPdf() {
     row("Charges réelles estimées, amortissement compris", chfT(keys.real) + " / mois", true);
 
     section("Contrôles de la banque");
-    row("Charges théoriques / revenu", `${tx(pc(m.ratio))}  (max ${S.ratioMax} %)`);
-    row("Fonds propres après frais", `${tx(pc(m.eqPct))}  (min ${tx(pc(1 - S.ltvMax / 100, 0))})`);
-    row("Fonds propres hors 2e pilier après frais", `${tx(pc(m.hardPct))}  (min 10 %)`);
-    row("Charges à la retraite", `${tx(pc(m.ratioRet))}  (revenu ${S.retirePct} %)`);
+    row("Charges théoriques / revenu", tx(pc(m.ratio)) + (multi ? "" : `  (max ${S.ratioMax} %)`));
+    row("Fonds propres après frais", tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - S.ltvMax / 100, 0))})`));
+    row("Fonds propres hors 2e pilier après frais", tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
+    row("Charges à la retraite", tx(pc(m.ratioRet)) + (multi ? "" : `  (revenu ${S.retirePct} %)`));
 
     section("Le ménage");
     const persons = S.solo ? [1] : [1, 2];
@@ -1730,14 +1732,14 @@ async function exportPdf() {
 
     y += 4;
     para("Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
-    if (BRAND) {
-      // Pied de page de marque : filet sable, nom et numéro de page
+    // Pied de page sur chaque page : filet (sable avec un thème), nom et numéro de page
+    {
       const n = doc.getNumberOfPages();
       for (let i = 1; i <= n; i++) {
         doc.setPage(i);
-        doc.setDrawColor(...BRAND); doc.setLineWidth(0.4); doc.line(L, 288, R, 288);
+        doc.setDrawColor(...(BRAND || LINE)); doc.setLineWidth(0.4); doc.line(L, 288, R, 288);
         doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
-        doc.text(tx(TH.nom || ""), L, 292);
+        doc.text(tx(TH?.nom || "Simulateur hypothécaire suisse"), L, 292);
         doc.text(`${i} / ${n}`, R, 292, { align: "right" });
       }
     }
