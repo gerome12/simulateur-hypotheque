@@ -38,3 +38,5 @@ window.SIMU_CONFIG_FICHIERS = [
 //   "conseillers"   liste des conseillers : affiche un menu en haut à droite
 //                   et « Document préparé par … » dans le PDF.
 //                   Sans ce fichier, ni menu ni mention.
+//   "theme"         couleurs, polices, logo, favicon et PDF aux couleurs
+//                   d'une société. Sans ce fichier, design d'origine.

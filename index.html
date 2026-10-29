@@ -174,6 +174,8 @@ select, button { font: inherit; }
 .ge-col b:last-of-type, .ge-col span:nth-last-of-type(1) { font-weight: 600; }
 .ge-detail .hint { grid-column: 1 / -1; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.brand-logo { height: 34px; width: auto; flex: none; }
+.theme-foot { margin: 8px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
 .lg-info { display: inline-flex; align-items: center; gap: 6px; }
 .lg-info .info { width: 17px; height: 17px; font-size: 11px; }
 #info-loan { margin: 0 0 12px; }
@@ -559,6 +561,31 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 <script>
 // Réglages lisibles dans le dossier config/ ; les valeurs écrites ici servent de repli si un fichier manque
 const CFG = window.SIMU_CONFIG || {};
+
+// Thème facultatif : couleurs, polices, logo et nom (section « theme » de la configuration)
+const TH = CFG.theme;
+if (TH) {
+  const vars = o => Object.entries(o || {}).map(([k, v]) => `--${k}: ${v};`).join(" ");
+  const fonts = (TH.polices?.titres ? `--font-display: ${TH.polices.titres};` : "") + (TH.polices?.texte ? ` --font-body: ${TH.polices.texte};` : "");
+  let css = `:root { ${vars(TH.couleurs?.clair)} ${fonts} }`;
+  if (TH.couleurs?.sombre) css += ` @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${vars(TH.couleurs.sombre)} } } :root[data-theme="dark"] { ${vars(TH.couleurs.sombre)} }`;
+  // Feuilles de style de polices (un lien ou une liste) et fichiers de police déclarés directement
+  for (const l of [].concat(TH.polices?.lien || [])) document.head.insertAdjacentHTML("beforeend", `<link rel="stylesheet" href="${l}">`);
+  for (const f of TH.polices?.fichiers || []) {
+    const src = [...(f.installee || []).map(n => `local("${n}")`), f.url && `url("${f.url}") format("${f.format || "woff2"}")`].filter(Boolean).join(", ");
+    css += ` @font-face { font-family: "${f.famille}"; src: ${src}; font-weight: ${f.poids || "100 900"}; font-style: normal; font-display: swap; }`;
+  }
+  document.body.insertAdjacentHTML("beforeend", `<style>${css} ${TH.css || ""}</style>`);   // après la feuille de style de la page, pour l'emporter
+  const logoSrc = TH.logoSvg ? "data:image/svg+xml;charset=utf-8," + encodeURIComponent(TH.logoSvg) : TH.logo;
+  if (logoSrc) document.querySelector(".brand .cross").outerHTML = `<img class="brand-logo" src="${logoSrc}" alt="${TH.nom || ""}">`;
+  if (TH.titre) { document.querySelector(".brand h1").textContent = TH.titre; document.title = TH.titre; }
+  // Icône d'onglet du thème (une ou plusieurs tailles)
+  for (const f of [].concat(TH.favicon || [])) {
+    const { href, sizes } = typeof f === "string" ? { href: f } : f;
+    document.head.insertAdjacentHTML("beforeend", `<link rel="icon" type="image/png" href="${href}"${sizes ? ` sizes="${sizes}"` : ""}>`);
+  }
+  if (TH.piedDePage) document.querySelector(".wrap").insertAdjacentHTML("beforeend", `<p class="theme-foot">${TH.piedDePage}</p>`);
+}
 
 const CANTONS = {
   GE: { label: "Genève",    fees: 5.0, alloc: 311 },
@@ -1440,6 +1467,24 @@ function loadJsPDF() {
 const tx = s => String(s).replace(/[  ]/g, " ").replace(/[’‘]/g, "'").replace(/[–—]/g, "-").replace(/<[^>]+>/g, "");
 const chfT = v => tx(chf(v));
 
+// Logo SVG → image PNG pour le PDF ; retourne null si le navigateur refuse la conversion
+async function logoForPdf() {
+  if (!TH?.logoSvg) return null;
+  try {
+    const img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(TH.logoSvg);
+    await img.decode();
+    const vb = (TH.logoSvg.match(/viewBox="([^"]+)"/) || [])[1]?.split(/[\s,]+/).map(Number) || [0, 0, 4, 1];
+    const ratio = vb[2] / vb[3], h = 160, w = Math.round(h * ratio), pad = 40;
+    const c = document.createElement("canvas");
+    c.width = w + pad * 2; c.height = h + pad * 2;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = TH.logoFond || "#1B1B1B"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, pad, pad, w, h);
+    return { data: c.toDataURL("image/png"), ratio: c.width / c.height };
+  } catch (e) { return null; }
+}
+
 async function exportPdf() {
   const btn = $("export"), old = btn.textContent;
   btn.disabled = true; btn.textContent = "Préparation…";
@@ -1459,12 +1504,15 @@ async function exportPdf() {
     const { m, sol, req, reasons, status, label, keys } = LAST;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const L = 18, R = 192, INK = [21, 25, 30], MUTED = [91, 101, 112], LINE = [220, 225, 230];
+    // Couleurs de marque du thème (sable et anthracite pour Qlear) ; sans thème, le PDF garde ses couleurs
+    const rgbOf = h => { const x = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(x.slice(i, i + 2), 16)); };
+    const BRAND = TH?.pdfCouleur ? rgbOf(TH.pdfCouleur) : null, DARK = TH?.logoFond ? rgbOf(TH.logoFond) : INK;
     let y = 18;
     const ensure = h => { if (y + h > 282) { doc.addPage(); y = 18; } };
     const section = title => {
       ensure(16); y += 5;
-      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...INK); doc.text(tx(title), L, y);
-      y += 2; doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 5;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...(BRAND ? DARK : INK)); doc.text(tx(title), L, y);
+      y += 2; doc.setDrawColor(...(BRAND || LINE)); doc.setLineWidth(BRAND ? 0.6 : 0.3); doc.line(L, y, R, y); y += 5;
     };
     const row = (lab, val, bold) => {
       ensure(6);
@@ -1480,10 +1528,28 @@ async function exportPdf() {
     };
 
     // En-tête
-    doc.setFillColor(213, 43, 30); doc.rect(L, y - 6, 9, 9, "F");
-    doc.setFillColor(255, 255, 255); doc.rect(L + 3.6, y - 4.6, 1.8, 6.2, "F"); doc.rect(L + 1.4, y - 2.4, 6.2, 1.8, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...INK);
-    doc.text("Simulation d'achat immobilier", L + 13, y + 1);
+    const logo = await logoForPdf();
+    if (logo) {
+      // Thème : bandeau anthracite avec le logo, filet sable en dessous
+      doc.setFillColor(...DARK); doc.rect(0, 0, 210, 30, "F");
+      const lh = 14, lw = lh * logo.ratio;
+      doc.addImage(logo.data, "PNG", L - 3, 8, lw, lh);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(255, 255, 255);
+      doc.text("Simulation d'achat immobilier", R, 17.5, { align: "right" });
+      if (BRAND) { doc.setFillColor(...BRAND); doc.rect(0, 30, 210, 1.2, "F"); }
+      y = 32;
+    } else if (TH?.nom) {
+      // Thème : nom en couleur de marque à la place de la croix suisse
+      const hex = (TH.pdfCouleur || "#15191E").replace("#", ""), rgb = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
+      doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...rgb); doc.text(tx(TH.nom), L, y + 1);
+      const w = doc.getTextWidth(tx(TH.nom)) + 4;
+      doc.setTextColor(...INK); doc.text("Simulation d'achat immobilier", L + w, y + 1);
+    } else {
+      doc.setFillColor(213, 43, 30); doc.rect(L, y - 6, 9, 9, "F");
+      doc.setFillColor(255, 255, 255); doc.rect(L + 3.6, y - 4.6, 1.8, 6.2, "F"); doc.rect(L + 1.4, y - 2.4, 6.2, 1.8, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...INK);
+      doc.text("Simulation d'achat immobilier", L + 13, y + 1);
+    }
     y += 8;
     para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · Canton : ${CANTONS[S.canton].label}`);
     const adv = ADVISORS.find(a => a.nom === S.conseiller);
@@ -1542,7 +1608,7 @@ async function exportPdf() {
     row(`Frais d'achat${S.feesMode === "pct" ? ` (${S.feesPct} %)` : S.feesMode === "ge" ? ` (barème notaires GE${S.casatax ? ", Casatax" : ""})` : ""}`, chfT(m.fees));
     // Barre de financement
     ensure(14); y += 1;
-    const bw = R - L, segs = [[m.apport, [46, 125, 107], "Fonds propres"], [m.rank1, [31, 79, 134], "1er rang"], [m.rank2, [127, 163, 207], "2e rang"]];
+    const bw = R - L, segs = [[m.apport, [46, 125, 107], "Fonds propres"], [m.rank1, BRAND ? DARK : [31, 79, 134], "1er rang"], [m.rank2, BRAND || [127, 163, 207], "2e rang"]];
     let x = L;
     segs.forEach(([v, c]) => { const w = v / m.P * bw; if (w > 0) { doc.setFillColor(...c); doc.rect(x, y, w, 6, "F"); x += w; } });
     y += 10;
@@ -1585,6 +1651,17 @@ async function exportPdf() {
 
     y += 4;
     para("Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
+    if (BRAND) {
+      // Pied de page de marque : filet sable, nom et numéro de page
+      const n = doc.getNumberOfPages();
+      for (let i = 1; i <= n; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(...BRAND); doc.setLineWidth(0.4); doc.line(L, 288, R, 288);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+        doc.text(tx(TH.nom || ""), L, 292);
+        doc.text(`${i} / ${n}`, R, 292, { align: "right" });
+      }
+    }
 
     const name = `simulation-hypotheque-${new Date().toISOString().slice(0, 10)}.pdf`;
     if (DL) await DL.save({ filename: name, data: doc.output("blob") });
