@@ -595,9 +595,10 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 const CFG = window.SIMU_CONFIG || {};
 // Textes explicatifs (config/textes.js) ; sans ce fichier, les textes écrits dans la page restent
 const TXT = CFG.textes || {};
-// Mise en forme des textes simples : **gras**, 1er / 2e en exposant, espace insécable avant %
+// Mise en forme des textes simples : **gras**, 1er / 2e en exposant, espaces insécables (avant % et « ans », après 1er / 2e)
 const fmtTxt = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))
-  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\b1er\b/g, "1<sup>er</sup>").replace(/\b(\d+)e\b/g, "$1<sup>e</sup>").replace(/ %/g, "&nbsp;%");
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\b1er\b/g, "1<sup>er</sup>").replace(/\b(\d+)e\b/g, "$1<sup>e</sup>").replace(/ %/g, "&nbsp;%")
+  .replace(/(<sup>e?r?<\/sup>) /g, "$1&nbsp;").replace(/ ans\b/g, "&nbsp;ans");
 // Une bulle : { texte, points } → paragraphe + liste à puces
 const blocTxt = a => (a.texte ? `<p>${fmtTxt(a.texte)}</p>` : "") + (a.points?.length ? `<ul>${a.points.map(p => `<li>${fmtTxt(p)}</li>`).join("")}</ul>` : "");
 const AIDE = Object.fromEntries(Object.entries(TXT.aide || {}).filter(([, v]) => v && typeof v === "object").map(([k, v]) => [k, blocTxt(v)]));

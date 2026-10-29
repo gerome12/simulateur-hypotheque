@@ -4,7 +4,7 @@
 // Mise en forme automatique :
 //   **mot**       → en gras
 //   1er, 2e, 3e   → « er » et « e » en exposant
-//   5 %           → l'espace avant % ne coupe pas la ligne
+//   5 %, 15 ans, 2e pilier → ces espaces ne coupent pas la ligne
 //
 // Chaque bulle (i) a un « texte » (paragraphe) et des « points » (liste à puces).
 // Écrivez chaque texte entre guillemets droits "…" et gardez la virgule à la fin.
