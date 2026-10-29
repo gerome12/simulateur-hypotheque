@@ -320,6 +320,12 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 .cfg-fixed { flex: none; box-shadow: 1px 0 0 var(--line); }
 .cfg-fixed .cfg td, .cfg-fixed .cfg th { text-align: left !important; padding-right: 12px; }
 .cfg-scroll { flex: 1; min-width: 0; }
+/* Téléphone : colonne des noms limitée, noms longs raccourcis (« … »), pour laisser voir les valeurs */
+@media (max-width: 520px) {
+  .cfg-fixed .cfg td, .cfg-fixed .cfg th { max-width: 112px; overflow: hidden; text-overflow: ellipsis; }
+  .cfg-fixed .cfg small { display: none; }
+  .tabs button { padding: 10px 8px; font-size: 13px; }
+}
 .cfg-scroll .cfg { width: 100%; }
 .cfg th, .cfg td { height: 36px; box-sizing: border-box; vertical-align: middle; }
 .cfg tr.ref td { background: var(--accent-soft); }
@@ -1745,7 +1751,7 @@ if (BANKS) {
   $("hyp-lead").textContent = "Vos propres hypothèses : elles servent aux charges, au graphique du taux d'effort et à « Ce qui est possible », et figurent en tête de la liste des banques.";
   $("banks").hidden = false;
   document.querySelector(".verdict").classList.add("multi");
-  document.querySelector(".brand .sub").textContent = `Votre projet comparé aux critères de ${BANKS.length} banques : fonds propres, 1er et 2e rang, charges théoriques.`;
+  document.querySelector(".brand .sub").innerHTML = fmtTxt(`Votre projet comparé aux critères de ${BANKS.length} banques : fonds propres, 1er et 2e rang, charges théoriques.`);
 }
 // Conseillers (config.conseillers) : menu en haut à droite, nom repris dans le PDF
 const ADVISORS = Array.isArray(CFG.conseillers) ? CFG.conseillers : [];
