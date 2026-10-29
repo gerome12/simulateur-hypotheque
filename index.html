@@ -875,7 +875,7 @@ const GE_CFG = CFG.geneve || {};
 const trancheList = (list, repli) => Array.isArray(list) ? list.map(t => [t.jusqua ?? Infinity, t.pourMille / 1000]) : repli;
 const CASATAX_RED = GE_CFG.casatax?.reductionAchat ?? 20924;            // réduction max. des droits sur l'achat
 const CED_RED = (GE_CFG.casatax?.reductionCedulePct ?? 50) / 100;       // réduction des droits de la cédule
-const NOT_VENTE = trancheList(GE_CFG.vente?.notaire, [[2e5, .007], [4e5, .006], [8e5, .0045], [1e6, .004], [1.5e6, .0035], [2e6, .003], [3.5e6, .0025], [5e6, .002], [7.5e6, .0015], [Infinity, .001]]);
+const NOT_VENTE = trancheList(GE_CFG.vente?.notaire, [[2e5, .007], [4e5, .006], [8e5, .0045], [1e6, .004], [1.5e6, .0035], [2e6, .003], [3.5e6, .0025], [5e6, .002], [7.5e6, .0015], [1e7, .001], [2e7, .00075], [Infinity, .0005]]);
 const NOT_CEDULE = trancheList(GE_CFG.cedule?.notaire, [[2e5, .005], [5e5, .004], [2e6, .003], [5e6, .002], [Infinity, .001]]);
 const GE_V = { droits: GE_CFG.vente?.droitsPct ?? 3, rf: GE_CFG.vente?.registreFoncierPct ?? 0.21, rfMax: GE_CFG.vente?.registreFoncierMax ?? 40000, min: GE_CFG.vente?.notaireMin ?? 200 };
 const GE_C = { droits: GE_CFG.cedule?.droitsPct ?? 1.365, rf: GE_CFG.cedule?.registreFoncierPct ?? 0.085, rfMax: GE_CFG.cedule?.registreFoncierMax ?? 20000, min: GE_CFG.cedule?.notaireMin ?? 100 };

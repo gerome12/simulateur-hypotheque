@@ -111,8 +111,10 @@ window.SIMU_CONFIG = {
         { jusqua: 2000000, pourMille: 3 },
         { jusqua: 3500000, pourMille: 2.5 },
         { jusqua: 5000000, pourMille: 2 },
-        { jusqua: 7500000, pourMille: 1.5 },
-        { jusqua: null,    pourMille: 1 }
+        { jusqua: 7500000,  pourMille: 1.5 },
+        { jusqua: 10000000, pourMille: 1 },
+        { jusqua: 20000000, pourMille: 0.75 },
+        { jusqua: null,     pourMille: 0.5 }
       ]
     },
     cedule: {
