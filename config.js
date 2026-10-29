@@ -45,6 +45,8 @@ window.SIMU_CONFIG = {
     cash2: 70000,  lpp2: 40000, p3a2: 15000,
     gift: 0,                      // donation / avance d'hoirie
     taxPct: 6,                    // impôt estimé sur les retraits de 2e et 3e pilier, en %
+    taxMode: "pct",              // impôt saisi en "pct" (%) ou en "chf" (montant)
+    taxChf: 8400,                 // impôt estimé en CHF (mode "chf")
     reserve: 0,                   // réserve gardée de côté
 
     // Le bien
