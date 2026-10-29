@@ -33,3 +33,8 @@ window.SIMU_CONFIG_FICHIERS = [
   "geneve",                 // barème des notaires de Genève et Casatax
   "curseurs"                // bornes des curseurs
 ];
+
+// Fichiers facultatifs, à ajouter à la liste ci-dessus s'ils existent :
+//   "conseillers"   liste des conseillers : affiche un menu en haut à droite
+//                   et « Document préparé par … » dans le PDF.
+//                   Sans ce fichier, ni menu ni mention.

@@ -333,6 +333,8 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
     </div>
     <div class="top-actions">
       <span class="example" id="exampleTag">Chiffres d'exemple</span>
+      <label for="conseiller" class="sr">Conseiller</label>
+      <select id="conseiller" class="canton" hidden></select>
       <label for="canton" class="sr">Canton</label>
       <select id="canton" class="canton"></select>
       <button class="btn primary" id="export" type="button" hidden>Exporter en PDF</button>
@@ -582,7 +584,8 @@ const DEFAULTS = {
   name1: "Personne 1", name2: "Personne 2",
   feesMode: "ge", feesChf: 60000, casatax: true, cedReprise: 0,
   solo: false, p2saved: null,
-  apportSel: null
+  apportSel: null,
+  conseiller: ""
 };
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
@@ -886,7 +889,7 @@ const RATE_KEYS = [...F.rates, ...F.eqg].map(f => f.id);
 $("reset").addEventListener("click", () => {
   const keep = Object.fromEntries(RATE_KEYS.map(k => [k, TAB === "rates" ? DEFAULTS[k] : S[k]]));
   if (TAB === "rates") Object.assign(S, keep);
-  else { S = { ...DEFAULTS, ...keep }; touched = false; }
+  else { S = { ...DEFAULTS, ...keep, conseiller: S.conseiller }; touched = false; }   // le conseiller choisi reste sélectionné
   update();
 });
 
@@ -1483,6 +1486,8 @@ async function exportPdf() {
     doc.text("Simulation d'achat immobilier", L + 13, y + 1);
     y += 8;
     para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · Canton : ${CANTONS[S.canton].label}`);
+    const adv = ADVISORS.find(a => a.nom === S.conseiller);
+    if (adv) para(`Document préparé par ${[adv.nom, adv.fonction, adv.email, adv.telephone].filter(Boolean).join(" · ")}`, INK);
 
     // Verdict
     y += 2; ensure(16);
@@ -1598,6 +1603,15 @@ const STANDALONE = !(window.claude && window.claude.use);
 if (STANDALONE) { canExport = true; syncExport(); }
 else window.claude.use("downloads").then(d => { DL = d; canExport = !!d; syncExport(); }).catch(() => {});
 
+// Conseillers (config.conseillers) : menu en haut à droite, nom repris dans le PDF
+const ADVISORS = Array.isArray(CFG.conseillers) ? CFG.conseillers : [];
+if (ADVISORS.length) {
+  const sel = $("conseiller");
+  sel.innerHTML = `<option value="">Conseiller…</option>` + ADVISORS.map(a => `<option value="${esc(a.nom)}">${esc(a.nom)}</option>`).join("");
+  sel.value = ADVISORS.some(a => a.nom === S.conseiller) ? S.conseiller : "";
+  sel.hidden = false;
+  sel.addEventListener("change", () => { S.conseiller = sel.value; update(); });
+}
 $("casataxTxt").textContent = `Achat d'au plus ${chf(CASATAX)} habité au moins 3 ans : droits d'achat réduits de ${chf(CASATAX_RED)} au plus, droits de la cédule réduits de ${CED_RED === 0.5 ? "moitié" : CED_RED * 100 + " %"}.`;
 update();
 </script>
