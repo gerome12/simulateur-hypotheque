@@ -1,5 +1,6 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>Simulateur hypothécaire suisse</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,13 +122,13 @@ select, button { font: inherit; }
 
 .field { padding: 10px 0 12px; border-top: 1px solid var(--line); min-width: 0; }
 .duo .field:nth-child(-n+2), .fields > .field:first-child { border-top: 0; }
-.frow { display: flex; justify-content: space-between; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.frow { display: flex; justify-content: flex-start; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
 .frow label { font-size: 13.5px; font-weight: 500; }
-.num { display: flex; align-items: baseline; gap: 4px; flex: none; }
+.num { display: flex; align-items: baseline; gap: 4px; flex: none; margin-left: auto; }   /* reste à droite, même quand il passe à la ligne */
 .num input { width: 110px; text-align: right; font-family: var(--font-data); font-size: 14px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; }
 .num input:disabled { opacity: .75; border-style: dashed; }
 .num .unit { font-size: 12px; color: var(--muted); min-width: 34px; }
-.frow label + .info { margin-right: auto; margin-left: -4px; }
+.frow label + .info { margin-left: -4px; }
 .info { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 600 12px/1 Georgia, "Times New Roman", serif; cursor: pointer; padding: 0; }
 .info:hover, .info[aria-expanded="true"] { border-color: var(--accent); color: var(--surface); background: var(--accent); }
 .infobox { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 13px; line-height: 1.5; max-width: 70ch; }
@@ -137,6 +138,9 @@ select, button { font: inherit; }
 .seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
 .seg + .num { margin-left: 0; }
+/* Sélecteur % / CHF et case du montant restent ensemble, à droite */
+.ctl { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
+.ctl .seg, .ctl .num { margin-left: 0; }
 .rwrap { position: relative; }
 .rwrap:has(.casatax:not([hidden])) { padding-bottom: 16px; }
 .casatax { position: absolute; top: 5px; left: calc(8px + var(--p) * (100% - 16px)); transform: translateX(-1px); pointer-events: none; display: grid; justify-items: start; gap: 1px; }
@@ -614,6 +618,7 @@ if (TH) {
   if (logoSrc) document.querySelector(".brand .cross").outerHTML = `<img class="brand-logo" src="${logoSrc}" alt="${TH.nom || ""}">`;
   if (TH.titre) { document.querySelector(".brand h1").textContent = TH.titre; document.title = TH.titre; }
   // Icône d'onglet du thème (une ou plusieurs tailles)
+  if (TH.favicon) document.querySelectorAll('link[rel="icon"]').forEach(l => l.remove());   // remplace l'icône d'origine
   for (const f of [].concat(TH.favicon || [])) {
     const { href, sizes } = typeof f === "string" ? { href: f } : f;
     document.head.insertAdjacentHTML("beforeend", `<link rel="icon" type="image/png" href="${href}"${sizes ? ` sizes="${sizes}"` : ""}>`);
@@ -751,7 +756,7 @@ const INFO = AIDE;
 function fieldHTML(f) {
   return `<div class="field" id="field-${f.id}">
     <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="Explication : ${f.label}">i</button>` : ""}
-      ${f.segTax ? `<span class="seg seg-tax" role="group" aria-label="Saisir l'impôt en"><button type="button" data-tm="pct">%</button><button type="button" data-tm="chf">CHF</button></span>` : ""}${f.seg ? `<span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></div>
+      <span class="ctl">${f.segTax ? `<span class="seg seg-tax" role="group" aria-label="Saisir l'impôt en"><button type="button" data-tm="pct">%</button><button type="button" data-tm="chf">CHF</button></span>` : ""}${f.seg ? `<span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></span></div>
     ${NO_RANGE.has(f.id) ? "" : `<input id="rg-${f.id}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" aria-label="${f.who ? f.who + " – " : ""}${f.label}">`}
     ${f.hint || f.dyn ? `<p class="hint" id="hint-${f.id}">${f.hint || ""}</p>` : ""}
     ${INFO[f.id] ? `<div class="infobox" id="info-${f.id}" hidden>${INFO[f.id]}</div>` : ""}
@@ -1273,7 +1278,8 @@ function chartSize(svg, H0) {
   let raf = 0;
   const ro = new ResizeObserver(entries => {
     let changed = false;
-    for (const en of entries) { const w = Math.round(en.contentRect.width); if (w && widths.get(en.target) !== w) { widths.set(en.target, w); changed = true; } }
+    // La largeur 0 (onglet caché) est aussi mémorisée : au retour sur l'onglet, le graphique est redessiné à la bonne largeur
+    for (const en of entries) { const w = Math.round(en.contentRect.width); if (widths.get(en.target) !== w) { widths.set(en.target, w); if (w) changed = true; } }
     if (changed && !raf) raf = requestAnimationFrame(() => { raf = 0; update(); });
   });
   document.querySelectorAll(".chartwrap").forEach(el => ro.observe(el));
