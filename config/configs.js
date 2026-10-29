@@ -31,7 +31,8 @@ window.SIMU_CONFIG_FICHIERS = [
   "hypotheses-bancaires",   // hypothèses de la banque par défaut
   "cantons",                // frais d'achat et allocations par canton
   "geneve",                 // barème des notaires de Genève et Casatax
-  "curseurs"                // bornes des curseurs
+  "curseurs",               // bornes des curseurs
+  "textes"                  // textes explicatifs : titre, bulles (i), règles, avertissement du PDF
 ];
 
 // Fichiers facultatifs, à ajouter à la liste ci-dessus s'ils existent :

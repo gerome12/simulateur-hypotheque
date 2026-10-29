@@ -533,7 +533,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <section class="panel">
         <details class="rules">
           <summary>Règles appliquées et limites du modèle</summary>
-          <ul>
+          <ul id="rules-list">
             <li>Hypothèque max. 80&nbsp;% du prix. 1<sup>er</sup> rang jusqu'à env. 2/3 du prix, sans amortissement obligatoire. 2<sup>e</sup> rang amorti linéairement en 15 ans, ou avant l'âge de la retraite si c'est plus tôt.</li>
             <li>Charges théoriques = intérêts au taux théorique (5&nbsp;%) + amortissement du 2<sup>e</sup> rang + entretien et frais (≈ 1&nbsp;% du prix) + autres charges (leasing, pensions). Elles doivent rester sous 33&nbsp;% du revenu brut retenu.</li>
             <li>Fonds propres : au moins 20&nbsp;% du prix, dont 10&nbsp;% hors 2<sup>e</sup> pilier. Les frais d'achat (droits de mutation, notaire, registre foncier, cédule) s'ajoutent et ne sont pas financés.</li>
@@ -593,6 +593,12 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 <script>
 // Réglages lisibles dans le dossier config/ ; les valeurs écrites ici servent de repli si un fichier manque
 const CFG = window.SIMU_CONFIG || {};
+// Textes explicatifs (config/textes.js) ; sans ce fichier, les textes écrits dans la page restent
+const TXT = CFG.textes || {};
+if (TXT.titre) { document.querySelector(".brand h1").innerHTML = TXT.titre; document.title = document.querySelector(".brand h1").textContent; }
+if (TXT.sousTitre) document.querySelector(".brand .sub").innerHTML = TXT.sousTitre;
+if (TXT.aide?.hypothequeTotale) document.getElementById("info-loan").innerHTML = TXT.aide.hypothequeTotale;
+if (Array.isArray(TXT.regles)) document.getElementById("rules-list").innerHTML = TXT.regles.map(r => `<li>${r}</li>`).join("");
 
 // Thème facultatif : couleurs, polices, logo et nom (section « theme » de la configuration)
 const TH = CFG.theme;
@@ -744,7 +750,7 @@ const decimals = step => (String(step).split(".")[1] || "").length;
 const fmtField = (f, v) => { const d = decimals(f.step); return d ? Number(v).toFixed(d) : nf.format(Math.round(v)); };
 
 /* ---------- Construction du formulaire ---------- */
-const INFO = {
+const INFO = Object.assign({
   maintPct: `<p>Forfait que la banque ajoute aux charges pour l'entretien, les réparations et les frais du logement : chauffage, eau, assurance du bâtiment, taxes, charges PPE et fonds de rénovation.</p>
     <ul><li>Le plus souvent 1&nbsp;% du prix par an. Certaines banques prennent 0,7 à 0,8&nbsp;%, ou calculent sur la valeur du bâtiment seul.</li>
     <li>Il sert au contrôle « Charges / revenu ». Pour votre budget, indiquez vos vraies charges dans « Coût réel ».</li></ul>`,
@@ -776,7 +782,7 @@ const INFO = {
       <li><b>Impôt</b> : dépend du canton. Beaucoup exonèrent les dons aux enfants, pas tous et parfois au-delà d'un seuil seulement.</li>
       <li><b>Couple</b> : marié, le don reste le bien propre de celui qui le reçoit. Non marié, la répartition de la propriété compte. Dans les deux cas, gardez une trace écrite de qui a apporté quoi.</li>
     </ul>`
-};
+}, TXT.aide || {});
 function fieldHTML(f) {
   return `<div class="field" id="field-${f.id}">
     <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="Explication : ${f.label}">i</button>` : ""}
@@ -1733,7 +1739,7 @@ async function exportPdf() {
     }
 
     y += 4;
-    para("Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
+    para(TXT.avertissementPdf ? TXT.avertissementPdf.replace(/<[^>]+>/g, "") : "Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
     // Pied de page sur chaque page : filet (sable avec un thème), nom et numéro de page
     {
       const n = doc.getNumberOfPages();
