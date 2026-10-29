@@ -307,12 +307,17 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 .rates { display: grid; gap: 16px; max-width: 900px; }
 #tab-config { max-width: 1100px; }
 .cfg th, .cfg td { white-space: nowrap; }
-.cfg th:not(:first-child), .cfg td:not(:first-child) { padding-left: 16px; }
-.cfg td:not(:first-child), .cfg th:not(:first-child) { text-align: right; }
+.cfg-scroll .cfg th, .cfg-scroll .cfg td { padding-left: 16px; font-family: var(--font-data); }
+.cfg-scroll .cfg th { font-family: inherit; }
+.cfg-scroll .cfg td, .cfg-scroll .cfg th { text-align: right; }
 .cfg td.inh { color: var(--muted); opacity: .7; }
-/* Colonne du nom fixe quand le tableau défile horizontalement */
-.cfg th:first-child, .cfg td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); padding-right: 12px; box-shadow: 1px 0 0 var(--line); }
-.cfg tr.ref td:first-child { background: var(--accent-soft); }
+/* Colonne du nom à part ; seule la zone de droite défile */
+.cfg-split { display: flex; align-items: flex-start; min-width: 0; }
+.cfg-fixed { flex: none; box-shadow: 1px 0 0 var(--line); }
+.cfg-fixed .cfg td, .cfg-fixed .cfg th { text-align: left !important; padding-right: 12px; }
+.cfg-scroll { flex: 1; min-width: 0; }
+.cfg-scroll .cfg { width: 100%; }
+.cfg th, .cfg td { height: 36px; box-sizing: border-box; vertical-align: middle; }
 .cfg tr.ref td { background: var(--accent-soft); }
 .cfg tr.ref td small { color: var(--muted); font-weight: 400; }
 .cfg-h { justify-content: flex-start !important; align-items: center !important; }
@@ -1770,23 +1775,27 @@ if (BANKS || ADVISORS.length) {
   // Titre de section avec un (i) qui indique le fichier à modifier
   const head = (titre, id, texte) => `<h2 class="cfg-h">${titre} <button type="button" class="info" aria-controls="info-${id}" aria-expanded="false" aria-label="Où modifier : ${titre}">i</button></h2>
     <div class="infobox" id="info-${id}" hidden>${texte}</div>`;
+  // Tableau en deux parties : colonne du nom fixe, autres colonnes dans une zone qui défile (barre de défilement sous cette zone seulement)
+  const splitTable = (heads, rows) => {
+    const part = (from, to) => `<table class="costs cfg"><thead><tr>${heads.slice(from, to).map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`
+      + rows.map(r => `<tr class="${r.cls || ""}">${r.cells.slice(from, to).map((c, i) => `<td class="${(r.cellCls || [])[from + i] || ""}">${c}</td>`).join("")}</tr>`).join("")
+      + `</tbody></table>`;
+    return `<div class="cfg-split"><div class="cfg-fixed">${part(0, 1)}</div><div class="tablewrap cfg-scroll">${part(1)}</div></div>`;
+  };
   const val = (v, u) => v === undefined || v === null || v === "" ? "–" : `${esc(String(v))}${u ? "&nbsp;" + u : ""}`;
   let html = "";
   if (BANKS) {
     const cols = [["rate", "Taux théorique", "%"], ["ratioMax", "Charges max.", "%"], ["ltvMax", "Financement max.", "%"], ["rank1Pct", "Limite 1<sup>er</sup> rang", "%"],
       ["amortMax", "Amort. 2<sup>e</sup> rang", "ans"], ["maintPct", "Entretien", "%"], ["retireAge", "Retraite", "ans"], ["retirePct", "Revenu à la retraite", "%"]];
-    const row = (nom, b, ref) => `<tr class="${ref ? "ref" : ""}"><td>${nom}</td>` + cols.map(([k, , u]) =>
-      `<td class="${!ref && b[k] === undefined ? "inh" : ""}">${val(b[k] ?? DEFAULTS[k], u)}</td>`).join("") + "</tr>";
+    const row = (nom, b, ref) => ({ cls: ref ? "ref" : "", cells: [nom, ...cols.map(([k, , u]) => val(b[k] ?? DEFAULTS[k], u))],
+      cellCls: ["", ...cols.map(([k]) => !ref && b[k] === undefined ? "inh" : "")] });
     html += `<section class="panel">${head("Banques comparées", "cfg-banques", "Pour ajouter, retirer ou modifier une banque : <code>config/banques.js</code>. Les valeurs de référence se changent dans <code>config/hypotheses-bancaires.js</code>.")}
       <p class="lead">Critères utilisés pour le verdict de chaque banque. En gris : valeur reprise des hypothèses bancaires de référence, la banque ne la précise pas.</p>
-      <div class="tablewrap"><table class="costs cfg"><thead><tr><th>Banque</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>`
-      + row("Hypothèses bancaires <small>(référence)</small>", DEFAULTS, true) + BANKS.map(b => row(esc(b.nom), b, false)).join("")
-      + `</tbody></table></div></section>`;
+      ${splitTable(["Banque", ...cols.map(c => c[1])], [row("Hypothèses bancaires <small>(référence)</small>", DEFAULTS, true), ...BANKS.map(b => row(esc(b.nom), b, false))])}</section>`;
   }
   if (ADVISORS.length) {
-    html += `<section class="panel">${head("Conseillers", "cfg-conseillers", "Pour ajouter, retirer ou modifier un conseiller : <code>config/conseillers.js</code>.")}<div class="tablewrap"><table class="costs cfg"><thead><tr><th>Nom</th><th>Fonction</th><th>E-mail</th><th>Téléphone</th></tr></thead><tbody>`
-      + ADVISORS.map(a => `<tr><td>${esc(a.nom)}</td><td>${val(a.fonction)}</td><td>${val(a.email)}</td><td>${val(a.telephone)}</td></tr>`).join("")
-      + `</tbody></table></div></section>`;
+    html += `<section class="panel">${head("Conseillers", "cfg-conseillers", "Pour ajouter, retirer ou modifier un conseiller : <code>config/conseillers.js</code>.")}${splitTable(["Nom", "Fonction", "E-mail", "Téléphone"],
+      ADVISORS.map(a => ({ cells: [esc(a.nom), val(a.fonction), val(a.email), val(a.telephone)] })))}</section>`;
   }
   html += `<section class="panel"><h2>Fichiers de configuration</h2>
     <p class="lead">Pour modifier ces réglages, éditez les fichiers ci-dessous dans le dossier du simulateur, puis rechargez la page.</p>
