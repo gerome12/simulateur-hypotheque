@@ -176,6 +176,15 @@ select, button { font: inherit; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 .brand-logo { height: 34px; width: auto; flex: none; }
 .theme-foot { margin: 8px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.multi .gauge .mark, .multi .gauge .state { display: none; }
+.multi .gauge .fill { background: var(--accent); }
+.banks { display: grid; gap: 0; }
+.banks h3 { margin: 4px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.bank { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.bank-name { font-weight: 600; }
+.bank.own .bank-name small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.bank.own { background: var(--accent-soft); margin: 0 -10px; padding-inline: 10px; border-radius: 8px; border-top: 0; }
+.bank .pill { font-size: 13px; padding: 3px 10px 3px 8px; }
 .lg-info { display: inline-flex; align-items: center; gap: 6px; }
 .lg-info .info { width: 17px; height: 17px; font-size: 11px; }
 #info-loan { margin: 0 0 12px; }
@@ -296,6 +305,14 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 .tabs button:hover { color: var(--ink); }
 .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .rates { display: grid; gap: 16px; max-width: 900px; }
+#tab-config { max-width: 1100px; }
+.cfg th, .cfg td { white-space: nowrap; }
+.cfg td:not(:first-child), .cfg th:not(:first-child) { text-align: right; }
+.cfg td.inh { color: var(--muted); opacity: .7; }
+.cfg tr.ref td { background: var(--accent-soft); }
+.cfg tr.ref td small { color: var(--muted); font-weight: 400; }
+.cfg-files { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
+.cfg-files code { font-family: var(--font-data); font-size: 12.5px; }
 .gset { border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; margin-bottom: 12px; }
 .gset > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 24px 10px 0; position: relative; font-size: 13.5px; font-weight: 600; }
 .gset > summary::-webkit-details-marker { display: none; }
@@ -347,6 +364,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <nav class="tabs" role="tablist" aria-label="Vues">
     <button type="button" role="tab" id="t-simu" aria-controls="tab-simu" aria-selected="true">Ma simulation</button>
     <button type="button" role="tab" id="t-rates" aria-controls="tab-rates" aria-selected="false">Repères selon le prix</button>
+    <button type="button" role="tab" id="t-config" aria-controls="tab-config" aria-selected="false" hidden>Ma config</button>
   </nav>
 
   <div class="grid" id="tab-simu" role="tabpanel" aria-labelledby="t-simu">
@@ -369,6 +387,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="gauge" id="g-hard"><div class="gt"><span>Fonds propres durs (hors 2<sup>e</sup> pilier)</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
           <div class="gauge" id="g-ret"><div class="gt"><span>Charges à la retraite</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
         </div>
+        <div class="banks" id="banks" hidden></div>
       </div>
     </div>
 
@@ -428,7 +447,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <h2>Hypothèses bancaires</h2>
           <span class="msum" id="h-sum"></span>
         </summary>
-        <p class="lead">Valeurs usuelles. Chaque banque a ses propres curseurs.</p>
+        <p class="lead" id="hyp-lead">Valeurs usuelles. Chaque banque a ses propres curseurs.</p>
         <div class="duo" id="f-hyp"></div>
       </details>
 
@@ -515,6 +534,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
     </div>
   </div>
 
+  <div class="rates" id="tab-config" role="tabpanel" aria-labelledby="t-config" hidden></div>
   <div class="rates" id="tab-rates" role="tabpanel" aria-labelledby="t-rates" hidden>
     <section class="panel">
       <h2>Mensualités selon le prix <small>apport de 20 %</small></h2>
@@ -1035,7 +1055,25 @@ function required(s, m) {
 }
 
 /* ---------- Rendu ---------- */
+// Plusieurs banques (config.banques) : leurs critères remplacent les hypothèses bancaires affichées
+const BANKS = Array.isArray(CFG.banques) && CFG.banques.length ? CFG.banques : null;
+// Verdict d'une situation donnée (les hypothèses d'une banque appliquées aux chiffres saisis)
+function verdict(st) {
+  const m = model(st, st.price), lim = st.ratioMax / 100, minEq = 1 - st.ltvMax / 100;
+  const okRatio = m.ratio <= lim, okEq = m.apport >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
+  const near = okRatio && m.ratio > lim - 0.015;
+  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
+  const why = [];
+  if (!okRatio) why.push(`charges ${pc(m.ratio)} au-delà de ${st.ratioMax} %`);
+  else if (near) why.push(`charges ${pc(m.ratio)}, plafond ${st.ratioMax} %`);
+  if (!okEq) why.push(`fonds propres ${pc(m.eqPct)}, minimum ${pc(minEq, 0)}`);
+  if (!okHard) why.push(`fonds propres hors 2e pilier ${pc(m.hardPct)}, minimum 10 %`);
+  if (!okRet) why.push(`charges à la retraite ${pc(m.ratioRet)}`);
+  return { status, why };
+}
+
 function gauge(id, val, limit, scaleMax, text, sub, state) {
+  if (BANKS) sub = "";   // les limites dépendent de chaque banque : seule la valeur est affichée
   const g = $(id);
   g.className = "gauge st-" + state;
   g.querySelector(".gv").innerHTML = text + (sub ? ` <small>${sub}</small>` : "");
@@ -1080,7 +1118,23 @@ function update(skip) {
   $("k-inc").textContent = chf(income(S));
   $("k-eq").textContent = chf(m.apport + invFees);
   $("k-eq-d").textContent = `apport ${short(m.apport)} + frais ${short(invFees)}`;
-  LAST = { m, sol, req, reasons, status, label };
+  let banks = null;
+  if (BANKS) {
+    banks = BANKS.map(b => {
+      const { nom, ...hyp } = b;
+      return { nom, ...verdict({ ...S, ...hyp }) };
+    });
+    const n = st => banks.filter(b => b.status === st).length, tot = banks.length;
+    const gs = n("ok") ? "ok" : n("warn") ? "warn" : "bad";
+    const gl = n("ok") ? `OK chez ${n("ok")} banque${n("ok") > 1 ? "s" : ""} sur ${tot}` : n("warn") ? `À la limite (${n("warn")} sur ${tot})` : `Pas OK chez les ${tot} banques`;
+    for (const id of ["vpill", "m-pill"]) { $(id).className = "pill " + gs; $(id).textContent = id === "m-pill" ? `${n("ok")}/${tot} OK` : gl; }
+    const lab = { ok: "OK", warn: "À la limite", bad: "Pas OK" };
+    // Vos propres hypothèses bancaires (section réglable), en tête de liste ; elles ne comptent pas dans le résumé
+    banks.unshift({ nom: "Hypothèses bancaires", own: true, ...verdict(S) });
+    $("banks").innerHTML = `<h3>Selon les banques</h3>` + banks.map(b =>
+      `<div class="bank${b.own ? " own" : ""}"><span class="bank-name">${esc(b.nom)}${b.own ? " <small>vos réglages</small>" : ""}</span><span class="pill ${b.status}">${lab[b.status]}</span></div>`).join("");
+  }
+  LAST = { m, sol, req, reasons, status: BANKS ? (banks.some(b => !b.own && b.status === "ok") ? "ok" : banks.some(b => !b.own && b.status === "warn") ? "warn" : "bad") : status, label: BANKS ? $("vpill").textContent : label, banks };
   $("casatax").hidden = S.canton !== "GE";
 
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
@@ -1441,7 +1495,7 @@ const syncExport = () => { $("export").hidden = !canExport || TAB !== "simu"; };
 function showTab(id) {
   TAB = id;
   syncExport();
-  for (const t of ["simu", "rates"]) {
+  for (const t of ["simu", "rates", "config"]) {
     $("t-" + t).setAttribute("aria-selected", t === id);
     $("tab-" + t).hidden = t !== id;
   }
@@ -1450,6 +1504,7 @@ function showTab(id) {
 }
 $("t-simu").addEventListener("click", () => showTab("simu"));
 $("t-rates").addEventListener("click", () => showTab("rates"));
+$("t-config").addEventListener("click", () => showTab("config"));
 try { if (localStorage.getItem(KEY + "-tab") === "rates") showTab("rates"); } catch (e) {}
 
 /* ---------- Export PDF ---------- */
@@ -1634,10 +1689,16 @@ async function exportPdf() {
     crow("Total CHF", lines.reduce((s, l) => s + l[1], 0), lines.reduce((s, l) => s + l[2], 0), true);
     if (S.rent) row("Loyer actuel", chfT(S.rent) + " / mois");
 
-    section("Hypothèses");
-    row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
-    row("Limite 1er rang / financement max.", `${S.rank1Pct} % / ${S.ltvMax} %`);
-    row("Âge de la retraite / revenu à la retraite", `${S.retireAge} ans / ${S.retirePct} %`);
+    if (LAST.banks) {
+      section("Selon les banques");
+      const lab = { ok: "OK", warn: "À la limite", bad: "Pas OK" };
+      LAST.banks.forEach(b => row(b.nom, lab[b.status], b.status === "ok"));
+    } else {
+      section("Hypothèses");
+      row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
+      row("Limite 1er rang / financement max.", `${S.rank1Pct} % / ${S.ltvMax} %`);
+      row("Âge de la retraite / revenu à la retraite", `${S.retireAge} ans / ${S.retirePct} %`);
+    }
 
     section("Ce qui est possible");
     row(`Prix maximum (limité par ${sol.by})`, chfT(sol.pMax), true);
@@ -1680,6 +1741,13 @@ const STANDALONE = !(window.claude && window.claude.use);
 if (STANDALONE) { canExport = true; syncExport(); }
 else window.claude.use("downloads").then(d => { DL = d; canExport = !!d; syncExport(); }).catch(() => {});
 
+if (BANKS) {
+  $("reasons").hidden = true;
+  $("hyp-lead").textContent = "Vos propres hypothèses : elles servent aux charges, au graphique du taux d'effort et à « Ce qui est possible », et figurent en tête de la liste des banques.";
+  $("banks").hidden = false;
+  document.querySelector(".verdict").classList.add("multi");
+  document.querySelector(".brand .sub").textContent = `Votre projet comparé aux critères de ${BANKS.length} banques : fonds propres, 1er et 2e rang, charges théoriques.`;
+}
 // Conseillers (config.conseillers) : menu en haut à droite, nom repris dans le PDF
 const ADVISORS = Array.isArray(CFG.conseillers) ? CFG.conseillers : [];
 if (ADVISORS.length) {
@@ -1688,6 +1756,34 @@ if (ADVISORS.length) {
   sel.value = ADVISORS.some(a => a.nom === S.conseiller) ? S.conseiller : "";
   sel.hidden = false;
   sel.addEventListener("change", () => { S.conseiller = sel.value; update(); });
+}
+
+// Onglet « Ma config » : vue en lecture seule des banques et conseillers configurés (absent sans eux)
+if (BANKS || ADVISORS.length) {
+  const val = (v, u) => v === undefined || v === null || v === "" ? "–" : `${esc(String(v))}${u ? "&nbsp;" + u : ""}`;
+  let html = "";
+  if (BANKS) {
+    const cols = [["rate", "Taux théorique", "%"], ["ratioMax", "Charges max.", "%"], ["ltvMax", "Financement max.", "%"], ["rank1Pct", "Limite 1<sup>er</sup> rang", "%"],
+      ["amortMax", "Amort. 2<sup>e</sup> rang", "ans"], ["maintPct", "Entretien", "%"], ["retireAge", "Retraite", "ans"], ["retirePct", "Revenu à la retraite", "%"]];
+    const row = (nom, b, ref) => `<tr class="${ref ? "ref" : ""}"><td>${nom}</td>` + cols.map(([k, , u]) =>
+      `<td class="${!ref && b[k] === undefined ? "inh" : ""}">${val(b[k] ?? DEFAULTS[k], u)}</td>`).join("") + "</tr>";
+    html += `<section class="panel"><h2>Banques comparées</h2>
+      <p class="lead">Critères utilisés pour le verdict de chaque banque. En gris : valeur reprise des hypothèses bancaires de référence, la banque ne la précise pas.</p>
+      <div class="tablewrap"><table class="costs cfg"><thead><tr><th>Banque</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>`
+      + row("Hypothèses bancaires <small>(référence)</small>", DEFAULTS, true) + BANKS.map(b => row(esc(b.nom), b, false)).join("")
+      + `</tbody></table></div></section>`;
+  }
+  if (ADVISORS.length) {
+    html += `<section class="panel"><h2>Conseillers</h2><div class="tablewrap"><table class="costs cfg"><thead><tr><th>Nom</th><th>Fonction</th><th>E-mail</th><th>Téléphone</th></tr></thead><tbody>`
+      + ADVISORS.map(a => `<tr><td>${esc(a.nom)}</td><td>${val(a.fonction)}</td><td>${val(a.email)}</td><td>${val(a.telephone)}</td></tr>`).join("")
+      + `</tbody></table></div></section>`;
+  }
+  html += `<section class="panel"><h2>Fichiers de configuration</h2>
+    <p class="lead">Pour modifier ces réglages, éditez les fichiers ci-dessous dans le dossier du simulateur, puis rechargez la page.</p>
+    <ul class="cfg-files">${(window.SIMU_CONFIG_FICHIERS || []).map(n => `<li><code>config/${esc(n)}.js</code></li>`).join("")}</ul></section>`;
+  $("tab-config").innerHTML = html;
+  $("t-config").hidden = false;
+  try { if (localStorage.getItem(KEY + "-tab") === "config") showTab("config"); } catch (e) {}
 }
 $("casataxTxt").textContent = `Achat d'au plus ${chf(CASATAX)} habité au moins 3 ans : droits d'achat réduits de ${chf(CASATAX_RED)} au plus, droits de la cédule réduits de ${CED_RED === 0.5 ? "moitié" : CED_RED * 100 + " %"}.`;
 update();

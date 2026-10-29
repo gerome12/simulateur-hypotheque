@@ -28,6 +28,8 @@ Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par
 - [`geneve.js`](config/geneve.js) : barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
 - [`curseurs.js`](config/curseurs.js) : bornes des curseurs.
 
+Si la configuration contient des banques ou des conseillers, un onglet « Ma config » les affiche en lecture seule.
+
 Modifiez un fichier en local ou directement sur GitHub, puis rechargez la page. Les nouvelles valeurs d'exemple ne remplacent pas les chiffres déjà saisis dans un navigateur : cliquez « Réinitialiser » pour les voir. Si un fichier manque, la page utilise ses propres valeurs par défaut.
 
 ## Avertissement
