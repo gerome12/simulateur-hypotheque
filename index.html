@@ -1587,10 +1587,12 @@ async function exportPdf() {
       doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...(BRAND ? DARK : INK)); doc.text(tx(title), L, y);
       y += 2; doc.setDrawColor(...(BRAND || LINE)); doc.setLineWidth(BRAND ? 0.6 : 0.3); doc.line(L, y, R, y); y += 5;
     };
-    const row = (lab, val, bold) => {
+    const row = (lab, val, bold, color) => {
       ensure(6);
+      // Pastille de couleur facultative devant le libellé (légende d'un graphique)
+      if (color) { doc.setFillColor(...color); doc.rect(L, y - 2.9, 3.4, 3.4, "F"); }
       doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(10);
-      doc.setTextColor(...MUTED); doc.text(tx(lab), L, y);
+      doc.setTextColor(...MUTED); doc.text(tx(lab), L + (color ? 5.5 : 0), y);
       doc.setTextColor(...INK); doc.text(tx(val), R, y, { align: "right" });
       y += 5.5;
     };
@@ -1687,7 +1689,7 @@ async function exportPdf() {
     let x = L;
     segs.forEach(([v, c]) => { const w = v / m.P * bw; if (w > 0) { doc.setFillColor(...c); doc.rect(x, y, w, 6, "F"); x += w; } });
     y += 10;
-    segs.forEach(([v, , n]) => row(n, `${chfT(v)}  (${tx(pc(v / m.P, 0))})`));
+    segs.forEach(([v, c, n]) => row(n, `${chfT(v)}  (${tx(pc(v / m.P, 0))})`, false, c));
     if (m.unused > 0) row("Fonds propres non investis (en plus de la réserve)", chfT(m.unused));
     row("Hypothèque totale", `${chfT(m.loan)}  (${tx(pc(m.ltv))} du prix)`, true);
     row("Amortissement du 2e rang", `${m.years} ans`);
