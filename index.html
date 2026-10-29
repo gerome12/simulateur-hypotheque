@@ -1774,7 +1774,7 @@ if (BANKS || ADVISORS.length) {
       ["amortMax", "Amort. 2<sup>e</sup> rang", "ans"], ["maintPct", "Entretien", "%"], ["retireAge", "Retraite", "ans"], ["retirePct", "Revenu à la retraite", "%"]];
     const row = (nom, b, ref) => `<tr class="${ref ? "ref" : ""}"><td>${nom}</td>` + cols.map(([k, , u]) =>
       `<td class="${!ref && b[k] === undefined ? "inh" : ""}">${val(b[k] ?? DEFAULTS[k], u)}</td>`).join("") + "</tr>";
-    html += `<section class="panel">${head("Banques comparées", "cfg-banques", "Pour ajouter, retirer ou modifier une banque : <code>config/banques.js</code>. Les valeurs de référence (en gris) se changent dans <code>config/hypotheses-bancaires.js</code>.")}
+    html += `<section class="panel">${head("Banques comparées", "cfg-banques", "Pour ajouter, retirer ou modifier une banque : <code>config/banques.js</code>. Les valeurs de référence se changent dans <code>config/hypotheses-bancaires.js</code>.")}
       <p class="lead">Critères utilisés pour le verdict de chaque banque. En gris : valeur reprise des hypothèses bancaires de référence, la banque ne la précise pas.</p>
       <div class="tablewrap"><table class="costs cfg"><thead><tr><th>Banque</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>`
       + row("Hypothèses bancaires <small>(référence)</small>", DEFAULTS, true) + BANKS.map(b => row(esc(b.nom), b, false)).join("")
