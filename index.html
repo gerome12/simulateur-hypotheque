@@ -595,10 +595,16 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 const CFG = window.SIMU_CONFIG || {};
 // Textes explicatifs (config/textes.js) ; sans ce fichier, les textes écrits dans la page restent
 const TXT = CFG.textes || {};
-if (TXT.titre) { document.querySelector(".brand h1").innerHTML = TXT.titre; document.title = document.querySelector(".brand h1").textContent; }
-if (TXT.sousTitre) document.querySelector(".brand .sub").innerHTML = TXT.sousTitre;
-if (TXT.aide?.hypothequeTotale) document.getElementById("info-loan").innerHTML = TXT.aide.hypothequeTotale;
-if (Array.isArray(TXT.regles)) document.getElementById("rules-list").innerHTML = TXT.regles.map(r => `<li>${r}</li>`).join("");
+// Mise en forme des textes simples : **gras**, 1er / 2e en exposant, espace insécable avant %
+const fmtTxt = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\b1er\b/g, "1<sup>er</sup>").replace(/\b(\d+)e\b/g, "$1<sup>e</sup>").replace(/ %/g, "&nbsp;%");
+// Une bulle : { texte, points } → paragraphe + liste à puces
+const blocTxt = a => (a.texte ? `<p>${fmtTxt(a.texte)}</p>` : "") + (a.points?.length ? `<ul>${a.points.map(p => `<li>${fmtTxt(p)}</li>`).join("")}</ul>` : "");
+const AIDE = Object.fromEntries(Object.entries(TXT.aide || {}).filter(([, v]) => v && typeof v === "object").map(([k, v]) => [k, blocTxt(v)]));
+if (TXT.titre) { document.querySelector(".brand h1").textContent = TXT.titre; document.title = TXT.titre; }
+if (TXT.sousTitre) document.querySelector(".brand .sub").innerHTML = fmtTxt(TXT.sousTitre);
+if (AIDE.hypothequeTotale) document.getElementById("info-loan").innerHTML = AIDE.hypothequeTotale;
+if (Array.isArray(TXT.regles)) document.getElementById("rules-list").innerHTML = TXT.regles.map(r => `<li>${fmtTxt(r)}</li>`).join("");
 
 // Thème facultatif : couleurs, polices, logo et nom (section « theme » de la configuration)
 const TH = CFG.theme;
@@ -782,7 +788,7 @@ const INFO = Object.assign({
       <li><b>Impôt</b> : dépend du canton. Beaucoup exonèrent les dons aux enfants, pas tous et parfois au-delà d'un seuil seulement.</li>
       <li><b>Couple</b> : marié, le don reste le bien propre de celui qui le reçoit. Non marié, la répartition de la propriété compte. Dans les deux cas, gardez une trace écrite de qui a apporté quoi.</li>
     </ul>`
-}, TXT.aide || {});
+}, AIDE);
 function fieldHTML(f) {
   return `<div class="field" id="field-${f.id}">
     <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="Explication : ${f.label}">i</button>` : ""}
@@ -1739,7 +1745,7 @@ async function exportPdf() {
     }
 
     y += 4;
-    para(TXT.avertissementPdf ? TXT.avertissementPdf.replace(/<[^>]+>/g, "") : "Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
+    para(TXT.avertissementPdf ? String(TXT.avertissementPdf).replace(/\*\*/g, "") : "Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.", MUTED, 8.5);
     // Pied de page sur chaque page : filet (sable avec un thème), nom et numéro de page
     {
       const n = doc.getNumberOfPages();
