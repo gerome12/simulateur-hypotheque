@@ -57,6 +57,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-cont
 h1 { font-family: var(--font-display); font-stretch: 80%; font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
 .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.dossier-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--bad); background: var(--bad-soft); }
 select, button { font: inherit; }
 .btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -149,7 +150,7 @@ select, button { font: inherit; }
 .casatax .tick { width: 2px; height: 24px; background: var(--warn); border-radius: 1px; }
 .casatax .lbl { font: 500 11px/1.2 var(--font-data); color: var(--warn); white-space: nowrap; transform: translateX(-50%); }
 @media print {
-  .tabs, #tab-rates, .top-actions, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
+  .tabs, #tab-rates, .top-actions, .dossier-msg, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
   body { padding-block: 0; background: #fff; color: #000; }
   .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "inputs" "details"; }
   .panel, .verdict { break-inside: avoid; }
@@ -378,10 +379,14 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <span class="example" id="exampleTag">Chiffres d'exemple</span>
       <label for="conseiller" class="sr">Conseiller</label>
       <select id="conseiller" class="canton" hidden></select>
+      <button class="btn" id="dossierSave" type="button">Enregistrer</button>
+      <button class="btn" id="dossierOpen" type="button">Ouvrir</button>
+      <input type="file" id="dossierFile" accept=".json,application/json" hidden>
       <button class="btn primary" id="export" type="button" hidden>Exporter en PDF</button>
       <button class="btn" id="reset" type="button">Réinitialiser</button>
     </div>
   </header>
+  <p class="dossier-msg" id="dossierMsg" role="alert" hidden></p>
 
   <nav class="tabs" role="tablist" aria-label="Vues">
     <button type="button" role="tab" id="t-simu" aria-controls="tab-simu" aria-selected="true">Ma simulation</button>
@@ -751,7 +756,9 @@ for (const [id, b] of Object.entries(CFG.curseurs || {})) if (BY[id]) Object.ass
 const KEY = "simu-hypo-ch-v1";
 let S = { ...DEFAULTS };
 let touched = false;
-try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
+const cantonConnu = k => typeof k === "string" && Object.hasOwn(CANTONS, k);
+// Remet un état enregistré (navigateur ou dossier client) au format actuel
+function migrer(saved) {
   // Ancienne version : fonds propres communs, repris sur la personne 1
   if (saved.cash != null && saved.cash1 == null) {
     Object.assign(saved, { cash1: saved.cash, p3a1: saved.p3a || 0, lpp1: saved.lpp || 0, cash2: 0, p3a2: 0, lpp2: 0 });
@@ -760,8 +767,11 @@ try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) 
   // Ancienne version : un seul canton, repris pour le ménage
   if (saved.cantonMenage == null) saved.cantonMenage = saved.canton;
   // Canton absent de la liste : valeur par défaut
-  for (const k of ["canton", "cantonMenage"]) if (!CANTONS[saved[k]]) delete saved[k];
-  S = { ...DEFAULTS, ...saved }; touched = true;
+  for (const k of ["canton", "cantonMenage"]) if (!cantonConnu(saved[k])) delete saved[k];
+  return saved;
+}
+try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
+  S = { ...DEFAULTS, ...migrer(saved) }; touched = true;
 } } catch (e) {}
 
 const $ = id => document.getElementById(id);
@@ -875,6 +885,7 @@ function syncInputs(skip) {
   $("lockPrice").checked = !!S.lockPrice;
   $("canton").value = S.canton;
   $("cantonMenage").value = S.cantonMenage;
+  $("conseiller").value = S.conseiller;
   $("in-price").disabled = $("rg-price").disabled = !!S.lockPrice;
   document.querySelectorAll(".person.p2").forEach(el => { el.hidden = !!S.solo; });
   document.querySelectorAll(".people").forEach(el => el.classList.toggle("solo", !!S.solo));
@@ -986,6 +997,61 @@ $("reset").addEventListener("click", () => {
   if (TAB === "rates") Object.assign(S, keep);
   else { S = { ...DEFAULTS, ...keep, conseiller: S.conseiller }; touched = false; }   // le conseiller choisi reste sélectionné
   update();
+});
+
+/* ---------- Dossier client : la simulation dans un fichier JSON, sans rien envoyer ---------- */
+const DOSSIER = { app: "simu-hypo-ch", version: 1, tailleMax: 1024 * 1024 };
+const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"] };
+const estObjet = v => typeof v === "object" && v !== null && !Array.isArray(v);
+// Une valeur du fichier n'est gardée que si elle a la forme attendue pour sa clé
+function valeurSure(k, v) {
+  if (k === "canton" || k === "cantonMenage") return cantonConnu(v);
+  if (CHOIX[k]) return CHOIX[k].includes(v);
+  if (k === "apportSel") return v === null || Number.isFinite(v);
+  if (k === "p2saved") return v === null || (estObjet(v) && P2_KEYS.every(c => Number.isFinite(v[c])));
+  return typeof v === typeof DEFAULTS[k] && (typeof v !== "number" || Number.isFinite(v));
+}
+// Seules les clés connues sont reprises : __proto__ ou constructor ne sont jamais fusionnées
+function nettoyer(sim) {
+  const m = migrer(sim), sur = {};
+  for (const k of Object.keys(DEFAULTS)) if (Object.hasOwn(m, k) && valeurSure(k, m[k])) sur[k] = m[k];
+  if (sur.p2saved) sur.p2saved = Object.fromEntries(P2_KEYS.map(c => [c, sur.p2saved[c]]));
+  return sur;
+}
+// Texte d'un fichier → simulation sûre ; un fichier refusé lève une erreur au message lisible
+function lireDossier(txt) {
+  let d;
+  try { d = JSON.parse(txt); } catch (e) { throw new Error("Ce fichier n'est pas un JSON valide."); }
+  if (!estObjet(d) || d.app !== DOSSIER.app) throw new Error("Ce fichier n'est pas un dossier du simulateur.");
+  if (!Number.isInteger(d.version)) throw new Error("La version de ce dossier est illisible.");
+  if (d.version > DOSSIER.version) throw new Error("Ce dossier vient d'une version plus récente du simulateur : il n'a pas été ouvert.");
+  if (!estObjet(d.simulation)) throw new Error("Ce dossier ne contient pas de simulation.");
+  return nettoyer(d.simulation);
+}
+const dossierMsg = txt => { $("dossierMsg").textContent = txt; $("dossierMsg").hidden = !txt; };
+$("dossierSave").addEventListener("click", () => {
+  dossierMsg("");
+  const iso = new Date().toISOString(), date = iso.slice(0, 10);
+  const nom = String(S.name1).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 40).replace(/^-+|-+$/g, "");
+  const blob = new Blob([JSON.stringify({ app: DOSSIER.app, version: DOSSIER.version, enregistreLe: iso, simulation: S }, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `dossier-${nom ? nom + "-" : ""}${date}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("dossierOpen").addEventListener("click", () => $("dossierFile").click());
+$("dossierFile").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  e.target.value = "";   // le même fichier pourra être rouvert
+  if (!f) return;
+  dossierMsg("");
+  try {
+    if (f.size > DOSSIER.tailleMax) throw new Error("Ce fichier dépasse 1 Mo : ce n'est pas un dossier du simulateur.");
+    const sur = lireDossier(await f.text());
+    S = { ...DEFAULTS, ...sur }; touched = true;
+    update();
+  } catch (err) { dossierMsg(err.message); }
 });
 
 /* ---------- Modèle ---------- */
