@@ -1144,13 +1144,16 @@ function depuisDossier(d) {
   for (const [chemin, k] of DOSSIER_CHAMPS) lire(d, chemin, k);
   // Version 1 : un seul impôt, que migrer() reprend pour chaque personne
   if (d.version < 2) { lire(d, "fondsPropres.impotRetraits.pct", "taxPct"); lire(d, "fondsPropres.impotRetraits.chf", "taxChf"); }
-  personnes.forEach((o, i) => { for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
+  // Impôt d'une personne : bloc illisible signalé à son nom
+  const impotIllisible = (o, p) => { const v = lireChemin(o, "impotRetraits"); if (v !== undefined && !estObjet(v)) ignores.push("taxPct" + p); };
+  personnes.forEach((o, i) => { impotIllisible(o, i + 1); for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
   plat.solo = personnes.length === 1;
   const r = lireChemin(d, "menage.personneRetiree"), miseDeCote = {};
   if (!plat.solo) { if (r != null) ignores.push("p2saved"); }
   else {
     P2_KEYS.forEach(k => { plat[k] = 0; });
     if (estObjet(r)) {
+      impotIllisible(r, 2);
       for (const [chemin, c] of PERSONNE_CHAMPS) {
         const k = c + 2, v = lireChemin(r, chemin);
         if (v !== undefined) (P2_KEYS.includes(k) ? miseDeCote : plat)[k] = v;
