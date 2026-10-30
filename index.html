@@ -1003,6 +1003,16 @@ $("reset").addEventListener("click", () => {
 /* ---------- Dossier client : la simulation dans un fichier JSON, sans rien envoyer ---------- */
 const DOSSIER = { app: "simu-hypo-ch", version: 1, tailleMax: 1024 * 1024 };
 const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"] };
+const LIBELLES = {
+  canton: "Canton du bien", cantonMenage: "Canton du ménage", usage: "Usage du bien", feesMode: "Mode des frais", taxMode: "Mode de l'impôt",
+  name1: "Nom de la personne 1", name2: "Nom de la personne 2", solo: "Nombre de personnes", apportSel: "Apport choisi", p2saved: "Montants de la personne 2"
+};
+// Nom lisible d'une clé, avec la personne quand le champ en concerne une
+const libelleCle = k => {
+  const f = BY[k];
+  if (!f) return LIBELLES[k] || k;
+  return f.who ? `${f.label} (${S["name" + f.who.slice(-1)] || f.who})` : f.label;
+};
 const estObjet = v => typeof v === "object" && v !== null && !Array.isArray(v);
 // Une valeur du fichier n'est gardée que si elle a la forme attendue pour sa clé
 function valeurSure(k, v) {
@@ -1012,9 +1022,9 @@ function valeurSure(k, v) {
   if (k === "p2saved") return v === null || (estObjet(v) && P2_KEYS.every(c => valeurSure(c, v[c])));
   if (typeof v !== typeof DEFAULTS[k]) return false;
   if (typeof v !== "number") return true;
-  // Pas de borne haute, comme la saisie ; la borne basse du champ écarte les négatifs et les diviseurs à 0
+  // Même règle que la saisie : un dossier rend ce que la page permet
   const f = BY[k];
-  return Number.isFinite(v) && (!f || f.min < 0 || v >= f.min);
+  return Number.isFinite(v) && (!f || f.min < 0 || v >= 0);
 }
 // Seules les clés connues sont reprises : __proto__ ou constructor ne sont jamais fusionnées.
 // Renvoie aussi les clés connues du fichier écartées, y compris les cantons retirés par migrer()
@@ -1045,7 +1055,7 @@ async function telecharger(nom, blob) {
   a.href = URL.createObjectURL(blob);
   a.download = nom;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setTimeout(() => URL.revokeObjectURL(a.href), 40000);   // même délai que jsPDF : le téléchargement peut démarrer tard
 }
 $("dossierSave").addEventListener("click", async () => {
   dossierMsg("");
@@ -1066,7 +1076,7 @@ $("dossierFile").addEventListener("change", async e => {
     const { sur, ecartees } = lireDossier(await f.text());
     S = { ...DEFAULTS, ...sur }; touched = true;
     update();
-    if (ecartees.length) dossierMsg(`Dossier ouvert. Valeurs ignorées, remplacées par celles par défaut : ${ecartees.map(k => BY[k]?.label || k).join(", ")}.`, "status");
+    if (ecartees.length) dossierMsg(`Dossier ouvert. Valeurs ignorées, remplacées par celles par défaut : ${ecartees.map(libelleCle).join(", ")}.`, "status");
   } catch (err) { dossierMsg(err.message); }
 });
 
