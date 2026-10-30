@@ -166,7 +166,7 @@ SIMU_CONFIG.textes = {
     "Non pris en compte pour une résidence secondaire : revenus locatifs, taux souvent plus élevés, amortissement plus exigeant de certaines banques, frais accessoires plus élevés, impôts et restrictions d'achat (Lex Koller).",
     "Les retraits de 2e et 3e pilier sont imposés à part : l'impôt saisi pour chaque personne est déduit de ses retraits. Pour un couple marié ou des partenaires enregistrés vivant en ménage commun, les retraits d'une même année sont en général additionnés pour fixer l'impôt : ce simulateur ne le calcule pas, c'est l'impôt saisi qui compte.",
     "Tous les fonds propres disponibles servent à réduire l'hypothèque, sauf la réserve que vous gardez.",
-    "Amortissement dans le temps : amortissement direct, annuel, en fin d'année, au taux réel constant, sans renouvellement de l'hypothèque ni vente, jusqu'à la retraite de la personne la plus âgée.",
+    "Amortissement dans le temps. Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel constant, sans renouvellement de l'hypothèque, aucune vente, jusqu'à la retraite de la personne la plus âgée avec un revenu.",
     "Les frais par canton et les montants d'allocations sont des ordres de grandeur à vérifier ; ils restent modifiables. Ce simulateur ne remplace pas une offre bancaire.",
   ],
 

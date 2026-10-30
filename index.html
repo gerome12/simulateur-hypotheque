@@ -1009,7 +1009,7 @@ for (const f of ALL) {
   });
 }
 for (const id of ["menage", "fonds", "bien", "hyp", "amort", "rset", "eset"]) {
-  try { if (localStorage.getItem(KEY + "-" + id) === "closed") $(id).open = false; } catch (e) {}
+  try { const v = localStorage.getItem(KEY + "-" + id); if (v) $(id).open = v === "open"; } catch (e) {}
   $(id).addEventListener("toggle", () => { try { localStorage.setItem(KEY + "-" + id, $(id).open ? "open" : "closed"); } catch (e) {} });
 }
 // Retirer / remettre la 2e personne : ses montants sont mis de côté puis restaurés
@@ -1371,7 +1371,7 @@ function tableauAmortissement(s, m) {
   return { lignes, detteRetraite: derniere ? derniere.fin : m.loan, totalInterets: lignes.reduce((t, l) => t + l.interets, 0), totalAmorti: derniere ? m.rank2 - derniere.rang2 : 0 };
 }
 const amortSynthese = a => a.lignes.length ? `Dette à la retraite ${chf(a.detteRetraite)} · intérêts réels ${chf(a.totalInterets)} · amorti ${chf(a.totalAmorti)}` : "Âge de la retraite déjà atteint : pas de tableau d'amortissement.";
-const amortHypotheses = s => `Amortissement direct, annuel, en fin d'année. Taux réel de ${s.realRate} % constant, sans renouvellement de l'hypothèque. Aucune vente. Âge de la personne la plus âgée en fin d'année.`;
+const amortHypotheses = s => `Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel de ${s.realRate} % constant, sans renouvellement de l'hypothèque. Aucune vente. Âge en fin d'année de la personne la plus âgée avec un revenu.`;
 function required(s, m) {
   s = effectif(s);
   const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
@@ -1618,7 +1618,7 @@ function update(skip) {
   const am = tableauAmortissement(S, m);
   $("a-sum").textContent = $("amortSyn").textContent = amortSynthese(am);
   $("amortTable").hidden = !am.lignes.length;
-  $("amortHyp").textContent = amortHypotheses(S);
+  $("amortHyp").innerHTML = fmtTxt(amortHypotheses(S));
   $("amortLignes").innerHTML = am.lignes.map(l => `<tr>${[l.annee, l.age].map(v => `<td>${v}</td>`).join("")}${[l.debut, l.interets, l.amort, l.fin, l.rang1, l.rang2].map(v => `<td>${nf.format(Math.round(v))}</td>`).join("")}<td>${l.pct.toFixed(1)}</td></tr>`).join("");
 
   drawChart(m, sol);
