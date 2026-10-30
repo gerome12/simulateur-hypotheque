@@ -57,6 +57,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-cont
 h1 { font-family: var(--font-display); font-stretch: 80%; font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
 .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+#taxCouple { margin: 10px 0 12px; }
 .dossier-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--bad); background: var(--bad-soft); }
 .dossier-msg[role="status"] { color: var(--warn); background: var(--warn-soft); }
 select, button { font: inherit; }
@@ -448,6 +449,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="person"><h3><span class="pname" data-p="1">Personne 1</span> <small id="t-eq1"></small></h3><div class="fields" id="f-eq1"></div></div>
           <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span> <small id="t-eq2"></small></h3><div class="fields" id="f-eq2"></div></div>
         </div>
+        <p class="hint" id="taxCouple" hidden>Couple marié&nbsp;: les retraits de 2<sup>e</sup>&nbsp;et 3<sup>e</sup>&nbsp;pilier d'une même année sont en général additionnés pour fixer le taux d'impôt. Indiquez pour chacun un taux calculé sur ce total.</p>
         <div class="split" aria-live="polite">
           <div class="split-row"><span id="sp1"></span><span id="sp2"></span></div>
           <div class="split-bar" id="spbar"></div>
@@ -927,6 +929,7 @@ function syncInputs(skip) {
   }
   $("secNote").hidden = !sec;
   $("fpLead").hidden = sec;
+  $("taxCouple").hidden = sec || !!S.solo;
   $("t-hard").parentElement.hidden = sec;
   $("g-hard-t").innerHTML = `Fonds propres durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"}`;
   $("field-rent").hidden = sec;   // le loyer ne disparaît pas avec cet achat
