@@ -1,7 +1,7 @@
 /* ---------- Cantons ---------- */
 // fees : frais d'achat estimés en % du prix (mode %)
 // alloc : allocation pour enfant, par enfant et par mois (CHF) ; alloc3 : dès le 3e enfant
-// Source : OFAS, 2026. ZH : 268 au-delà de 12 ans, non géré. Allocation de formation (dès 16 ans), plus élevée, non gérée.
+// Source : OFAS, 2026. ZH : 268 au-delà de 12 ans, non géré. Allocation de formation (dès 16 ans), plus élevée, non gérée. VD : majoré dès la 3e allocation versée à l'ayant droit, ici dès le 3e enfant du ménage.
 window.SIMU_CONFIG = window.SIMU_CONFIG || {};
 
 SIMU_CONFIG.cantons = {

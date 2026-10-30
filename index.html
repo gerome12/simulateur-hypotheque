@@ -648,7 +648,7 @@ if (TH) {
 }
 
 const CANTONS = {
-  // Allocations : OFAS, 2026. ZH : 268 au-delà de 12 ans, non géré. Allocation de formation (dès 16 ans), plus élevée, non gérée.
+  // Allocations : OFAS, 2026. ZH : 268 au-delà de 12 ans, non géré. Allocation de formation (dès 16 ans), plus élevée, non gérée. VD : majoré dès la 3e allocation versée à l'ayant droit, ici dès le 3e enfant du ménage.
   GE: { label: "Genève",    fees: 5.0, alloc: 311, alloc3: 411 },
   VD: { label: "Vaud",      fees: 4.5, alloc: 322, alloc3: 365 },
   FR: { label: "Fribourg",  fees: 3.5, alloc: 265, alloc3: 285 },
@@ -904,6 +904,8 @@ document.addEventListener("click", e => {
 
 $("canton").innerHTML = $("cantonMenage").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
 
+// Retrait sous le minimal de l'EPL : signalé sans changer le verdict
+const eplMsg = p => S["lpp" + p] > 0 && S["lpp" + p] < S.eplMin ? `2e pilier de ${S["name" + p]} : le retrait minimal auprès d'une caisse de pension est de ${nf.format(S.eplMin)} CHF.` : "";
 function syncInputs(skip) {
   for (const f of ALL) {
     const t = $("in-" + f.id), r = $("rg-" + f.id);
@@ -930,9 +932,13 @@ function syncInputs(skip) {
   const sec = S.usage === "secondaire";
   document.querySelectorAll(".seg button[data-usage]").forEach(b => b.setAttribute("aria-pressed", b.dataset.usage === S.usage));
   for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) {
-    const apres50 = id.startsWith("lpp") && S["age" + id.slice(-1)] >= 50 && S[id] > 0;
-    $("hint-" + id).textContent = sec ? "Non pris en compte pour une résidence secondaire." : "Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.";
-    $("hint-" + id).hidden = !sec && !apres50;
+    const p = id.slice(-1), msgs = sec ? ["Non pris en compte pour une résidence secondaire."] : [];
+    if (!sec && id.startsWith("lpp")) {
+      if (eplMsg(p)) msgs.push(eplMsg(p));
+      if (S["age" + p] >= 50 && S[id] > 0) msgs.push("Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.");
+    }
+    $("hint-" + id).innerHTML = msgs.map(fmtTxt).join(" ");
+    $("hint-" + id).hidden = !msgs.length;
   }
   $("field-alloc3").hidden = S.kids < 3;
   $("secNote").hidden = !sec;
@@ -1292,8 +1298,7 @@ function update(skip) {
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
   if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
-  // Signalé sans changer le verdict
-  if (!sec) for (const p of S.solo ? [1] : [1, 2]) if (S["lpp" + p] > 0 && S["lpp" + p] < S.eplMin) reasons.push(`2e pilier de ${S["name" + p]} : le retrait minimal est de ${nf.format(S.eplMin)} CHF.`);
+  if (!sec) for (const p of S.solo ? [1] : [1, 2]) if (eplMsg(p)) reasons.push(eplMsg(p));
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
   const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
@@ -1359,7 +1364,7 @@ function update(skip) {
   $("allocGroup").classList.toggle("off", noKids);
   $("in-alloc").disabled = $("allocCount").disabled = $("cantonMenage").disabled = noKids;
   $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
-    : `Soit ${chf(allocY)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
+    : `Soit ${chf(allocY)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}. Montant pour enfant. Dès 16 ans, l'allocation de formation est plus élevée : ajustez le montant si besoin.`;
   if (m.feeGE) {
     $("hint-cedReprise").textContent = S.cedReprise > 0
       ? `Nouvelle cédule : ${chf(m.feeGE.ced.montant)} au lieu de ${chf(m.loan)}. Le prix de reprise convenu avec le vendeur n'est pas compté.`
