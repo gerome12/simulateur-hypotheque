@@ -630,8 +630,9 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       </div>
       <div class="rlegend"></div>
       <p class="hint">Survolez ou touchez le graphique pour lire les deux patrimoines à une année donnée.</p>
-      <p class="note" id="al-limites">Comparaison indicative, avant impôts. Elle ignore la valeur locative et les déductions, dont la suppression est prévue, le gain immobilier à la vente et l'impôt sur le rendement de l'épargne. Les hypothèses sont à ajuster : le résultat y est très sensible.</p>
+      <p class="note" id="al-limites">Comparaison indicative, avant impôts. Elle ignore la valeur locative, supprimée dès le 1<sup>er</sup> janvier 2029, les déductions d'intérêts et d'entretien, fortement réduites à cette date, le gain immobilier à la vente et l'impôt sur le rendement de l'épargne. La hausse des loyers est une moyenne. En droit du bail, le loyer change par paliers selon le taux de référence, le renchérissement et les coûts, il peut baisser, et une hausse peut être contestée. Les hypothèses sont à ajuster : le résultat y est très sensible.</p>
       <p class="note" id="al-hyp"></p>
+      <p class="note" id="al-biais"></p>
     </section>
     <details class="panel fold" id="altab">
       <summary>
@@ -829,8 +830,8 @@ const F = {
   ],
   al: [
     { id: "alHorizon", label: "Horizon", min: 10, max: 20, step: 1, unit: "ans" },
-    { id: "alHausseLoyer", label: "Hausse des loyers", min: 0, max: 5, step: 0.1, unit: "%/an", hint: "Par défaut 1,5 % : prévision UBS d'août 2026, qui ne couvre pas les loyers indexés." },
-    { id: "alHausseBien", label: "Hausse du prix du bien", min: -2, max: 4, step: 0.1, unit: "%/an", hint: "Par défaut 1 % : 1 à 1,5 % selon les sources." },
+    { id: "alHausseLoyer", label: "Hausse des loyers", min: 0, max: 5, step: 0.1, unit: "%/an", hint: "Par défaut 1,5 % : prévision UBS d'août 2026 pour 2026 et 2027 seulement, prolongée ici comme moyenne à long terme." },
+    { id: "alHausseBien", label: "Hausse du prix du bien", min: -2, max: 4, step: 0.1, unit: "%/an", hint: "Hypothèse sans source, à ajuster. Le résultat y est très sensible." },
     { id: "alRendement", label: "Rendement de l'argent placé", min: 0, max: 6, step: 0.1, unit: "%/an", hint: "Hypothèse sans source, à ajuster." },
     { id: "alFraisVente", label: "Frais de vente", min: 0, max: 5, step: 0.1, unit: "% prix", hint: "Hypothèse à ajuster, sur le prix de vente." }
   ]
@@ -1459,8 +1460,12 @@ function acheterLouer(s, m) {
   const fin = lignes[N - 1];
   return { N, impot, C0, lignes, acheter: fin.acheter, louer: fin.louer, ecart: fin.ecart, seuil };
 }
-const alSeuil = al => al.seuil ? `année ${al.seuil}` : "jamais sur la période";
-const alHypotheses = (s, m, al) => `Épargne de départ du locataire ${chf(al.C0)} : apport ${chf(m.apport)}, frais d'achat ${chf(m.fees)} et impôt sur les retraits ${chf(al.impot)}.${s.p3a1 + s.lpp1 + s.p3a2 + s.lpp2 > 0 ? ` Cet argent resterait en partie en prévoyance : le rendement de ${s.alRendement} % n'y est qu'une approximation.` : ""}${m.unused > 0 && al.impot > 0 ? " Une partie des fonds propres n'est pas investie : l'impôt compté porte quand même sur tous les retraits saisis." : ""} Loyer de départ ${chf(s.rent)} par mois. Taux réel de ${s.realRate} % et charges de ${chf(s.realCharges)} par mois constants, amortissement comme dans le modèle. Flux en fin d'année.`;
+const alSeuil = (al, m) => !(m.P > 0) ? "–" : al.seuil ? `année ${al.seuil}` : "jamais sur la période";
+const alHypotheses = (s, m, al) => `Épargne de départ du locataire ${chf(al.C0)} : apport ${chf(m.apport)}, frais d'achat ${chf(m.fees)} et impôt sur les retraits ${chf(al.impot)}.${s.p3a1 + s.lpp1 + s.p3a2 + s.lpp2 > 0 ? ` Cet argent resterait en partie en prévoyance : le rendement de ${s.alRendement} % n'y est qu'une approximation.` : ""}${m.unused > 0 && al.impot > 0 ? " Une partie des fonds propres n'est pas investie : l'impôt compté porte quand même sur tous les retraits saisis." : ""} Loyer de départ ${chf(s.rent)} par mois. Taux réel de ${s.realRate} %, charges de ${chf(s.realCharges)} par mois, amortissement comme dans le modèle. Flux en fin d'année.`;
+const alBiais = (s, al) => ["Le loyer de départ doit être celui d'un logement comparable au bien, pas forcément votre loyer actuel. C'est le paramètre le plus fort.",
+  ...(al.impot > 0 ? ["L'impôt sur les retraits est différé, pas évité : le locataire le paiera à la retraite. Cela favorise la location."] : []),
+  ...(s.alHausseLoyer > 0 ? ["Les charges et le taux réel restent constants alors que le loyer monte. Cela favorise l'achat."] : []),
+  "Le patrimoine comparé ne compte pas la réserve ni les fonds non investis."].join(" ");
 function alMessages(s, m, status) {
   const msgs = [];
   if (status === "bad") msgs.push("Ce prix n'est pas finançable en l'état : la comparaison reste théorique.");
@@ -1953,10 +1958,11 @@ function drawAcheterLouer(m) {
   if (sec) return;
   $("al-n").textContent = `sur ${al.N} ans`;
   $("al-msg").innerHTML = alMessages(S, m, LAST.status).map(t => `<li>${fmtTxt(t)}</li>`).join("");
-  $("al-syn").innerHTML = [["Patrimoine en achetant", chf(al.acheter)], ["Patrimoine en louant", chf(al.louer)], ["Écart (acheter moins louer)", chf(al.ecart)], ["Acheter passe durablement devant", alSeuil(al)]]
+  $("al-syn").innerHTML = [["Patrimoine en achetant", chf(al.acheter)], ["Patrimoine en louant", chf(al.louer)], ["Écart (acheter moins louer)", chf(al.ecart)], ["Acheter passe durablement devant", alSeuil(al, m)]]
     .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
   $("alset-sum").innerHTML = `horizon <b>${al.N} ans</b> · loyers <b>${S.alHausseLoyer} %</b> · bien <b>${S.alHausseBien} %</b> · rendement <b>${S.alRendement} %</b> · vente <b>${S.alFraisVente} %</b>`;
   $("al-hyp").innerHTML = fmtTxt(alHypotheses(S, m, al));
+  $("al-biais").innerHTML = fmtTxt(alBiais(S, al));
   $("al-tsum").textContent = `Écart à ${al.N} ans : ${chf(al.ecart)}`;
   $("alLignes").innerHTML = al.lignes.map(l => `<tr><td>${l.annee}</td>${[l.coutAchat, l.coutLouer, l.epargneAcheteur, l.valeur, l.dette, l.acheter, l.louer, l.ecart].map(v => `<td>${nf.format(Math.round(v))}</td>`).join("")}</tr>`).join("");
   // Un horizon d'un an, saisi à la main, garde un axe des années
@@ -2214,8 +2220,9 @@ async function exportPdf() {
       row(`Patrimoine à ${al.N} ans en achetant`, chfT(al.acheter), true);
       row(`Patrimoine à ${al.N} ans en louant`, chfT(al.louer), true);
       row("Écart (acheter moins louer)", chfT(al.ecart));
-      row("Acheter passe durablement devant", alSeuil(al));
+      row("Acheter passe durablement devant", alSeuil(al, m));
       para(`Hausse des loyers ${S.alHausseLoyer} %/an, du prix du bien ${S.alHausseBien} %/an, rendement de l'argent placé ${S.alRendement} %/an, frais de vente ${S.alFraisVente} % du prix de vente. ${alHypotheses(S, m, al)}`);
+      para(alBiais(S, al));
       para($("al-limites").textContent);
     }
 

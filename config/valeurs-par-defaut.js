@@ -40,8 +40,8 @@ SIMU_CONFIG.valeursParDefaut = {
 
   // Acheter ou louer
   alHorizon: 15,                // horizon de la comparaison, en années
-  alHausseLoyer: 1.5,           // hausse des loyers, en % par an (prévision UBS d'août 2026, hors loyer indexé)
-  alHausseBien: 1,              // hausse du prix du bien, en % par an (1 à 1,5 % selon les sources)
+  alHausseLoyer: 1.5,           // hausse des loyers, en % par an. Par défaut 1,5 % : prévision UBS d'août 2026 pour 2026 et 2027 seulement, prolongée ici comme moyenne à long terme.
+  alHausseBien: 1,              // hausse du prix du bien, en % par an. Hypothèse sans source, à ajuster. Le résultat y est très sensible.
   alRendement: 2,               // rendement de l'argent placé, en % par an (hypothèse sans source)
   alFraisVente: 2               // frais de vente, en % du prix de vente (hypothèse)
 };
