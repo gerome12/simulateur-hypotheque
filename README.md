@@ -8,6 +8,7 @@ Une page web pour simuler l'achat d'un logement en Suisse et jouer avec les chif
 
 - Applique les règles usuelles des banques : 20 % de fonds propres dont 10 % hors 2e pilier, charges théoriques à 5 % plafonnées à un tiers du revenu, 2e rang amorti en 15 ans ou avant la retraite, contrôle à la retraite.
 - Distingue la résidence principale de la résidence secondaire : pour cette dernière, ni 2e ni 3e pilier, financement à 60 % du prix, 1er rang à 50 %, pas de Casatax, et les charges du logement principal comptent dans le contrôle du revenu.
+- Distingue le canton du bien, qui fixe les frais d'achat, du canton du ménage, qui sert au montant des allocations.
 - Calcule en direct le prix maximum, le revenu nécessaire et les fonds propres nécessaires pour un prix donné.
 - Montre la structure du financement, les charges calculées par la banque et le coût réel par mois, et un graphique du taux d'effort selon le prix.
 - Exporte un résumé en PDF.

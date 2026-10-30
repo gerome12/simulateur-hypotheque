@@ -139,7 +139,7 @@ select, button { font: inherit; }
 .seg + .num { margin-left: 0; }
 .seg-usage { grid-auto-columns: auto; }
 .seg-usage button { width: auto; padding: 5px 10px; }
-#field-usage { border-top: 0; }
+#field-usage, #field-canton { border-top: 0; }
 /* Sélecteur % / CHF et case du montant restent ensemble, à droite */
 .ctl { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
 .ctl .seg, .ctl .num { margin-left: 0; }
@@ -378,8 +378,6 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <span class="example" id="exampleTag">Chiffres d'exemple</span>
       <label for="conseiller" class="sr">Conseiller</label>
       <select id="conseiller" class="canton" hidden></select>
-      <label for="canton" class="sr">Canton</label>
-      <select id="canton" class="canton"></select>
       <button class="btn primary" id="export" type="button" hidden>Exporter en PDF</button>
       <button class="btn" id="reset" type="button">Réinitialiser</button>
     </div>
@@ -460,7 +458,9 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         </summary>
         <div class="field" id="field-usage">
           <div class="frow"><span class="flabel">Usage du bien</span><span class="seg seg-usage" role="group" aria-label="Usage du bien"><button type="button" data-usage="principale">Principale</button><button type="button" data-usage="secondaire">Secondaire</button></span></div>
-          <p class="hint" id="hint-usage" hidden></p>
+        </div>
+        <div class="field" id="field-canton">
+          <div class="frow"><label for="canton">Canton du bien</label><span class="ctl"><select id="canton" class="canton"></select></span></div>
         </div>
         <div class="fields" id="f-bien"></div>
         <div class="field" id="field-feesGe" hidden>
@@ -664,10 +664,12 @@ const DEFAULTS = {
   feesMode: "ge", feesChf: 60000, casatax: true, cedReprise: 0,
   solo: false, p2saved: null,
   apportSel: null,
-  conseiller: ""
+  conseiller: "",
+  cantonMenage: null
 };
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
+DEFAULTS.cantonMenage ??= DEFAULTS.canton;
 const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -755,6 +757,10 @@ try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) 
     Object.assign(saved, { cash1: saved.cash, p3a1: saved.p3a || 0, lpp1: saved.lpp || 0, cash2: 0, p3a2: 0, lpp2: 0 });
     delete saved.cash; delete saved.p3a; delete saved.lpp;
   }
+  // Ancienne version : un seul canton, repris pour le ménage
+  if (saved.cantonMenage == null) saved.cantonMenage = saved.canton;
+  // Canton absent de la liste : valeur par défaut
+  for (const k of ["canton", "cantonMenage"]) if (!CANTONS[saved[k]]) delete saved[k];
   S = { ...DEFAULTS, ...saved }; touched = true;
 } } catch (e) {}
 
@@ -785,6 +791,10 @@ for (const [group, list] of Object.entries(F)) $("f-" + group).innerHTML = list.
   const g = document.createElement("div");
   g.className = "subgroup"; g.id = "allocGroup";
   $("field-kids").after(g);
+  g.innerHTML = `<div class="field" id="field-cantonMenage">
+    <div class="frow"><label for="cantonMenage">Canton du ménage</label><span class="ctl"><select id="cantonMenage" class="canton"></select></span></div>
+    <p class="hint">Sert au montant des allocations. Elles dépendent en général du canton de travail : ajustez le montant si besoin.</p>
+  </div>`;
   g.append($("field-alloc"), document.querySelector('label[for="allocCount"]'));
 }
 
@@ -853,7 +863,7 @@ document.addEventListener("click", e => {
   box.hidden = !open; b.setAttribute("aria-expanded", open);
 });
 
-$("canton").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
+$("canton").innerHTML = $("cantonMenage").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
 
 function syncInputs(skip) {
   for (const f of ALL) {
@@ -864,6 +874,7 @@ function syncInputs(skip) {
   $("allocCount").checked = !!S.allocCount;
   $("lockPrice").checked = !!S.lockPrice;
   $("canton").value = S.canton;
+  $("cantonMenage").value = S.cantonMenage;
   $("in-price").disabled = $("rg-price").disabled = !!S.lockPrice;
   document.querySelectorAll(".person.p2").forEach(el => { el.hidden = !!S.solo; });
   document.querySelectorAll(".people").forEach(el => el.classList.toggle("solo", !!S.solo));
@@ -883,10 +894,6 @@ function syncInputs(skip) {
   $("fpLead").hidden = sec;
   $("t-hard").parentElement.hidden = sec;
   $("g-hard-t").innerHTML = `Fonds propres durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"}`;
-  const ct = CANTONS[S.canton];
-  $("hint-usage").hidden = !sec;
-  $("hint-usage").textContent = ct?.fees != null ? `Canton du bien : ${ct.label}. Choisissez-le en haut de la page.`
-    : "Canton du bien hors liste. Choisissez-le en haut de la page si besoin.";
   $("field-rent").hidden = sec;   // le loyer ne disparaît pas avec cet achat
   $("field-chargesPrincipale").hidden = !sec;
   $("field-ltvMax").hidden = sec;
@@ -958,9 +965,16 @@ $("lockPrice").addEventListener("change", e => { S.lockPrice = e.target.checked;
 $("casataxOn").addEventListener("change", e => { S.casatax = e.target.checked; touched = true; update(); });
 $("canton").addEventListener("change", e => {
   S.canton = e.target.value; const c = CANTONS[S.canton];
-  // En secondaire, le canton est celui du bien : le ménage garde ses allocations
-  if (c.fees != null) { S.feesPct = c.fees; if (S.usage !== "secondaire") S.alloc = c.alloc; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
+  if (c.fees != null) { S.feesPct = c.fees; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
+  // En principale, le ménage habitera le bien : il suit son canton. En secondaire, il garde le sien et ses allocations.
+  if (S.usage !== "secondaire") { S.cantonMenage = S.canton; if (c.fees != null) S.alloc = c.alloc; }
   update();
+});
+// Le canton du ménage ne sert qu'à préremplir les allocations
+$("cantonMenage").addEventListener("change", e => {
+  S.cantonMenage = e.target.value; const c = CANTONS[S.cantonMenage];
+  if (c.alloc != null) S.alloc = c.alloc;
+  touched = true; update();
 });
 // Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
 const RATE_KEYS = [...F.rates, ...F.eqg].map(f => f.id);
@@ -1208,7 +1222,7 @@ function update(skip) {
     : `Soit ${chf(bonusTot * S.bonusPct / 100)} retenus sur ${chf(bonusTot)}. Souvent la moyenne des 3 dernières années.`;
   const noKids = S.kids <= 0;
   $("allocGroup").classList.toggle("off", noKids);
-  $("in-alloc").disabled = $("allocCount").disabled = noKids;
+  $("in-alloc").disabled = $("allocCount").disabled = $("cantonMenage").disabled = noKids;
   $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   if (m.feeGE) {
@@ -1665,7 +1679,8 @@ async function exportPdf() {
       doc.text("Simulation d'achat immobilier", L + 13, y + 1);
     }
     y += 8;
-    const ct = CANTONS[S.canton], lieu = !sec ? `Canton : ${ct.label}` : ct.fees != null ? `Canton du bien : ${ct.label}` : "Canton du bien hors liste";
+    const lieuDe = (nom, k) => CANTONS[k]?.fees != null ? `Canton ${nom} : ${CANTONS[k].label}` : `Canton ${nom} hors liste`;
+    const lieu = !sec && S.canton === S.cantonMenage ? `Canton : ${CANTONS[S.canton].label}` : `${lieuDe("du bien", S.canton)} · ${lieuDe("du ménage", S.cantonMenage)}`;
     para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · ${lieu}`);
     const adv = ADVISORS.find(a => a.nom === S.conseiller);
     if (adv) para(`Document préparé par ${[adv.nom, adv.fonction, adv.email, adv.telephone].filter(Boolean).join(" · ")}`, INK);
