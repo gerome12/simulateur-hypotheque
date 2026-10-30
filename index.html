@@ -137,6 +137,9 @@ select, button { font: inherit; }
 .seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
 .seg + .num { margin-left: 0; }
+.seg-usage { grid-auto-columns: auto; }
+.seg-usage button { width: auto; padding: 5px 10px; }
+#field-usage { border-top: 0; }
 /* Sélecteur % / CHF et case du montant restent ensemble, à droite */
 .ctl { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
 .ctl .seg, .ctl .num { margin-left: 0; }
@@ -436,6 +439,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <span class="msum msum-eq"><span class="split-bar" id="spbar2"></span><span class="split-legend" id="splg2"></span><span id="f-sum"></span></span>
         </summary>
         <p class="lead">Les frais d'achat se paient en fonds propres durs. Le 2<sup>e</sup> pilier ne compte pas pour les 10&nbsp;% durs.</p>
+        <p class="lead" id="secNote" hidden>Résidence secondaire&nbsp;: le 2<sup>e</sup> et le 3<sup>e</sup> pilier ne peuvent pas financer cet achat. Vos montants sont conservés pour une résidence principale.</p>
         <div class="duo people">
           <div class="person"><h3><span class="pname" data-p="1">Personne 1</span> <small id="t-eq1"></small></h3><div class="fields" id="f-eq1"></div></div>
           <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span> <small id="t-eq2"></small></h3><div class="fields" id="f-eq2"></div></div>
@@ -454,6 +458,9 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <h2>Le bien</h2>
           <span class="msum" id="b-sum"></span>
         </summary>
+        <div class="field" id="field-usage">
+          <div class="frow"><span class="flabel">Usage du bien</span><span class="seg seg-usage" role="group" aria-label="Usage du bien"><button type="button" data-usage="principale">Principale</button><button type="button" data-usage="secondaire">Secondaire</button></span></div>
+        </div>
         <div class="fields" id="f-bien"></div>
         <div class="field" id="field-feesGe" hidden>
           <div class="frow"><span class="flabel">Frais d'achat (barème des notaires de Genève)</span><span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span><b class="ge-total" id="ge-total">–</b></div>
@@ -683,7 +690,8 @@ const F = {
   bien: [
     { id: "price", label: "Prix d'achat", min: 200000, max: 4000000, step: 10000, unit: "CHF" },
     { id: "feesPct", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 7, step: 0.1, unit: "%", seg: true, dyn: true },
-    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true }
+    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true },
+    { id: "chargesPrincipale", label: "Charges du logement principal", min: 0, max: 20000, step: 50, unit: "CHF/mois", hint: "Loyer ou charges du logement que vous gardez." }
   ],
   eq1: [
     { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
@@ -706,6 +714,7 @@ const F = {
     { id: "ratioMax", label: "Charges max. / revenu", min: 25, max: 40, step: 1, unit: "%" },
     { id: "maintPct", label: "Entretien et frais accessoires", min: 0.5, max: 1.5, step: 0.1, unit: "%/an", dyn: true },    { id: "rank1Pct", label: "Limite 1er rang", min: 60, max: 70, step: 0.1, unit: "%" },
     { id: "ltvMax", label: "Financement max.", min: 70, max: 90, step: 1, unit: "%" },
+    { id: "ltvMaxSec", label: "Financement max. (secondaire)", min: 50, max: 80, step: 1, unit: "%" },
     { id: "amortMax", label: "Durée d'amortissement 2e rang", min: 5, max: 20, step: 1, unit: "ans" },
     { id: "retireAge", label: "Âge de la retraite", min: 60, max: 70, step: 1, unit: "ans" },
     { id: "retirePct", label: "Revenu à la retraite", min: 30, max: 100, step: 5, unit: "% actuel" }
@@ -731,7 +740,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax"));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax", "chargesPrincipale"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 for (const [id, b] of Object.entries(CFG.curseurs || {})) if (BY[id]) Object.assign(BY[id], b);
 
@@ -812,6 +821,13 @@ document.addEventListener("click", e => {
     if (next) next.focus();
     return;
   }
+  const us = e.target.closest(".seg button[data-usage]");
+  if (us) {
+    if (us.dataset.usage === S.usage) return;
+    S.usage = us.dataset.usage; touched = true;
+    update();
+    return;
+  }
   const pen = e.target.closest("button.pen");
   if (pen) {
     const p = pen.dataset.p, span = pen.previousElementSibling;
@@ -857,8 +873,17 @@ function syncInputs(skip) {
   document.querySelectorAll(".seg-ge").forEach(b => { b.hidden = S.canton !== "GE"; });
   $("casataxOn").checked = !!S.casatax;
   document.querySelectorAll(".seg button[data-fm]").forEach(b => b.setAttribute("aria-pressed", b.dataset.fm === S.feesMode));
-  $("field-taxPct").hidden = S.taxMode === "chf";
-  $("field-taxChf").hidden = S.taxMode !== "chf";
+  // Résidence secondaire : les piliers et la Casatax ne comptent pas, les valeurs saisies restent en mémoire
+  const sec = S.usage === "secondaire";
+  document.querySelectorAll(".seg button[data-usage]").forEach(b => b.setAttribute("aria-pressed", b.dataset.usage === S.usage));
+  for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) $("in-" + id).disabled = sec;
+  $("secNote").hidden = !sec;
+  $("field-chargesPrincipale").hidden = !sec;
+  $("field-ltvMax").hidden = sec;
+  $("field-ltvMaxSec").hidden = !sec;
+  document.querySelector('label[for="casataxOn"]').hidden = sec;
+  $("field-taxPct").hidden = sec || S.taxMode === "chf";
+  $("field-taxChf").hidden = sec || S.taxMode !== "chf";
   document.querySelectorAll(".seg button[data-tm]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tm === S.taxMode));
 }
 
@@ -1136,7 +1161,7 @@ function update(skip) {
       `<div class="bank${b.own ? " own" : ""}"><span class="bank-name">${esc(b.nom)}${b.own ? " <small>vos réglages</small>" : ""}</span><span class="pill ${b.status}">${lab[b.status]}</span></div>`).join("");
   }
   LAST = { m, sol, req, reasons, status: BANKS ? (banks.some(b => !b.own && b.status === "ok") ? "ok" : banks.some(b => !b.own && b.status === "warn") ? "warn" : "bad") : status, label: BANKS ? $("vpill").textContent : label, banks };
-  $("casatax").hidden = S.canton !== "GE";
+  $("casatax").hidden = S.canton !== "GE" || S.usage === "secondaire";
 
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
   gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}`, okEq ? "ok" : "bad");
