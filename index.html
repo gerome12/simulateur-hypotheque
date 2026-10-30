@@ -1044,12 +1044,13 @@ const DOSSIER = { app: "simu-hypo-ch", version: 2, tailleMax: 1024 * 1024 };
 const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"] };
 const LIBELLES = {
   canton: "Canton du bien", cantonMenage: "Canton du ménage", usage: "Usage du bien", feesMode: "Mode des frais", taxMode: "Mode de l'impôt",
-  name1: "Nom de la personne 1", name2: "Nom de la personne 2", solo: "Nombre de personnes", apportSel: "Apport choisi", p2saved: "Montants de la personne 2"
+  name1: "Nom de la personne 1", name2: "Nom de la personne 2", solo: "Nombre de personnes", apportSel: "Apport choisi", p2saved: "Montants de la personne 2",
+  allocCount: "Compter les allocations", lockPrice: "Prix bloqué", realChargesAuto: "Charges réelles automatiques", casatax: "Casatax", conseiller: "Conseiller"
 };
 // Nom lisible d'une clé, avec la personne quand le champ en concerne une
 const libelleCle = k => {
   const f = BY[k];
-  if (!f) return LIBELLES[k] || k;
+  if (!f) return LIBELLES[k] || DOSSIER_BLOCS[k] || k;
   return f.who ? `${f.label} (${S["name" + f.who.slice(-1)] || f.who})` : f.label;
 };
 const estObjet = v => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -1062,8 +1063,7 @@ function valeurSure(k, v) {
   if (typeof v !== typeof DEFAULTS[k]) return false;
   if (typeof v !== "number") return true;
   // Même règle que la saisie : un dossier rend ce que la page permet
-  const f = BY[k];
-  return Number.isFinite(v) && (!f || f.min < 0 || v >= 0);
+  return Number.isFinite(v) && (BY[k]?.min < 0 || v >= 0);
 }
 // Seules les clés connues sont reprises : __proto__ ou constructor ne sont jamais fusionnées.
 // Renvoie aussi les clés connues du fichier écartées, y compris les cantons retirés par migrer()
@@ -1123,6 +1123,11 @@ const DOSSIER_CHAMPS = [
   ["graphiques.fondsPropres.prixMin", "eMin"],
   ["graphiques.fondsPropres.prixMax", "eMax"]
 ];
+// Blocs du fichier : un bloc qui n'est pas un objet est signalé, ses valeurs reprennent les défauts
+const DOSSIER_BLOCS = {
+  fondsPropres: "Fonds propres", bien: "Le bien", hypotheses: "Hypothèses", apport: "Apport", coutReel: "Coût réel", graphiques: "Graphiques",
+  "menage.enfants": "Enfants", "fondsPropres.impotRetraits": "Impôt sur retraits", "bien.frais": "Frais d'achat", "graphiques.mensualites": "Graphiques", "graphiques.fondsPropres": "Graphiques"
+};
 // Champs d'une personne : clé de S sans son numéro
 const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"], ["impotRetraits.pct", "taxPct"], ["impotRetraits.chf", "taxChf"]];
 // Seuls les chemins des tables sont lus, et seulement en propre : __proto__ et consorts sont sans effet
@@ -1145,21 +1150,26 @@ function versDossier(s, enregistreLe) {
   for (const [chemin, k] of DOSSIER_CHAMPS) ecrireChemin(d, chemin, s[k]);
   return d;
 }
-// Fichier → état plat, qui passe ensuite par nettoyer() comme le reste
+// Fichier → état plat, qui passe ensuite par nettoyer() comme le reste, et ce qui n'a pas pu être lu
 function depuisDossier(d) {
   const personnes = lireChemin(d, "menage.personnes");
   if (!Array.isArray(personnes) || !personnes.length || !personnes.every(estObjet)) throw new Error("Ce dossier doit contenir une ou deux personnes.");
   if (personnes.length > 2) throw new Error("Ce dossier compte plus de deux personnes : il n'a pas été ouvert.");
   const plat = {}, lire = (o, chemin, k) => { const v = lireChemin(o, chemin); if (v !== undefined) plat[k] = v; };
+  const ignores = Object.keys(DOSSIER_BLOCS).filter(b => { const v = lireChemin(d, b); return v !== undefined && !estObjet(v); });
   for (const [chemin, k] of DOSSIER_CHAMPS) lire(d, chemin, k);
   // Version 1 : un seul impôt, que migrer() reprend pour chaque personne
   if (d.version < 2) { lire(d, "fondsPropres.impotRetraits.pct", "taxPct"); lire(d, "fondsPropres.impotRetraits.chf", "taxChf"); }
-  personnes.forEach((o, i) => { for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
+  // Impôt d'une personne : bloc illisible signalé à son nom
+  const impotIllisible = (o, p) => { const v = lireChemin(o, "impotRetraits"); if (v !== undefined && !estObjet(v)) ignores.push("taxPct" + p); };
+  personnes.forEach((o, i) => { impotIllisible(o, i + 1); for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
   plat.solo = personnes.length === 1;
-  if (plat.solo) {
+  const r = lireChemin(d, "menage.personneRetiree"), miseDeCote = {};
+  if (!plat.solo) { if (r != null) ignores.push("p2saved"); }
+  else {
     P2_KEYS.forEach(k => { plat[k] = 0; });
-    const r = lireChemin(d, "menage.personneRetiree"), miseDeCote = {};
     if (estObjet(r)) {
+      impotIllisible(r, 2);
       for (const [chemin, c] of PERSONNE_CHAMPS) {
         const k = c + 2, v = lireChemin(r, chemin);
         if (v !== undefined) (P2_KEYS.includes(k) ? miseDeCote : plat)[k] = v;
@@ -1167,7 +1177,7 @@ function depuisDossier(d) {
       if (Object.keys(miseDeCote).length) plat.p2saved = miseDeCote;
     } else if (r != null) plat.p2saved = r;
   }
-  return plat;
+  return { plat, ignores };
 }
 // Texte d'un fichier → { sur, ecartees } ; un fichier refusé lève une erreur au message lisible
 function lireDossier(txt) {
@@ -1176,7 +1186,8 @@ function lireDossier(txt) {
   if (!estObjet(d) || d.app !== DOSSIER.app) throw new Error("Ce fichier n'est pas un dossier du simulateur.");
   if (!Number.isInteger(d.version)) throw new Error("La version de ce dossier est illisible.");
   if (d.version > DOSSIER.version) throw new Error("Ce dossier vient d'une version plus récente du simulateur : il n'a pas été ouvert.");
-  return nettoyer(depuisDossier(d));
+  const { plat, ignores } = depuisDossier(d), { sur, ecartees } = nettoyer(plat);
+  return { sur, ecartees: [...ignores, ...ecartees] };
 }
 const dossierMsg = (txt, role = "alert") => { const m = $("dossierMsg"); m.setAttribute("role", role); m.textContent = txt; m.hidden = !txt; };
 // Dans claude.ai : capacité downloads. Fichier ouvert seul : lien temporaire.
