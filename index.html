@@ -1074,8 +1074,6 @@ const DOSSIER_CHAMPS = [
   ["fondsPropres.donation", "gift"],
   ["fondsPropres.reserve", "reserve"],
   ["fondsPropres.impotRetraits.mode", "taxMode"],
-  ["fondsPropres.impotRetraits.pct", "taxPct"],
-  ["fondsPropres.impotRetraits.chf", "taxChf"],
   ["bien.prix", "price"],
   ["bien.prixBloque", "lockPrice"],
   ["bien.usage", "usage"],
@@ -1110,7 +1108,7 @@ const DOSSIER_CHAMPS = [
   ["graphiques.fondsPropres.prixMax", "eMax"]
 ];
 // Champs d'une personne : clé de S sans son numéro
-const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"]];
+const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"], ["impotRetraits.pct", "taxPct"], ["impotRetraits.chf", "taxChf"]];
 // Seuls les chemins des tables sont lus, et seulement en propre : __proto__ et consorts sont sans effet
 const lireChemin = (o, chemin) => chemin.split(".").reduce((v, c) => estObjet(v) && Object.hasOwn(v, c) ? v[c] : undefined, o);
 function ecrireChemin(o, chemin, v) {
@@ -1138,6 +1136,8 @@ function depuisDossier(d) {
   if (personnes.length > 2) throw new Error("Ce dossier compte plus de deux personnes : il n'a pas été ouvert.");
   const plat = {}, lire = (o, chemin, k) => { const v = lireChemin(o, chemin); if (v !== undefined) plat[k] = v; };
   for (const [chemin, k] of DOSSIER_CHAMPS) lire(d, chemin, k);
+  // Version 1 : un seul impôt, que migrer() reprend pour chaque personne
+  if (d.version < 2) { lire(d, "fondsPropres.impotRetraits.pct", "taxPct"); lire(d, "fondsPropres.impotRetraits.chf", "taxChf"); }
   personnes.forEach((o, i) => { for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
   plat.solo = personnes.length === 1;
   if (plat.solo) {
