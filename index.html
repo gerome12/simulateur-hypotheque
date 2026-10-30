@@ -270,6 +270,7 @@ table.costs { width: 100%; border-collapse: collapse; font-size: 13.5px; font-va
 .costs td:not(:first-child) { font-family: var(--font-data); padding-left: 12px; }
 .costs tr.total td { font-weight: 600; border-top: 2px solid var(--ink); }
 .tablewrap { overflow-x: auto; }
+#amortTable th:not(:first-child) { padding-left: 12px; }
 .note { font-size: 12.5px; color: var(--muted); margin: 10px 0; }
 
 svg.chart { width: 100%; height: auto; display: block; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -519,6 +520,21 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         </div>
         <p class="note" id="rentNote"></p>
       </section>
+
+      <details class="panel fold" id="amort">
+        <summary>
+          <h2>Amortissement dans le temps</h2>
+          <span class="msum" id="a-sum"></span>
+        </summary>
+        <p class="note" id="amortSyn"></p>
+        <div class="tablewrap" id="amortTable">
+          <table class="costs cfg">
+            <thead><tr><th>Année</th><th>Âge</th><th>Dette début</th><th>Intérêts</th><th>Amort.</th><th>Dette fin</th><th>1<sup>er</sup> rang</th><th>2<sup>e</sup> rang</th><th>% prix</th></tr></thead>
+            <tbody id="amortLignes"></tbody>
+          </table>
+        </div>
+        <p class="note" id="amortHyp"></p>
+      </details>
 
       <section class="panel">
         <h2>Prix et taux d'effort</h2>
@@ -992,7 +1008,7 @@ for (const f of ALL) {
     update(r);
   });
 }
-for (const id of ["menage", "fonds", "bien", "hyp", "rset", "eset"]) {
+for (const id of ["menage", "fonds", "bien", "hyp", "amort", "rset", "eset"]) {
   try { if (localStorage.getItem(KEY + "-" + id) === "closed") $(id).open = false; } catch (e) {}
   $(id).addEventListener("toggle", () => { try { localStorage.setItem(KEY + "-" + id, $(id).open ? "open" : "closed"); } catch (e) {} });
 }
@@ -1271,9 +1287,10 @@ const allocAnnuelle = s => 12 * (Math.min(s.kids, 2) * s.alloc + Math.max(s.kids
 function income(s) {
   return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? allocAnnuelle(s) : 0);
 }
+// Personne la plus âgée : elle fixe la durée d'amortissement et la retraite du ménage
+const agePlusAge = s => Math.max(s.age1, s.inc2 > 0 ? s.age2 : 0);
 function amortYears(s) {
-  const oldest = Math.max(s.age1, s.inc2 > 0 ? s.age2 : 0);
-  return Math.max(1, Math.min(s.amortMax, s.retireAge - oldest));
+  return Math.max(1, Math.min(s.amortMax, s.retireAge - agePlusAge(s)));
 }
 // Taux d'impôt effectif de chaque personne : le % saisi, ou le montant en CHF rapporté à ses retraits
 function taxRates(s) {
@@ -1341,6 +1358,20 @@ function solve(s) {
   cands.sort((a, b) => a[1] - b[1]);
   return { pEq, pHard, pInc, pRet, pMax: cands[0][1], by: cands[0][0] };
 }
+// Dette année par année jusqu'à la retraite : amortissement direct en fin d'année, taux réel constant, aucune vente.
+// Le 2e rang restant vient d'une formule fermée, sans cumul d'arrondis, et vaut 0 exactement à l'année m.years.
+function tableauAmortissement(s, m) {
+  const age0 = agePlusAge(s), n = Math.min(Math.ceil(s.retireAge - age0), 100);   // 100 lignes au plus, quel que soit retireAge
+  const r2 = a => a >= m.years ? 0 : m.rank2 - a * m.amort, lignes = [];
+  for (let annee = 1; annee <= n; annee++) {
+    const debut = m.rank1 + r2(annee - 1), fin = m.rank1 + r2(annee);
+    lignes.push({ annee, age: age0 + annee, debut, interets: debut * s.realRate / 100, amort: Math.min(m.amort, r2(annee - 1)), fin, rang1: m.rank1, rang2: r2(annee), pct: m.P > 0 ? fin / m.P * 100 : 0 });
+  }
+  const derniere = lignes.at(-1);
+  return { lignes, detteRetraite: derniere ? derniere.fin : m.loan, totalInterets: lignes.reduce((t, l) => t + l.interets, 0), totalAmorti: derniere ? m.rank2 - derniere.rang2 : 0 };
+}
+const amortSynthese = a => a.lignes.length ? `Dette à la retraite ${chf(a.detteRetraite)} · intérêts réels ${chf(a.totalInterets)} · amorti ${chf(a.totalAmorti)}` : "Âge de la retraite déjà atteint : pas de tableau d'amortissement.";
+const amortHypotheses = s => `Amortissement direct, annuel, en fin d'année. Taux réel de ${s.realRate} % constant, sans renouvellement de l'hypothèque. Aucune vente. Âge de la personne la plus âgée en fin d'année.`;
 function required(s, m) {
   s = effectif(s);
   const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
@@ -1583,6 +1614,12 @@ function update(skip) {
     : S.rent > 0
     ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
     : `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.`;
+
+  const am = tableauAmortissement(S, m);
+  $("a-sum").textContent = $("amortSyn").textContent = amortSynthese(am);
+  $("amortTable").hidden = !am.lignes.length;
+  $("amortHyp").textContent = amortHypotheses(S);
+  $("amortLignes").innerHTML = am.lignes.map(l => `<tr>${[l.annee, l.age].map(v => `<td>${v}</td>`).join("")}${[l.debut, l.interets, l.amort, l.fin, l.rang1, l.rang2].map(v => `<td>${nf.format(Math.round(v))}</td>`).join("")}<td>${l.pct.toFixed(1)}</td></tr>`).join("");
 
   drawChart(m, sol);
   drawRates();
@@ -2026,6 +2063,25 @@ async function exportPdf() {
     lines.forEach(l => crow(l[0], l[1], l[2]));
     crow("Total CHF", lines.reduce((s, l) => s + l[1], 0), lines.reduce((s, l) => s + l[2], 0), true);
     if (S.rent && !sec) row("Loyer actuel", chfT(S.rent) + " / mois");
+
+    section("Amortissement dans le temps");
+    const am = tableauAmortissement(S, m);
+    if (!am.lignes.length) para(amortSynthese(am));
+    else {
+      row("Dette à la retraite", chfT(am.detteRetraite), true);
+      row("Intérêts réels jusqu'à la retraite", chfT(am.totalInterets));
+      row("Amorti jusqu'à la retraite", chfT(am.totalAmorti));
+      // Tableau annuel, avec ses titres répétés à chaque page
+      const X = [L, 36, 66, 88, 110, 138, 162, 180, R], titres = ["ANNÉE", "ÂGE", "DETTE DÉBUT", "INTÉRÊTS", "AMORT.", "DETTE FIN", "1ER RANG", "2E RANG", "% PRIX"];
+      const ligne = (cells, bold) => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 7.5 : 8.5); doc.setTextColor(...(bold ? MUTED : INK)); cells.forEach((c, i) => doc.text(tx(c), X[i], y, i ? { align: "right" } : undefined)); y += 4.4; };
+      ensure(14); y += 1.5; ligne(titres, true);
+      am.lignes.forEach(l => {
+        if (y + 4.4 > 282) { doc.addPage(); y = 18; ligne(titres, true); }
+        ligne([l.annee, l.age, ...[l.debut, l.interets, l.amort, l.fin, l.rang1, l.rang2].map(v => nf.format(Math.round(v))), l.pct.toFixed(1)].map(String));
+      });
+      y += 2;
+    }
+    para(amortHypotheses(S));
 
     if (LAST.banks) {
       section("Selon les banques");
