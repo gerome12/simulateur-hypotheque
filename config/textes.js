@@ -69,8 +69,9 @@ SIMU_CONFIG.textes = {
     ltvMax: {
       texte: "Part maximale du prix que la banque prête. Le reste, plus les frais d'achat, doit venir de vos fonds propres.",
       points: [
-        "80 % pour un logement que vous habitez : règle de l'Association suisse des banquiers, reconnue par la FINMA.",
+        "80 % pour un logement que vous habitez : pratique usuelle des banques, pas une limite légale.",
         "Souvent 50 à 75 % pour une résidence secondaire ou un bien à louer, parfois moins pour un bien de luxe.",
+        "Les directives de l'Association suisse des banquiers, reconnues par la FINMA, exigent au moins 10 % de fonds propres hors 2e pilier et le retour aux deux tiers de la valeur en 15 ans au plus.",
       ],
     },
 
@@ -97,8 +98,19 @@ SIMU_CONFIG.textes = {
     amortMax: {
       texte: "Délai pour rembourser le 2e rang, par versements égaux chaque année.",
       points: [
-        "15 ans au plus selon les règles des banques, et avant l'âge de la retraite si elle arrive plus tôt.",
+        "15 ans au plus selon les directives de l'Association suisse des banquiers, de façon linéaire. Avant l'âge de la retraite : pratique des banques.",
         "On peut amortir directement, ou indirectement en versant sur un 3e pilier mis en gage.",
+      ],
+    },
+
+    // 2e pilier (EPL) : même bulle pour les deux personnes, voir lpp2 en fin de fichier
+    lpp1: {
+      texte: "Retrait anticipé pour le logement que vous habitez (EPL).",
+      points: [
+        "Au moins 20'000 CHF auprès d'une caisse de pension, et un retrait tous les 5 ans.",
+        "Après 50 ans, le montant est limité au plus élevé de ces deux montants : l'avoir à 50 ans, ajusté des retraits et remboursements faits depuis, ou la moitié de l'avoir actuel après déduction de ce qui a déjà servi au logement. Demandez le montant à votre caisse.",
+        "Il sert à un seul logement à la fois.",
+        "En principe au plus tard 3 ans avant le droit aux prestations de vieillesse. Le règlement de votre caisse peut réduire ce délai, mais aucun retrait une fois l'âge ordinaire de la retraite atteint.",
       ],
     },
 
@@ -126,7 +138,7 @@ SIMU_CONFIG.textes = {
       points: [
         "**Avance d'hoirie** : avance sur la future part d'héritage. À la succession, elle est déduite de ce que vous recevez, pour rester équitable avec les frères et sœurs (rapport, CC art. 626).",
         "**Donation** : un cadeau qui n'a pas à être compensé plus tard si l'acte prévoit une dispense de rapport, dans la limite des réserves héréditaires.",
-        "**Banque** : elle accepte ces montants s'il s'agit d'un vrai don sans remboursement, en général sur attestation écrite. Un prêt des parents n'est pas un fonds propre : ses intérêts ou remboursements vont dans « Autres charges fixes annuelles ».",
+        "**Banque** : elle accepte ces montants s'il s'agit d'un vrai don sans remboursement, en général sur attestation écrite. Un prêt n'est pas un don. Pour un logement que vous habitez, le prêt d'un proche (conjoint ou partenaire de vie, parents, grands-parents, frères et sœurs, enfants ou petits-enfants majeurs) peut compter comme fonds propres si le prêteur confirme par écrit à la banque que le remboursement exige l'accord de celle-ci. Un prêt cédé à la banque ou assorti d'une convention de postposition compte aussi. Dans tous les cas, ses intérêts et remboursements vont dans « Autres charges fixes annuelles ».",
         "**Impôt** : dépend du canton. Beaucoup exonèrent les dons aux enfants, pas tous et parfois au-delà d'un seuil seulement.",
         "**Couple** : marié, le don reste le bien propre de celui qui le reçoit. Non marié, la répartition de la propriété compte. Dans les deux cas, gardez une trace écrite de qui a apporté quoi.",
       ],
@@ -149,6 +161,7 @@ SIMU_CONFIG.textes = {
     "Hypothèque max. 80 % du prix. 1er rang jusqu'à env. 2/3 du prix, sans amortissement obligatoire. 2e rang amorti linéairement en 15 ans, ou avant l'âge de la retraite si c'est plus tôt.",
     "Charges théoriques = intérêts au taux théorique (5 %) + amortissement du 2e rang + entretien et frais (≈ 1 % du prix) + autres charges (leasing, pensions). Elles doivent rester sous 33 % du revenu brut retenu.",
     "Fonds propres : au moins 20 % du prix, dont 10 % hors 2e pilier. Les frais d'achat (droits de mutation, notaire, registre foncier, cédule) s'ajoutent et ne sont pas financés.",
+    "Le prix est supposé égal à la valeur retenue par la banque (valeur de nantissement). S'il la dépasse, l'écart doit être payé en fonds propres hors 2e pilier : ce simulateur ne le calcule pas.",
     "Résidence secondaire : pas de 2e ni de 3e pilier, financement à 60 % du prix, 1er rang à 50 %, pas de Casatax. Les charges du logement principal s'ajoutent au contrôle du revenu.",
     "Non pris en compte pour une résidence secondaire : revenus locatifs, taux souvent plus élevés, amortissement plus exigeant de certaines banques, frais accessoires plus élevés, impôts et restrictions d'achat (Lex Koller).",
     "Les retraits de 2e et 3e pilier sont imposés à part : l'impôt saisi pour chaque personne est déduit de ses retraits. Pour un couple marié ou des partenaires enregistrés vivant en ménage commun, les retraits d'une même année sont en général additionnés pour fixer l'impôt : ce simulateur ne le calcule pas, c'est l'impôt saisi qui compte.",
@@ -159,3 +172,4 @@ SIMU_CONFIG.textes = {
   // ---------- Dernier paragraphe du PDF
   avertissementPdf: "Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.",
 };
+SIMU_CONFIG.textes.aide.lpp2 = SIMU_CONFIG.textes.aide.lpp1;

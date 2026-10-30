@@ -11,5 +11,6 @@ SIMU_CONFIG.hypothesesBancaires = {
   ltvMaxSec: 60,                // financement maximal pour une résidence secondaire, en % du prix
   amortMax: 15,                 // durée maximale d'amortissement du 2e rang, en années
   retireAge: 65,                // âge de la retraite
-  retirePct: 60                 // revenu à la retraite, en % des salaires actuels
+  retirePct: 60,                // revenu à la retraite, en % des salaires actuels
+  eplMin: 20000                 // retrait minimal du 2e pilier pour le logement, en CHF (OEPL art. 5)
 };
