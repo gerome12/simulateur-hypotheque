@@ -24,6 +24,8 @@ SIMU_CONFIG.valeursParDefaut = {
 
   // Le bien
   price: 1200000,
+  usage: "principale",          // usage du bien : "principale" ou "secondaire"
+  chargesPrincipale: 0,         // logement principal déjà payé par le ménage, en CHF par mois (usage "secondaire")
   feesMode: "ge",               // frais d'achat : "pct" (en %), "chf" (montant) ou "ge" (barème genevois)
   feesPct: 5,
   feesChf: 60000,

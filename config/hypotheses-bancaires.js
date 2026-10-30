@@ -7,6 +7,7 @@ SIMU_CONFIG.hypothesesBancaires = {
   maintPct: 1,                  // entretien et frais accessoires, en % du prix par an
   rank1Pct: 66.7,               // limite du 1er rang, en % du prix
   ltvMax: 80,                   // financement maximal, en % du prix
+  ltvMaxSec: 70,                // financement maximal pour une résidence secondaire, en % du prix
   amortMax: 15,                 // durée maximale d'amortissement du 2e rang, en années
   retireAge: 65,                // âge de la retraite
   retirePct: 60                 // revenu à la retraite, en % des salaires actuels
