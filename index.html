@@ -1062,6 +1062,97 @@ function nettoyer(sim) {
   if (sur.p2saved) sur.p2saved = Object.fromEntries(P2_KEYS.map(c => [c, sur.p2saved[c]]));
   return { sur, ecartees };
 }
+// Correspondance entre le fichier (chemin) et l'état de la page (clé de S), lue dans les deux sens
+const DOSSIER_CHAMPS = [
+  ["conseiller", "conseiller"],
+  ["menage.cantonMenage", "cantonMenage"],
+  ["menage.partBonusRetenue", "bonusPct"],
+  ["menage.autresChargesAnnuelles", "debt"],
+  ["menage.enfants.nombre", "kids"],
+  ["menage.enfants.allocationMensuelle", "alloc"],
+  ["menage.enfants.compterDansRevenu", "allocCount"],
+  ["fondsPropres.donation", "gift"],
+  ["fondsPropres.reserve", "reserve"],
+  ["fondsPropres.impotRetraits.mode", "taxMode"],
+  ["fondsPropres.impotRetraits.pct", "taxPct"],
+  ["fondsPropres.impotRetraits.chf", "taxChf"],
+  ["bien.prix", "price"],
+  ["bien.prixBloque", "lockPrice"],
+  ["bien.usage", "usage"],
+  ["bien.canton", "canton"],
+  ["bien.chargesLogementPrincipal", "chargesPrincipale"],
+  ["bien.frais.mode", "feesMode"],
+  ["bien.frais.pct", "feesPct"],
+  ["bien.frais.chf", "feesChf"],
+  ["bien.casatax", "casatax"],
+  ["bien.cedulesReprises", "cedReprise"],
+  ["hypotheses.tauxTheorique", "rate"],
+  ["hypotheses.chargesMaxPct", "ratioMax"],
+  ["hypotheses.entretienPct", "maintPct"],
+  ["hypotheses.limite1erRangPct", "rank1Pct"],
+  ["hypotheses.limite1erRangSecondairePct", "rank1PctSec"],
+  ["hypotheses.financementMaxPct", "ltvMax"],
+  ["hypotheses.financementMaxSecondairePct", "ltvMaxSec"],
+  ["hypotheses.dureeAmortissement", "amortMax"],
+  ["hypotheses.ageRetraite", "retireAge"],
+  ["hypotheses.revenuRetraitePct", "retirePct"],
+  ["apport.choisi", "apportSel"],
+  ["coutReel.tauxReel", "realRate"],
+  ["coutReel.chargesReelles", "realCharges"],
+  ["coutReel.chargesReellesAuto", "realChargesAuto"],
+  ["coutReel.loyer", "rent"],
+  ["graphiques.mensualites.tauxTheorique", "gRate"],
+  ["graphiques.mensualites.tauxReel", "gReal"],
+  ["graphiques.mensualites.prixMin", "gMin"],
+  ["graphiques.mensualites.prixMax", "gMax"],
+  ["graphiques.fondsPropres.fraisPct", "gFees"],
+  ["graphiques.fondsPropres.prixMin", "eMin"],
+  ["graphiques.fondsPropres.prixMax", "eMax"]
+];
+// Champs d'une personne : clé de S sans son numéro
+const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"]];
+// Seuls les chemins des tables sont lus, et seulement en propre : __proto__ et consorts sont sans effet
+const lireChemin = (o, chemin) => chemin.split(".").reduce((v, c) => estObjet(v) && Object.hasOwn(v, c) ? v[c] : undefined, o);
+function ecrireChemin(o, chemin, v) {
+  const cles = chemin.split("."), fin = cles.pop();
+  for (const c of cles) o = o[c] ??= {};
+  if (v !== undefined) o[fin] = v;
+}
+function versPersonne(s, p) {
+  const o = {};
+  for (const [chemin, c] of PERSONNE_CHAMPS) ecrireChemin(o, chemin, s[c + p]);
+  return o;
+}
+function versDossier(s, enregistreLe) {
+  const personnes = s.solo ? [versPersonne(s, 1)] : [versPersonne(s, 1), versPersonne(s, 2)];
+  // Personne retirée : ses montants sont dans p2saved, son nom et son âge restent dans S
+  const miseDeCote = { ...s, ...Object.fromEntries(P2_KEYS.map(k => [k, s.p2saved?.[k]])) };
+  const d = { app: DOSSIER.app, version: DOSSIER.version, enregistreLe, conseiller: s.conseiller, menage: { personnes, personneRetiree: s.solo ? versPersonne(miseDeCote, 2) : null } };
+  for (const [chemin, k] of DOSSIER_CHAMPS) ecrireChemin(d, chemin, s[k]);
+  return d;
+}
+// Fichier → état plat, qui passe ensuite par nettoyer() comme le reste
+function depuisDossier(d) {
+  const personnes = lireChemin(d, "menage.personnes");
+  if (!Array.isArray(personnes) || !personnes.length || !personnes.every(estObjet)) throw new Error("Ce dossier doit contenir une ou deux personnes.");
+  if (personnes.length > 2) throw new Error("Ce dossier compte plus de deux personnes : il n'a pas été ouvert.");
+  const plat = {}, lire = (o, chemin, k) => { const v = lireChemin(o, chemin); if (v !== undefined) plat[k] = v; };
+  for (const [chemin, k] of DOSSIER_CHAMPS) lire(d, chemin, k);
+  personnes.forEach((o, i) => { for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
+  plat.solo = personnes.length === 1;
+  if (plat.solo) {
+    P2_KEYS.forEach(k => { plat[k] = 0; });
+    const r = lireChemin(d, "menage.personneRetiree"), miseDeCote = {};
+    if (estObjet(r)) {
+      for (const [chemin, c] of PERSONNE_CHAMPS) {
+        const k = c + 2, v = lireChemin(r, chemin);
+        if (v !== undefined) (P2_KEYS.includes(k) ? miseDeCote : plat)[k] = v;
+      }
+      if (Object.keys(miseDeCote).length) plat.p2saved = miseDeCote;
+    } else if (r != null) plat.p2saved = r;
+  }
+  return plat;
+}
 // Texte d'un fichier → { sur, ecartees } ; un fichier refusé lève une erreur au message lisible
 function lireDossier(txt) {
   let d;
@@ -1069,8 +1160,7 @@ function lireDossier(txt) {
   if (!estObjet(d) || d.app !== DOSSIER.app) throw new Error("Ce fichier n'est pas un dossier du simulateur.");
   if (!Number.isInteger(d.version)) throw new Error("La version de ce dossier est illisible.");
   if (d.version > DOSSIER.version) throw new Error("Ce dossier vient d'une version plus récente du simulateur : il n'a pas été ouvert.");
-  if (!estObjet(d.simulation)) throw new Error("Ce dossier ne contient pas de simulation.");
-  return nettoyer(d.simulation);
+  return nettoyer(depuisDossier(d));
 }
 const dossierMsg = (txt, role = "alert") => { const m = $("dossierMsg"); m.setAttribute("role", role); m.textContent = txt; m.hidden = !txt; };
 // Dans claude.ai : capacité downloads. Fichier ouvert seul : lien temporaire.
@@ -1086,7 +1176,7 @@ $("dossierSave").addEventListener("click", async () => {
   dossierMsg("");
   const iso = new Date().toISOString(), date = iso.slice(0, 10);
   const nom = String(S.name1).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 40).replace(/^-+|-+$/g, "");
-  const blob = new Blob([JSON.stringify({ app: DOSSIER.app, version: DOSSIER.version, enregistreLe: iso, simulation: S }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(versDossier(S, iso), null, 2)], { type: "application/json" });
   try { await telecharger(`dossier-${nom ? nom + "-" : ""}${date}.json`, blob); }
   catch (err) { if (err?.code !== "declined") dossierMsg("Enregistrement indisponible."); }
 });
