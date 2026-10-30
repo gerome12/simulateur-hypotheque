@@ -905,7 +905,12 @@ document.addEventListener("click", e => {
 $("canton").innerHTML = $("cantonMenage").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
 
 // Retrait sous le minimal de l'EPL : signalé sans changer le verdict
-const eplMsg = p => S["lpp" + p] > 0 && S["lpp" + p] < S.eplMin ? `2e pilier de ${S["name" + p]} : le retrait minimal auprès d'une caisse de pension est de ${nf.format(S.eplMin)} CHF.` : "";
+const eplMsgs = p => {
+  const lpp = S["lpp" + p], nom = S["name" + p], msgs = [];
+  if (lpp > 0 && lpp < S.eplMin) msgs.push(`2e pilier de ${nom} : le retrait minimal auprès d'une caisse de pension est de ${nf.format(S.eplMin)} CHF.`);
+  if (lpp > 0 && S["age" + p] >= S.retireAge - 3) msgs.push(`2e pilier de ${nom} : retrait possible au plus tard 3 ans avant le droit aux prestations de vieillesse. À confirmer par votre caisse.`);
+  return msgs;
+};
 function syncInputs(skip) {
   for (const f of ALL) {
     const t = $("in-" + f.id), r = $("rg-" + f.id);
@@ -934,7 +939,7 @@ function syncInputs(skip) {
   for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) {
     const p = id.slice(-1), msgs = sec ? ["Non pris en compte pour une résidence secondaire."] : [];
     if (!sec && id.startsWith("lpp")) {
-      if (eplMsg(p)) msgs.push(eplMsg(p));
+      msgs.push(...eplMsgs(p));
       if (S["age" + p] >= 50 && S[id] > 0) msgs.push("Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.");
     }
     $("hint-" + id).innerHTML = msgs.map(fmtTxt).join(" ");
@@ -1401,7 +1406,7 @@ function update(skip) {
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
   if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
-  if (!sec) for (const p of S.solo ? [1] : [1, 2]) if (eplMsg(p)) reasons.push(eplMsg(p));
+  if (!sec) for (const p of S.solo ? [1] : [1, 2]) reasons.push(...eplMsgs(p));
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
   const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
