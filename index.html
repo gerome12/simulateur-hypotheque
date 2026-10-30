@@ -152,7 +152,7 @@ select, button { font: inherit; }
 .casatax .tick { width: 2px; height: 24px; background: var(--warn); border-radius: 1px; }
 .casatax .lbl { font: 500 11px/1.2 var(--font-data); color: var(--warn); white-space: nowrap; transform: translateX(-50%); }
 @media print {
-  .tabs, #tab-rates, .top-actions, .dossier-msg, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
+  .tabs, #tab-rates, #tab-al, .top-actions, .dossier-msg, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
   body { padding-block: 0; background: #fff; color: #000; }
   .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "inputs" "details"; }
   .panel, .verdict { break-inside: avoid; }
@@ -270,7 +270,7 @@ table.costs { width: 100%; border-collapse: collapse; font-size: 13.5px; font-va
 .costs td:not(:first-child) { font-family: var(--font-data); padding-left: 12px; }
 .costs tr.total td { font-weight: 600; border-top: 2px solid var(--ink); }
 .tablewrap { overflow-x: auto; }
-#amortTable th:not(:first-child) { padding-left: 12px; }
+#amortTable th:not(:first-child), #alTable th:not(:first-child) { padding-left: 12px; }
 .note { font-size: 12.5px; color: var(--muted); margin: 10px 0; }
 
 svg.chart { width: 100%; height: auto; display: block; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -357,6 +357,10 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 .ctip dt { color: var(--muted); } .ctip dd { margin: 0; font-family: var(--font-data); text-align: right; }
 .ctip .t-theo { color: var(--warn); font-weight: 600; } .ctip .t-real { color: var(--accent); font-weight: 600; }
 .ctip .t-eq { color: var(--c-eq); font-weight: 600; }
+.alsyn { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 18px; margin: 10px 0 14px; }
+.alsyn div { display: grid; gap: 2px; align-content: start; }
+.alsyn span { font-size: 12.5px; color: var(--muted); }
+.alsyn b { font-family: var(--font-data); font-weight: 500; font-size: 17px; }
 .mbar { display: none; }
 @media (max-width: 900px) {
   .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 12px; justify-content: space-between; align-items: center;
@@ -394,6 +398,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <nav class="tabs" role="tablist" aria-label="Vues">
     <button type="button" role="tab" id="t-simu" aria-controls="tab-simu" aria-selected="true">Ma simulation</button>
     <button type="button" role="tab" id="t-rates" aria-controls="tab-rates" aria-selected="false">Repères selon le prix</button>
+    <button type="button" role="tab" id="t-al" aria-controls="tab-al" aria-selected="false">Acheter ou louer</button>
     <button type="button" role="tab" id="t-config" aria-controls="tab-config" aria-selected="false" hidden>Ma config</button>
   </nav>
 
@@ -604,6 +609,43 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <p class="hint" id="eq-h"></p>
     </section>
   </div>
+
+  <div class="rates" id="tab-al" role="tabpanel" aria-labelledby="t-al" hidden>
+    <section class="panel" id="al-sec" hidden>
+      <h2>Acheter ou louer</h2>
+      <p class="lead">Sans objet pour une résidence secondaire : le loyer du logement principal continue.</p>
+    </section>
+    <section class="panel" id="al-corps">
+      <h2>Acheter ou louer <small id="al-n"></small></h2>
+      <p class="lead">Même budget pour les deux ménages : celui dont le logement coûte le moins cher dans l'année place la différence.</p>
+      <ul class="reasons" id="al-msg"></ul>
+      <div class="alsyn" id="al-syn"></div>
+      <details class="gset" id="alset" open>
+        <summary>Hypothèses <span class="gsum" id="alset-sum"></span></summary>
+        <div class="duo" id="f-al"></div>
+      </details>
+      <div class="chartwrap">
+        <svg class="chart" id="alchart" viewBox="0 0 640 340" role="img" aria-label="Patrimoine en achetant et en louant selon l'année"></svg>
+        <div class="ctip" hidden></div>
+      </div>
+      <div class="rlegend"></div>
+      <p class="hint">Survolez ou touchez le graphique pour lire les deux patrimoines à une année donnée.</p>
+      <p class="note" id="al-limites">Comparaison indicative, avant impôts. Elle ignore la valeur locative et les déductions, dont la suppression est prévue, le gain immobilier à la vente et l'impôt sur le rendement de l'épargne. Les hypothèses sont à ajuster : le résultat y est très sensible.</p>
+      <p class="note" id="al-hyp"></p>
+    </section>
+    <details class="panel fold" id="altab">
+      <summary>
+        <h2>Année par année</h2>
+        <span class="msum" id="al-tsum"></span>
+      </summary>
+      <div class="tablewrap" id="alTable">
+        <table class="costs cfg">
+          <thead><tr><th>Année</th><th>Coût achat</th><th>Coût loyer</th><th>Épargne acheteur</th><th>Valeur du bien</th><th>Dette fin</th><th>Acheter</th><th>Louer</th><th>Écart</th></tr></thead>
+          <tbody id="alLignes"></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
 </div>
 
 <div class="mbar" id="mbar" aria-live="polite">
@@ -683,6 +725,7 @@ const DEFAULTS = {
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, taxMode: "pct", taxChf: 8400, reserve: 0,
   rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60, eplMin: 20000,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
+  alHorizon: 15, alHausseLoyer: 1.5, alHausseBien: 1, alRendement: 2, alFraisVente: 2,
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
   name1: "Personne 1", name2: "Personne 2",
@@ -783,6 +826,13 @@ const F = {
     { id: "realRate", label: "Taux réel (fixe ou SARON + marge)", min: 0.3, max: 5, step: 0.05, unit: "%" },
     { id: "realCharges", label: "Charges réelles (PPE, entretien)", min: 0, max: 3000, step: 10, unit: "CHF/mois", dyn: true },
     { id: "rent", label: "Loyer actuel", min: 0, max: 10000, step: 50, unit: "CHF/mois" }
+  ],
+  al: [
+    { id: "alHorizon", label: "Horizon", min: 10, max: 20, step: 1, unit: "ans" },
+    { id: "alHausseLoyer", label: "Hausse des loyers", min: 0, max: 5, step: 0.1, unit: "%/an", hint: "Par défaut 1,5 % : prévision UBS d'août 2026, qui ne couvre pas les loyers indexés." },
+    { id: "alHausseBien", label: "Hausse du prix du bien", min: -2, max: 4, step: 0.1, unit: "%/an", hint: "Par défaut 1 % : 1 à 1,5 % selon les sources." },
+    { id: "alRendement", label: "Rendement de l'argent placé", min: 0, max: 6, step: 0.1, unit: "%/an", hint: "Hypothèse sans source, à ajuster." },
+    { id: "alFraisVente", label: "Frais de vente", min: 0, max: 5, step: 0.1, unit: "% prix", hint: "Hypothèse à ajuster, sur le prix de vente." }
   ]
 };
 const ALL = Object.values(F).flat();
@@ -1008,7 +1058,7 @@ for (const f of ALL) {
     update(r);
   });
 }
-for (const id of ["menage", "fonds", "bien", "hyp", "amort", "rset", "eset"]) {
+for (const id of ["menage", "fonds", "bien", "hyp", "amort", "rset", "eset", "alset", "altab"]) {
   try { const v = localStorage.getItem(KEY + "-" + id); if (v) $(id).open = v === "open"; } catch (e) {}
   $(id).addEventListener("toggle", () => { try { localStorage.setItem(KEY + "-" + id, $(id).open ? "open" : "closed"); } catch (e) {} });
 }
@@ -1055,12 +1105,15 @@ $("cantonMenage").addEventListener("change", e => {
   if (c.alloc != null) { S.alloc = c.alloc; S.alloc3 = c.alloc3 ?? c.alloc; }
   touched = true; update();
 });
-// Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
-const RATE_KEYS = [...F.rates, ...F.eqg].map(f => f.id);
+// Réinitialise seulement l'onglet affiché : les réglages de chaque onglet d'un côté, la simulation de l'autre
+const RATE_KEYS = [...F.rates, ...F.eqg].map(f => f.id), AL_KEYS = F.al.map(f => f.id);
 $("reset").addEventListener("click", () => {
-  const keep = Object.fromEntries(RATE_KEYS.map(k => [k, TAB === "rates" ? DEFAULTS[k] : S[k]]));
-  if (TAB === "rates") Object.assign(S, keep);
-  else { S = { ...DEFAULTS, ...keep, conseiller: S.conseiller }; touched = false; }   // le conseiller choisi reste sélectionné
+  const onglet = { rates: RATE_KEYS, al: AL_KEYS }[TAB];
+  if (onglet) onglet.forEach(k => { S[k] = DEFAULTS[k]; });
+  else {
+    const keep = Object.fromEntries([...RATE_KEYS, ...AL_KEYS].map(k => [k, S[k]]));
+    S = { ...DEFAULTS, ...keep, conseiller: S.conseiller }; touched = false;   // le conseiller choisi reste sélectionné
+  }
   update();
 });
 
@@ -1146,11 +1199,16 @@ const DOSSIER_CHAMPS = [
   ["graphiques.mensualites.prixMax", "gMax"],
   ["graphiques.fondsPropres.fraisPct", "gFees"],
   ["graphiques.fondsPropres.prixMin", "eMin"],
-  ["graphiques.fondsPropres.prixMax", "eMax"]
+  ["graphiques.fondsPropres.prixMax", "eMax"],
+  ["acheterLouer.horizon", "alHorizon"],
+  ["acheterLouer.hausseLoyerPct", "alHausseLoyer"],
+  ["acheterLouer.hausseBienPct", "alHausseBien"],
+  ["acheterLouer.rendementPct", "alRendement"],
+  ["acheterLouer.fraisVentePct", "alFraisVente"]
 ];
 // Blocs du fichier : un bloc qui n'est pas un objet est signalé, ses valeurs reprennent les défauts
 const DOSSIER_BLOCS = {
-  fondsPropres: "Fonds propres", bien: "Le bien", hypotheses: "Hypothèses", apport: "Apport", coutReel: "Coût réel", graphiques: "Graphiques",
+  fondsPropres: "Fonds propres", bien: "Le bien", hypotheses: "Hypothèses", apport: "Apport", coutReel: "Coût réel", graphiques: "Graphiques", acheterLouer: "Acheter ou louer",
   "menage.enfants": "Enfants", "fondsPropres.impotRetraits": "Impôt sur retraits", "bien.frais": "Frais d'achat", "graphiques.mensualites": "Graphiques", "graphiques.fondsPropres": "Graphiques"
 };
 // Champs d'une personne : clé de S sans son numéro
@@ -1358,20 +1416,60 @@ function solve(s) {
   cands.sort((a, b) => a[1] - b[1]);
   return { pEq, pHard, pInc, pRet, pMax: cands[0][1], by: cands[0][0] };
 }
-// Dette année par année jusqu'à la retraite : amortissement direct en fin d'année, taux réel constant, aucune vente.
+// Dette d'une année : amortissement direct en fin d'année, taux réel constant, aucune vente.
 // Le 2e rang restant vient d'une formule fermée, sans cumul d'arrondis, et vaut 0 exactement à l'année m.years.
+function ligneDette(m, annee, taux) {
+  const r2 = a => a >= m.years ? 0 : m.rank2 - a * m.amort, debut = m.rank1 + r2(annee - 1);
+  return { annee, debut, interets: debut * taux / 100, amort: Math.min(m.amort, r2(annee - 1)), fin: m.rank1 + r2(annee), rang1: m.rank1, rang2: r2(annee) };
+}
+// Dette année par année jusqu'à la retraite
 function tableauAmortissement(s, m) {
-  const age0 = agePlusAge(s), n = Math.min(Math.ceil(s.retireAge - age0), 100);   // 100 lignes au plus, quel que soit retireAge
-  const r2 = a => a >= m.years ? 0 : m.rank2 - a * m.amort, lignes = [];
+  const age0 = agePlusAge(s), n = Math.min(Math.ceil(s.retireAge - age0), 100), lignes = [];   // 100 lignes au plus, quel que soit retireAge
   for (let annee = 1; annee <= n; annee++) {
-    const debut = m.rank1 + r2(annee - 1), fin = m.rank1 + r2(annee);
-    lignes.push({ annee, age: age0 + annee, debut, interets: debut * s.realRate / 100, amort: Math.min(m.amort, r2(annee - 1)), fin, rang1: m.rank1, rang2: r2(annee), pct: m.P > 0 ? fin / m.P * 100 : 0 });
+    const l = ligneDette(m, annee, s.realRate);
+    lignes.push({ ...l, age: age0 + annee, pct: m.P > 0 ? l.fin / m.P * 100 : 0 });
   }
   const derniere = lignes.at(-1);
   return { lignes, detteRetraite: derniere ? derniere.fin : m.loan, totalInterets: lignes.reduce((t, l) => t + l.interets, 0), totalAmorti: derniere ? m.rank2 - derniere.rang2 : 0 };
 }
 const amortSynthese = a => a.lignes.length ? `Dette à la retraite ${chf(a.detteRetraite)} · intérêts réels ${chf(a.totalInterets)} · amorti ${chf(a.totalAmorti)}` : "Âge de la retraite déjà atteint : pas de tableau d'amortissement.";
 const amortHypotheses = s => `Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel de ${s.realRate} % constant, sans renouvellement de l'hypothèque. Aucune vente. Âge en fin d'année de la personne la plus âgée (la personne 2 ne compte que si elle a un revenu).`;
+// Acheter ou louer : même budget, flux de fin d'année, valeurs nettes avant impôts. Sans effet sur le modèle.
+// Taux bornés à ±100 % et 100 ans au plus : une saisie ou un dossier extrême ne donne ni Infinity ni NaN.
+function acheterLouer(s, m) {
+  if (s.usage === "secondaire") return { sansObjet: true };
+  const taux = (v, min = -100) => Math.min(100, Math.max(min, v)) / 100;
+  const h = taux(s.alHausseLoyer), g = taux(s.alHausseBien), r = taux(s.alRendement), f = taux(s.alFraisVente, 0);
+  const N = Math.min(Math.max(Math.round(s.alHorizon), 1), 100);
+  // Impôt sur tous les retraits saisis : le modèle ne dit pas quelle part reste non investie
+  const { t1, t2 } = taxRates(s), impot = (s.p3a1 + s.lpp1) * t1 + (s.p3a2 + s.lpp2) * t2;
+  const C0 = m.apport + m.fees + impot, lignes = [];
+  let A = 0, C = C0;
+  for (let t = 1; t <= N; t++) {
+    const d = ligneDette(m, t, s.realRate);
+    const coutAchat = d.interets + d.amort + s.realCharges * 12, coutLouer = s.rent * 12 * (1 + h) ** (t - 1);
+    A = A * (1 + r) + Math.max(0, coutLouer - coutAchat);
+    C = C * (1 + r) + Math.max(0, coutAchat - coutLouer);
+    const valeur = m.P * (1 + g) ** t, acheter = A + valeur * (1 - f) - d.fin;
+    lignes.push({ annee: t, coutAchat, coutLouer, epargneAcheteur: A, epargneLocataire: C, valeur, dette: d.fin, acheter, louer: C, ecart: acheter - C });
+  }
+  // Seuil durable : acheter reste devant jusqu'à l'horizon. Moins d'un centime compte comme une égalité.
+  let seuil = null;
+  for (let i = N - 1; i >= 0 && lignes[i].ecart > 0.005; i--) seuil = lignes[i].annee;
+  const fin = lignes[N - 1];
+  return { N, impot, C0, lignes, acheter: fin.acheter, louer: fin.louer, ecart: fin.ecart, seuil };
+}
+const alSeuil = al => al.seuil ? `année ${al.seuil}` : "jamais sur la période";
+const alHypotheses = (s, m, al) => `Épargne de départ du locataire ${chf(al.C0)} : apport ${chf(m.apport)}, frais d'achat ${chf(m.fees)} et impôt sur les retraits ${chf(al.impot)}.${s.p3a1 + s.lpp1 + s.p3a2 + s.lpp2 > 0 ? ` Cet argent resterait en partie en prévoyance : le rendement de ${s.alRendement} % n'y est qu'une approximation.` : ""}${m.unused > 0 && al.impot > 0 ? " Une partie des fonds propres n'est pas investie : l'impôt compté porte quand même sur tous les retraits saisis." : ""} Loyer de départ ${chf(s.rent)} par mois. Taux réel de ${s.realRate} % et charges de ${chf(s.realCharges)} par mois constants, amortissement comme dans le modèle. Flux en fin d'année.`;
+function alMessages(s, m, status) {
+  const msgs = [];
+  if (status === "bad") msgs.push("Ce prix n'est pas finançable en l'état : la comparaison reste théorique.");
+  if (!(m.P > 0)) msgs.push("Aucun prix saisi : il n'y a rien à comparer.");
+  else if (!(m.apport > 0)) msgs.push("Fonds propres insuffisants : aucun apport possible. L'épargne de départ du locataire reprend les frais d'achat, même si vous ne les avez pas.");
+  if (!(s.rent > 0)) msgs.push("Aucun loyer saisi : le locataire ne paie rien dans ce calcul. Indiquez votre loyer dans « Ma simulation ».");
+  if (agePlusAge(s) >= s.retireAge) msgs.push(`Âge de la retraite déjà atteint : le 2e rang est amorti en ${m.years} an, comme dans le modèle.`);
+  return msgs;
+}
 function required(s, m) {
   s = effectif(s);
   const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
@@ -1623,6 +1721,7 @@ function update(skip) {
 
   drawChart(m, sol);
   drawRates();
+  drawAcheterLouer(m);
   $("m-ratio").textContent = pc(m.ratio);
   $("m-pmax").textContent = short(sol.pMax);
 }
@@ -1781,31 +1880,32 @@ function minEquity(P) {
 
 // Graphique en lignes en fonction du prix, avec infobulle au survol
 const LC = {};
-function lineChart(id, { f, series, yTitle, tip, xMin, xMax }) {
+function lineChart(id, { f, series, yTitle, tip, xMin, xMax, xTitle = "Prix du bien (CHF)", xFmt = x => x === 0 ? "0" : short(x), xPas = 10000, xTip = x => `Prix ${chf(x)}`, points = 60, plage }) {
   const [W, H] = chartSize($(id), 340), L = 64, R = 16, T = 34, B = 52;
   if (!(xMax > xMin)) xMax = xMin + 100000;
   const xs0 = niceStep(xMax - xMin, 5);
-  const end = f(xMax), yRaw = Math.max(...series.map(sr => end[sr.key])), ys = niceStep(yRaw, 5), yMax = Math.ceil(yRaw / ys) * ys;
-  const X = v => L + (v - xMin) / (xMax - xMin) * (W - L - R), Y = v => T + (1 - v / yMax) * (H - T - B);
+  // plage : bornes verticales données par l'appelant, pour une courbe non croissante ou négative
+  const end = f(xMax), yRaw = plage ? plage.max : Math.max(...series.map(sr => end[sr.key])), yBas = plage ? plage.min : 0, ys = niceStep(yRaw - yBas, 5), yMin = Math.floor(yBas / ys) * ys, yMax = Math.ceil(yRaw / ys) * ys;
+  const X = v => L + (v - xMin) / (xMax - xMin) * (W - L - R), Y = v => T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B);
   let o = "";
-  for (let y = 0; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : y >= 1e5 ? short(y) : nf.format(y)}</text>`;
-  for (let x = Math.ceil(xMin / xs0) * xs0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - B + 20}" text-anchor="middle">${x === 0 ? "0" : short(x)}</text>`;
-  o += `<text class="lbl-ink" x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">Prix du bien (CHF)</text>`;
+  for (let y = yMin; y <= yMax + 1e-9; y += ys) o += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(y)}" y2="${Y(y)}"/><text x="${L - 8}" y="${Y(y) + 4}" text-anchor="end">${y === 0 ? "0" : y >= 1e5 ? short(y) : nf.format(y)}</text>`;
+  for (let x = Math.ceil(xMin / xs0) * xs0; x <= xMax + 1; x += xs0) o += `<text x="${X(x)}" y="${H - B + 20}" text-anchor="middle">${xFmt(x)}</text>`;
+  o += `<text class="lbl-ink" x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">${xTitle}</text>`;
   o += `<text class="lbl-ink" x="${L}" y="${T - 16}">${yTitle}</text>`;
-  for (const sr of series) o += `<path style="fill:none;stroke:${sr.color};stroke-width:2.5" d="${Array.from({ length: 61 }, (_, i) => { const P = xMin + (xMax - xMin) * i / 60; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(f(P)[sr.key]).toFixed(1); }).join("")}"/>`;
+  for (const sr of series) o += `<path style="fill:none;stroke:${sr.color};stroke-width:2.5" d="${Array.from({ length: points + 1 }, (_, i) => { const P = xMin + (xMax - xMin) * i / points; return (i ? "L" : "M") + X(P).toFixed(1) + " " + Y(f(P)[sr.key]).toFixed(1); }).join("")}"/>`;
   o += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
   $(id).innerHTML = o;
   $(id).parentElement.nextElementSibling.innerHTML = [...series].sort((p, q) => end[q.key] - end[p.key])
     .map(sr => `<span><i style="background:${sr.color}"></i>${sr.label}</span>`).join("");
-  LC[id] = { L, R, W, H, T, B, xMin, xMax, X, Y, f, series, tip };
+  LC[id] = { L, R, W, H, T, B, xMin, xMax, X, Y, f, series, tip, xPas, xTip };
 }
 function lineTip(e) {
   const svg = e.currentTarget, c = LC[svg.id]; if (!c) return;
   const r = svg.getBoundingClientRect(), wrap = svg.parentElement.getBoundingClientRect(), tipEl = svg.nextElementSibling;
   const vx = (e.clientX - r.left) * c.W / r.width;
   if (vx < c.L || vx > c.W - c.R) { lineHide(e); return; }
-  const P = Math.round((c.xMin + (vx - c.L) / (c.W - c.L - c.R) * (c.xMax - c.xMin)) / 10000) * 10000, v = c.f(P);
-  tipEl.innerHTML = `<b>Prix ${chf(P)}</b><dl>${c.tip(P, v)}</dl>`;
+  const P = Math.round((c.xMin + (vx - c.L) / (c.W - c.L - c.R) * (c.xMax - c.xMin)) / c.xPas) * c.xPas, v = c.f(P);
+  tipEl.innerHTML = `<b>${c.xTip(P)}</b><dl>${c.tip(P, v)}</dl>`;
   tipEl.hidden = false;
   let g = svg.querySelector(".hovering");
   if (!g) { g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("class", "hovering"); svg.appendChild(g); }
@@ -1819,7 +1919,7 @@ function lineHide(e) {
   svg.nextElementSibling.hidden = true;
   const g = svg.querySelector(".hovering"); if (g) g.remove();
 }
-for (const id of ["rchart", "echart"]) chartEvents($(id), lineTip, lineHide);
+for (const id of ["rchart", "echart", "alchart"]) chartEvents($(id), lineTip, lineHide);
 
 function drawRates() {
   const range = (lo, hi) => `prix <b>${short(lo)}</b> à <b>${short(hi > lo ? hi : lo + 100000)}</b>`;
@@ -1846,12 +1946,35 @@ function drawRates() {
   $("eq-h").textContent = `Survolez ou touchez le graphique pour lire le montant à un prix donné.`;
 }
 
+function drawAcheterLouer(m) {
+  const al = acheterLouer(S, m), sec = !!al.sansObjet;
+  $("al-sec").hidden = !sec;
+  $("al-corps").hidden = $("altab").hidden = sec;
+  if (sec) return;
+  $("al-n").textContent = `sur ${al.N} ans`;
+  $("al-msg").innerHTML = alMessages(S, m, LAST.status).map(t => `<li>${fmtTxt(t)}</li>`).join("");
+  $("al-syn").innerHTML = [["Patrimoine en achetant", chf(al.acheter)], ["Patrimoine en louant", chf(al.louer)], ["Écart (acheter moins louer)", chf(al.ecart)], ["Acheter passe durablement devant", alSeuil(al)]]
+    .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  $("alset-sum").innerHTML = `horizon <b>${al.N} ans</b> · loyers <b>${S.alHausseLoyer} %</b> · bien <b>${S.alHausseBien} %</b> · rendement <b>${S.alRendement} %</b> · vente <b>${S.alFraisVente} %</b>`;
+  $("al-hyp").innerHTML = fmtTxt(alHypotheses(S, m, al));
+  $("al-tsum").textContent = `Écart à ${al.N} ans : ${chf(al.ecart)}`;
+  $("alLignes").innerHTML = al.lignes.map(l => `<tr><td>${l.annee}</td>${[l.coutAchat, l.coutLouer, l.epargneAcheteur, l.valeur, l.dette, l.acheter, l.louer, l.ecart].map(v => `<td>${nf.format(Math.round(v))}</td>`).join("")}</tr>`).join("");
+  // Un horizon d'un an, saisi à la main, garde un axe des années
+  const ligne = t => al.lignes[Math.min(al.N, Math.max(1, Math.round(t))) - 1], xMax = Math.max(al.N, 2), vals = [0, ...al.lignes.flatMap(l => [l.acheter, l.louer])];
+  const min = Math.min(...vals), max = Math.max(...vals);
+  lineChart("alchart", {
+    f: ligne, yTitle: "Patrimoine (CHF)", xMin: 1, xMax, xTitle: "Année", xFmt: String, xPas: 1, xTip: t => `Année ${t}`, points: xMax - 1, plage: { min, max: max > min ? max : min + 1000 },
+    series: [{ key: "acheter", color: "var(--accent)", label: "acheter" }, { key: "louer", color: "var(--warn)", label: "louer" }],
+    tip: (t, l) => `<dt class="t-real">Acheter</dt><dd class="t-real">${chf(l.acheter)}</dd><dt class="t-theo">Louer</dt><dd class="t-theo">${chf(l.louer)}</dd><dt>Écart</dt><dd>${chf(l.ecart)}</dd>`
+  });
+}
+
 let TAB = "simu", canExport = false;
 const syncExport = () => { $("export").hidden = !canExport || TAB !== "simu"; };
 function showTab(id) {
   TAB = id;
   syncExport();
-  for (const t of ["simu", "rates", "config"]) {
+  for (const t of ["simu", "rates", "al", "config"]) {
     $("t-" + t).setAttribute("aria-selected", t === id);
     $("tab-" + t).hidden = t !== id;
   }
@@ -1866,8 +1989,9 @@ function showTab(id) {
 }
 $("t-simu").addEventListener("click", () => showTab("simu"));
 $("t-rates").addEventListener("click", () => showTab("rates"));
+$("t-al").addEventListener("click", () => showTab("al"));
 $("t-config").addEventListener("click", () => showTab("config"));
-try { if (localStorage.getItem(KEY + "-tab") === "rates") showTab("rates"); } catch (e) {}
+try { const t = localStorage.getItem(KEY + "-tab"); if (t === "rates" || t === "al") showTab(t); } catch (e) {}
 
 /* ---------- Export PDF ---------- */
 let LAST = null, DL = null;
@@ -2082,6 +2206,18 @@ async function exportPdf() {
       y += 2;
     }
     para(amortHypotheses(S));
+
+    if (!sec) {
+      const al = acheterLouer(S, m);
+      section("Acheter ou louer");
+      alMessages(S, m, LAST.status).forEach(t => para(t));
+      row(`Patrimoine à ${al.N} ans en achetant`, chfT(al.acheter), true);
+      row(`Patrimoine à ${al.N} ans en louant`, chfT(al.louer), true);
+      row("Écart (acheter moins louer)", chfT(al.ecart));
+      row("Acheter passe durablement devant", alSeuil(al));
+      para(`Hausse des loyers ${S.alHausseLoyer} %/an, du prix du bien ${S.alHausseBien} %/an, rendement de l'argent placé ${S.alRendement} %/an, frais de vente ${S.alFraisVente} % du prix de vente. ${alHypotheses(S, m, al)}`);
+      para($("al-limites").textContent);
+    }
 
     if (LAST.banks) {
       section("Selon les banques");

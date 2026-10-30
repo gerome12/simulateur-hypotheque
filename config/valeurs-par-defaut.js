@@ -36,5 +36,12 @@ SIMU_CONFIG.valeursParDefaut = {
 
   // Coût réel
   realRate: 1.6,                // taux réel du marché, en %
-  rent: 3200                    // loyer actuel par mois
+  rent: 3200,                   // loyer actuel par mois
+
+  // Acheter ou louer
+  alHorizon: 15,                // horizon de la comparaison, en années
+  alHausseLoyer: 1.5,           // hausse des loyers, en % par an (prévision UBS d'août 2026, hors loyer indexé)
+  alHausseBien: 1,              // hausse du prix du bien, en % par an (1 à 1,5 % selon les sources)
+  alRendement: 2,               // rendement de l'argent placé, en % par an (hypothèse sans source)
+  alFraisVente: 2               // frais de vente, en % du prix de vente (hypothèse)
 };

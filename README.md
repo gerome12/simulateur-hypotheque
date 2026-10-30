@@ -12,6 +12,7 @@ Une page web pour simuler l'achat d'un logement en Suisse et jouer avec les chif
 - Calcule en direct le prix maximum, le revenu nécessaire et les fonds propres nécessaires pour un prix donné.
 - Montre la structure du financement, les charges calculées par la banque et le coût réel par mois, et un graphique du taux d'effort selon le prix.
 - Détaille la dette année par année jusqu'à la retraite, avec les intérêts réels et l'amortissement.
+- Compare acheter et louer sur 10 à 20 ans, à budget égal et avant impôts, avec des hypothèses réglables.
 - Exporte un résumé en PDF.
 
 Les montants d'allocations viennent du tableau OFAS 2026, et les règles des directives de l'Association suisse des banquiers (décembre 2023) et de l'OEPL.
@@ -24,7 +25,7 @@ Ouvrir `index.html` dans un navigateur. Aucune installation. Sans internet, la p
 
 ## Dossier client
 
-« Enregistrer » télécharge la simulation dans un fichier JSON, et « Ouvrir » la recharge à l'identique. Le fichier suit la structure de la page : `menage` avec ses `personnes`, `fondsPropres`, `bien`, `hypotheses`, `apport`, `coutReel` et `graphiques`. Il contient des données personnelles (revenus, âges, fonds propres) : il reste chez l'utilisateur, rien n'est envoyé à un serveur.
+« Enregistrer » télécharge la simulation dans un fichier JSON, et « Ouvrir » la recharge à l'identique. Le fichier suit la structure de la page : `menage` avec ses `personnes`, `fondsPropres`, `bien`, `hypotheses`, `apport`, `coutReel`, `graphiques` et `acheterLouer`. Il contient des données personnelles (revenus, âges, fonds propres) : il reste chez l'utilisateur, rien n'est envoyé à un serveur.
 
 ## Personnaliser
 
