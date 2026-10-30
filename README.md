@@ -21,7 +21,7 @@ Ouvrir `index.html` dans un navigateur. Aucune installation. Sans internet, la p
 
 ## Dossier client
 
-« Enregistrer » télécharge la simulation dans un fichier JSON, et « Ouvrir » la recharge à l'identique. Le fichier contient des données personnelles (revenus, âges, fonds propres) : il reste chez l'utilisateur, rien n'est envoyé à un serveur.
+« Enregistrer » télécharge la simulation dans un fichier JSON, et « Ouvrir » la recharge à l'identique. Le fichier suit la structure de la page : `menage` avec ses `personnes`, `fondsPropres`, `bien`, `hypotheses`, `apport`, `coutReel` et `graphiques`. Il contient des données personnelles (revenus, âges, fonds propres) : il reste chez l'utilisateur, rien n'est envoyé à un serveur.
 
 ## Personnaliser
 
