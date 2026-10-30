@@ -1371,7 +1371,7 @@ function tableauAmortissement(s, m) {
   return { lignes, detteRetraite: derniere ? derniere.fin : m.loan, totalInterets: lignes.reduce((t, l) => t + l.interets, 0), totalAmorti: derniere ? m.rank2 - derniere.rang2 : 0 };
 }
 const amortSynthese = a => a.lignes.length ? `Dette à la retraite ${chf(a.detteRetraite)} · intérêts réels ${chf(a.totalInterets)} · amorti ${chf(a.totalAmorti)}` : "Âge de la retraite déjà atteint : pas de tableau d'amortissement.";
-const amortHypotheses = s => `Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel de ${s.realRate} % constant, sans renouvellement de l'hypothèque. Aucune vente. Âge en fin d'année de la personne la plus âgée avec un revenu.`;
+const amortHypotheses = s => `Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel de ${s.realRate} % constant, sans renouvellement de l'hypothèque. Aucune vente. Âge en fin d'année de la personne la plus âgée (la personne 2 ne compte que si elle a un revenu).`;
 function required(s, m) {
   s = effectif(s);
   const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
