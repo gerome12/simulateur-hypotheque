@@ -137,6 +137,9 @@ select, button { font: inherit; }
 .seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
 .seg + .num { margin-left: 0; }
+.seg-usage { grid-auto-columns: auto; }
+.seg-usage button { width: auto; padding: 5px 10px; }
+#field-usage, #field-canton { border-top: 0; }
 /* Sélecteur % / CHF et case du montant restent ensemble, à droite */
 .ctl { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
 .ctl .seg, .ctl .num { margin-left: 0; }
@@ -375,8 +378,6 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <span class="example" id="exampleTag">Chiffres d'exemple</span>
       <label for="conseiller" class="sr">Conseiller</label>
       <select id="conseiller" class="canton" hidden></select>
-      <label for="canton" class="sr">Canton</label>
-      <select id="canton" class="canton"></select>
       <button class="btn primary" id="export" type="button" hidden>Exporter en PDF</button>
       <button class="btn" id="reset" type="button">Réinitialiser</button>
     </div>
@@ -405,7 +406,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <div class="gauges">
           <div class="gauge" id="g-ratio"><div class="gt"><span>Charges / revenu</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
           <div class="gauge" id="g-eq"><div class="gt"><span>Fonds propres</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
-          <div class="gauge" id="g-hard"><div class="gt"><span>Fonds propres durs (hors 2<sup>e</sup> pilier)</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
+          <div class="gauge" id="g-hard"><div class="gt"><span id="g-hard-t">Fonds propres durs (hors 2<sup>e</sup> pilier)</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
           <div class="gauge" id="g-ret"><div class="gt"><span>Charges à la retraite</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
         </div>
         <div class="banks" id="banks" hidden></div>
@@ -435,7 +436,8 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <h2>Fonds propres <small id="t-fp"></small></h2>
           <span class="msum msum-eq"><span class="split-bar" id="spbar2"></span><span class="split-legend" id="splg2"></span><span id="f-sum"></span></span>
         </summary>
-        <p class="lead">Les frais d'achat se paient en fonds propres durs. Le 2<sup>e</sup> pilier ne compte pas pour les 10&nbsp;% durs.</p>
+        <p class="lead" id="fpLead">Les frais d'achat se paient en fonds propres durs. Le 2<sup>e</sup> pilier ne compte pas pour les 10&nbsp;% durs.</p>
+        <p class="lead" id="secNote" hidden>Résidence secondaire&nbsp;: le 2<sup>e</sup> et le 3<sup>e</sup> pilier ne sont pas pris en compte. Vous pouvez modifier leurs montants&nbsp;: ils serviront si vous repassez en résidence principale.</p>
         <div class="duo people">
           <div class="person"><h3><span class="pname" data-p="1">Personne 1</span> <small id="t-eq1"></small></h3><div class="fields" id="f-eq1"></div></div>
           <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span> <small id="t-eq2"></small></h3><div class="fields" id="f-eq2"></div></div>
@@ -454,6 +456,12 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <h2>Le bien</h2>
           <span class="msum" id="b-sum"></span>
         </summary>
+        <div class="field" id="field-usage">
+          <div class="frow"><span class="flabel">Usage du bien</span><span class="seg seg-usage" role="group" aria-label="Usage du bien"><button type="button" data-usage="principale">Principale</button><button type="button" data-usage="secondaire">Secondaire</button></span></div>
+        </div>
+        <div class="field" id="field-canton">
+          <div class="frow"><label for="canton">Canton du bien</label><span class="ctl"><select id="canton" class="canton"></select></span></div>
+        </div>
         <div class="fields" id="f-bien"></div>
         <div class="field" id="field-feesGe" hidden>
           <div class="frow"><span class="flabel">Frais d'achat (barème des notaires de Genève)</span><span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span><b class="ge-total" id="ge-total">–</b></div>
@@ -544,8 +552,8 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <div class="rates" id="tab-config" role="tabpanel" aria-labelledby="t-config" hidden></div>
   <div class="rates" id="tab-rates" role="tabpanel" aria-labelledby="t-rates" hidden>
     <section class="panel">
-      <h2>Mensualités selon le prix <small>apport de 20 %</small></h2>
-      <p class="lead">Hypothèque de 80&nbsp;% du prix, sans lien avec vos revenus ni vos fonds propres. Les réglages ne servent qu'à ce graphique.</p>
+      <h2>Mensualités selon le prix <small id="r-apport">apport de 20 %</small></h2>
+      <p class="lead">Hypothèque de <span id="r-ltv">80</span>&nbsp;% du prix, sans lien avec vos revenus ni vos fonds propres. Les réglages ne servent qu'à ce graphique.</p>
       <details class="gset" id="rset" open>
         <summary>Réglages <span class="gsum" id="rset-sum"></span></summary>
         <div class="duo" id="f-rates"></div>
@@ -559,7 +567,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
     </section>
     <section class="panel">
       <h2>Fonds propres minimum selon le prix</h2>
-      <p class="lead">Ce qu'il faut apporter au minimum : 20&nbsp;% du prix plus les frais d'achat. Les réglages ne servent qu'à ce graphique.</p>
+      <p class="lead">Ce qu'il faut apporter au minimum : <span id="e-apport">20</span>&nbsp;% du prix plus les frais d'achat. Les réglages ne servent qu'à ce graphique.</p>
       <details class="gset" id="eset" open>
         <summary>Réglages <span class="gsum" id="eset-sum"></span></summary>
         <div class="duo" id="f-eqg"></div>
@@ -646,9 +654,9 @@ const DEFAULTS = {
   canton: "GE",
   inc1: 120000, inc2: 90000, bonus1: 0, bonus2: 0, age1: 38, age2: 36,
   bonusPct: 50, kids: 2, alloc: 311, debt: 0, allocCount: false,
-  price: 1200000, feesPct: 5, maintPct: 1,
+  price: 1200000, feesPct: 5, maintPct: 1, usage: "principale", chargesPrincipale: 0,
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, taxMode: "pct", taxChf: 8400, reserve: 0,
-  rate: 5, ratioMax: 33, rank1Pct: 66.7, ltvMax: 80, amortMax: 15, retireAge: 65, retirePct: 60,
+  rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
@@ -656,10 +664,12 @@ const DEFAULTS = {
   feesMode: "ge", feesChf: 60000, casatax: true, cedReprise: 0,
   solo: false, p2saved: null,
   apportSel: null,
-  conseiller: ""
+  conseiller: "",
+  cantonMenage: null
 };
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
+DEFAULTS.cantonMenage ??= DEFAULTS.canton;
 const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -683,17 +693,18 @@ const F = {
   bien: [
     { id: "price", label: "Prix d'achat", min: 200000, max: 4000000, step: 10000, unit: "CHF" },
     { id: "feesPct", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 7, step: 0.1, unit: "%", seg: true, dyn: true },
-    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true }
+    { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true },
+    { id: "chargesPrincipale", label: "Charges du logement principal", min: 0, max: 20000, step: 50, unit: "CHF/mois", hint: "Votre loyer, ou vos charges théoriques si vous êtes propriétaire." }
   ],
   eq1: [
     { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
-    { id: "lpp1", color: "lpp", who: "Personne 1", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF" },
-    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF" }
+    { id: "lpp1", color: "lpp", who: "Personne 1", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true },
+    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true }
   ],
   eq2: [
     { id: "cash2", color: "cash", who: "Personne 2", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
-    { id: "lpp2", color: "lpp", who: "Personne 2", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF" },
-    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF" }
+    { id: "lpp2", color: "lpp", who: "Personne 2", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true },
+    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true }
   ],
   fp2: [
     { id: "gift", label: "Donation / avance d'hoirie", min: 0, max: 1000000, step: 5000, unit: "CHF" },
@@ -705,7 +716,9 @@ const F = {
     { id: "rate", label: "Taux théorique", min: 3, max: 7, step: 0.25, unit: "%" },
     { id: "ratioMax", label: "Charges max. / revenu", min: 25, max: 40, step: 1, unit: "%" },
     { id: "maintPct", label: "Entretien et frais accessoires", min: 0.5, max: 1.5, step: 0.1, unit: "%/an", dyn: true },    { id: "rank1Pct", label: "Limite 1er rang", min: 60, max: 70, step: 0.1, unit: "%" },
+    { id: "rank1PctSec", label: "Limite 1er rang (secondaire)", min: 40, max: 65, step: 1, unit: "%" },
     { id: "ltvMax", label: "Financement max.", min: 70, max: 90, step: 1, unit: "%" },
+    { id: "ltvMaxSec", label: "Financement max. (secondaire)", min: 50, max: 80, step: 1, unit: "%" },
     { id: "amortMax", label: "Durée d'amortissement 2e rang", min: 5, max: 20, step: 1, unit: "ans" },
     { id: "retireAge", label: "Âge de la retraite", min: 60, max: 70, step: 1, unit: "ans" },
     { id: "retirePct", label: "Revenu à la retraite", min: 30, max: 100, step: 5, unit: "% actuel" }
@@ -731,7 +744,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax"));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax", "chargesPrincipale"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 for (const [id, b] of Object.entries(CFG.curseurs || {})) if (BY[id]) Object.assign(BY[id], b);
 
@@ -744,6 +757,10 @@ try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) 
     Object.assign(saved, { cash1: saved.cash, p3a1: saved.p3a || 0, lpp1: saved.lpp || 0, cash2: 0, p3a2: 0, lpp2: 0 });
     delete saved.cash; delete saved.p3a; delete saved.lpp;
   }
+  // Ancienne version : un seul canton, repris pour le ménage
+  if (saved.cantonMenage == null) saved.cantonMenage = saved.canton;
+  // Canton absent de la liste : valeur par défaut
+  for (const k of ["canton", "cantonMenage"]) if (!CANTONS[saved[k]]) delete saved[k];
   S = { ...DEFAULTS, ...saved }; touched = true;
 } } catch (e) {}
 
@@ -774,6 +791,10 @@ for (const [group, list] of Object.entries(F)) $("f-" + group).innerHTML = list.
   const g = document.createElement("div");
   g.className = "subgroup"; g.id = "allocGroup";
   $("field-kids").after(g);
+  g.innerHTML = `<div class="field" id="field-cantonMenage">
+    <div class="frow"><label for="cantonMenage">Canton du ménage</label><span class="ctl"><select id="cantonMenage" class="canton"></select></span></div>
+    <p class="hint">Sert au montant des allocations. Elles dépendent en général du canton de travail : ajustez le montant si besoin.</p>
+  </div>`;
   g.append($("field-alloc"), document.querySelector('label[for="allocCount"]'));
 }
 
@@ -812,6 +833,13 @@ document.addEventListener("click", e => {
     if (next) next.focus();
     return;
   }
+  const us = e.target.closest(".seg button[data-usage]");
+  if (us) {
+    if (us.dataset.usage === S.usage) return;
+    S.usage = us.dataset.usage; S.apportSel = null; touched = true;   // un apport choisi pour l'autre usage peut être sous le minimum
+    update();
+    return;
+  }
   const pen = e.target.closest("button.pen");
   if (pen) {
     const p = pen.dataset.p, span = pen.previousElementSibling;
@@ -835,7 +863,7 @@ document.addEventListener("click", e => {
   box.hidden = !open; b.setAttribute("aria-expanded", open);
 });
 
-$("canton").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
+$("canton").innerHTML = $("cantonMenage").innerHTML = Object.entries(CANTONS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("");
 
 function syncInputs(skip) {
   for (const f of ALL) {
@@ -846,6 +874,7 @@ function syncInputs(skip) {
   $("allocCount").checked = !!S.allocCount;
   $("lockPrice").checked = !!S.lockPrice;
   $("canton").value = S.canton;
+  $("cantonMenage").value = S.cantonMenage;
   $("in-price").disabled = $("rg-price").disabled = !!S.lockPrice;
   document.querySelectorAll(".person.p2").forEach(el => { el.hidden = !!S.solo; });
   document.querySelectorAll(".people").forEach(el => el.classList.toggle("solo", !!S.solo));
@@ -857,8 +886,26 @@ function syncInputs(skip) {
   document.querySelectorAll(".seg-ge").forEach(b => { b.hidden = S.canton !== "GE"; });
   $("casataxOn").checked = !!S.casatax;
   document.querySelectorAll(".seg button[data-fm]").forEach(b => b.setAttribute("aria-pressed", b.dataset.fm === S.feesMode));
-  $("field-taxPct").hidden = S.taxMode === "chf";
-  $("field-taxChf").hidden = S.taxMode !== "chf";
+  // Résidence secondaire : les piliers et la Casatax ne comptent pas, les valeurs saisies restent en mémoire et modifiables
+  const sec = S.usage === "secondaire";
+  document.querySelectorAll(".seg button[data-usage]").forEach(b => b.setAttribute("aria-pressed", b.dataset.usage === S.usage));
+  for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) {
+    $("hint-" + id).textContent = "Non pris en compte pour une résidence secondaire.";
+    $("hint-" + id).hidden = !sec;
+  }
+  $("secNote").hidden = !sec;
+  $("fpLead").hidden = sec;
+  $("t-hard").parentElement.hidden = sec;
+  $("g-hard-t").innerHTML = `Fonds propres durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"}`;
+  $("field-rent").hidden = sec;   // le loyer ne disparaît pas avec cet achat
+  $("field-chargesPrincipale").hidden = !sec;
+  $("field-ltvMax").hidden = sec;
+  $("field-ltvMaxSec").hidden = !sec;
+  $("field-rank1Pct").hidden = sec;
+  $("field-rank1PctSec").hidden = !sec;
+  document.querySelector('label[for="casataxOn"]').hidden = sec;
+  $("field-taxPct").hidden = sec || S.taxMode === "chf";
+  $("field-taxChf").hidden = sec || S.taxMode !== "chf";
   document.querySelectorAll(".seg button[data-tm]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tm === S.taxMode));
 }
 
@@ -921,8 +968,16 @@ $("lockPrice").addEventListener("change", e => { S.lockPrice = e.target.checked;
 $("casataxOn").addEventListener("change", e => { S.casatax = e.target.checked; touched = true; update(); });
 $("canton").addEventListener("change", e => {
   S.canton = e.target.value; const c = CANTONS[S.canton];
-  if (c.fees != null) { S.feesPct = c.fees; S.alloc = c.alloc; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
+  if (c.fees != null) { S.feesPct = c.fees; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
+  // En principale, le ménage habitera le bien : il suit son canton. En secondaire, il garde le sien et ses allocations.
+  if (S.usage !== "secondaire") { S.cantonMenage = S.canton; if (c.fees != null) S.alloc = c.alloc; }
   update();
+});
+// Le canton du ménage ne sert qu'à préremplir les allocations
+$("cantonMenage").addEventListener("change", e => {
+  S.cantonMenage = e.target.value; const c = CANTONS[S.cantonMenage];
+  if (c.alloc != null) S.alloc = c.alloc;
+  touched = true; update();
 });
 // Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
 const RATE_KEYS = [...F.rates, ...F.eqg].map(f => f.id);
@@ -964,6 +1019,10 @@ function feesGE(P, C, casatax) {
   return { vente, ced, total: vente.total + ced.total };
 }
 
+// Résidence secondaire : ni 2e ni 3e pilier, pas de Casatax, financement limité à ltvMaxSec et 1er rang à rank1PctSec. Les valeurs saisies ne changent pas.
+function effectif(s) {
+  return s.usage === "secondaire" ? { ...s, lpp1: 0, lpp2: 0, p3a1: 0, p3a2: 0, casatax: false, ltvMax: s.ltvMaxSec, rank1Pct: s.rank1PctSec } : s;
+}
 function income(s) {
   return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? s.kids * s.alloc * 12 : 0);
 }
@@ -984,6 +1043,7 @@ function equity(s) {
   return { hard, lpp, total: hard + lpp };
 }
 function model(s, P) {
+  s = effectif(s);
   const eq = equity(s);
   // Barème genevois : la cédule dépend de l'hypothèque, qui dépend des frais ; quelques itérations suffisent
   const ge = s.feesMode === "ge";
@@ -1004,13 +1064,14 @@ function model(s, P) {
   const amort = rank2 / years;
   const interest = loan * s.rate / 100;
   const maint = P * s.maintPct / 100;
-  const charges = interest + amort + maint + s.debt;
+  const princ = s.usage === "secondaire" ? s.chargesPrincipale * 12 : 0;   // le logement principal reste à payer
+  const charges = interest + amort + maint + s.debt + princ;
   const inc = income(s);
   const ratio = inc > 0 ? charges / inc : Infinity;
   const incRet = (s.inc1 + s.inc2) * s.retirePct / 100;
-  const chargesRet = rank1 * s.rate / 100 + maint + s.debt;
+  const chargesRet = rank1 * s.rate / 100 + maint + s.debt + princ;
   const ratioRet = incRet > 0 ? chargesRet / incRet : Infinity;
-  return { P, eq, fees, feeGE, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, charges, inc, ratio, incRet, chargesRet, ratioRet,
+  return { P, eq, fees, feeGE, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, princ, charges, inc, ratio, incRet, chargesRet, ratioRet,
     eqPct: apport / P, hardPct: hardIn / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
 }
 function bisect(ok, hi = 3e7) {
@@ -1020,7 +1081,7 @@ function bisect(ok, hi = 3e7) {
   return lo;
 }
 function solve(s) {
-  s = { ...s, apportSel: null };   // le prix maximum suppose que tout l'investissable est investi
+  s = { ...effectif(s), apportSel: null };   // le prix maximum suppose que tout l'investissable est investi
   const eq = equity(s), chfMode = s.feesMode === "chf", f = chfMode ? 0 : s.feesPct / 100, fx = chfMode ? s.feesChf : 0, minEq = 1 - s.ltvMax / 100;
   const ge = s.feesMode === "ge";
   const pEq = ge ? bisect(P => model(s, P).avail >= minEq * P - 0.5) : Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
@@ -1033,10 +1094,11 @@ function solve(s) {
   return { pEq, pHard, pInc, pRet, pMax: cands[0][1], by: cands[0][0] };
 }
 function required(s, m) {
+  s = effectif(s);
   const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
   const reqIncome = m.charges / lim;
   // Hypothèque max supportable par le revenu
-  const B = lim * income(s) - m.maint - s.debt;
+  const B = lim * income(s) - m.maint - s.debt - m.princ;
   let L;
   if (B <= 0) L = -1;
   else if (B / r <= kP) L = B / r;
@@ -1052,6 +1114,7 @@ function required(s, m) {
 const BANKS = Array.isArray(CFG.banques) && CFG.banques.length ? CFG.banques : null;
 // Verdict d'une situation donnée (les hypothèses d'une banque appliquées aux chiffres saisis)
 function verdict(st) {
+  st = effectif(st);   // après la fusion avec les hypothèses de la banque
   const m = model(st, st.price), lim = st.ratioMax / 100, minEq = 1 - st.ltvMax / 100;
   const okRatio = m.ratio <= lim, okEq = m.apport >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
   const near = okRatio && m.ratio > lim - 0.015;
@@ -1060,7 +1123,7 @@ function verdict(st) {
   if (!okRatio) why.push(`charges ${pc(m.ratio)} au-delà de ${st.ratioMax} %`);
   else if (near) why.push(`charges ${pc(m.ratio)}, plafond ${st.ratioMax} %`);
   if (!okEq) why.push(`fonds propres ${pc(m.eqPct)}, minimum ${pc(minEq, 0)}`);
-  if (!okHard) why.push(`fonds propres hors 2e pilier ${pc(m.hardPct)}, minimum 10 %`);
+  if (!okHard) why.push(`fonds propres ${st.usage === "secondaire" ? "durs" : "hors 2e pilier"} ${pc(m.hardPct)}, minimum 10 %`);
   if (!okRet) why.push(`charges à la retraite ${pc(m.ratioRet)}`);
   return { status, why };
 }
@@ -1087,7 +1150,7 @@ function update(skip) {
   $("rg-reserve").max = Math.max(resMax, 0);
   syncInputs(skip);
   const m = model(S, S.price), sol = sol0, req = required(S, m);
-  const lim = S.ratioMax / 100, minEq = 1 - S.ltvMax / 100;
+  const E = effectif(S), sec = S.usage === "secondaire", lim = S.ratioMax / 100, minEq = 1 - E.ltvMax / 100;
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
   if (skip) touched = true;
   $("exampleTag").hidden = touched;
@@ -1097,7 +1160,7 @@ function update(skip) {
   const reasons = [];
   if (!okRatio) reasons.push(`Charges théoriques à ${pc(m.ratio)} du revenu, au-delà de ${S.ratioMax} %.`);
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
-  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 % hors 2e pilier.`);
+  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
@@ -1128,7 +1191,7 @@ function update(skip) {
       `<div class="bank${b.own ? " own" : ""}"><span class="bank-name">${esc(b.nom)}${b.own ? " <small>vos réglages</small>" : ""}</span><span class="pill ${b.status}">${lab[b.status]}</span></div>`).join("");
   }
   LAST = { m, sol, req, reasons, status: BANKS ? (banks.some(b => !b.own && b.status === "ok") ? "ok" : banks.some(b => !b.own && b.status === "warn") ? "warn" : "bad") : status, label: BANKS ? $("vpill").textContent : label, banks };
-  $("casatax").hidden = S.canton !== "GE";
+  $("casatax").hidden = S.canton !== "GE" || sec;
 
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
   gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}`, okEq ? "ok" : "bad");
@@ -1148,7 +1211,7 @@ function update(skip) {
   } else {
     $("s-eq").textContent = chf(req.reqTotal);
     $("s-eq-d").innerHTML = `Total : vous ${chf(m.eq.total)} · ${delta(m.eq.total - req.reqTotal)}<br>`
-      + `Dont durs (hors 2<sup>e</sup> pilier) : minimum ${chf(req.reqHard)} · vous ${chf(m.eq.hard)} · ${delta(m.eq.hard - req.reqHard)}`;
+      + `Dont durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"} : minimum ${chf(req.reqHard)} · vous ${chf(m.eq.hard)} · ${delta(m.eq.hard - req.reqHard)}`;
   }
 
   // Tallies
@@ -1162,7 +1225,7 @@ function update(skip) {
     : `Soit ${chf(bonusTot * S.bonusPct / 100)} retenus sur ${chf(bonusTot)}. Souvent la moyenne des 3 dernières années.`;
   const noKids = S.kids <= 0;
   $("allocGroup").classList.toggle("off", noKids);
-  $("in-alloc").disabled = $("allocCount").disabled = noKids;
+  $("in-alloc").disabled = $("allocCount").disabled = $("cantonMenage").disabled = noKids;
   $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
     : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   if (m.feeGE) {
@@ -1179,7 +1242,7 @@ function update(skip) {
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
   $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`;
   $("h-sum").innerHTML = `Taux théorique <b>${S.rate}&nbsp;%</b> · charges max. <b>${S.ratioMax}&nbsp;%</b> · entretien ${S.maintPct}&nbsp;% · `
-    + `1<sup>er</sup> rang ${S.rank1Pct}&nbsp;% · financement max. ${S.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
+    + `1<sup>er</sup> rang ${E.rank1Pct}&nbsp;% · financement max. ${E.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
   $("hint-reserve").textContent = `Maximum : ${chf(resMax)} (épargne${S.gift ? " + donation" : ""}).`;
   $("hint-realCharges").innerHTML = S.realChargesAuto
     ? "Forfait de la banque repris. Saisissez vos charges PPE et votre entretien réels."
@@ -1190,10 +1253,10 @@ function update(skip) {
   $("m-sum").innerHTML = `${who.join(" · ") || "Aucun salaire"} · ${S.kids} enfant${S.kids > 1 ? "s" : ""} · revenu retenu <b>${chf(income(S))}</b>`;
   $("t-fp").textContent = `net ${chf(m.eq.total)}`;
   $("t-hard").textContent = `${chf(m.eq.hard)} / ${chf(m.eq.lpp)}`;
-  const tx = 1 - taxRate(S), wd = S.p3a1 + S.p3a2 + S.lpp1 + S.lpp2;
+  const tx = 1 - taxRate(E), wd = E.p3a1 + E.p3a2 + E.lpp1 + E.lpp2;
   $("hint-taxPct").textContent = `Soit ${chf(wd * S.taxPct / 100)} d'impôt estimé.`;
-  $("hint-taxChf").textContent = wd > 0 ? `Soit ${pc(taxRate(S))} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.";
-  const e1 = S.cash1 + (S.p3a1 + S.lpp1) * tx, e2 = S.cash2 + (S.p3a2 + S.lpp2) * tx, eSum = e1 + e2;
+  $("hint-taxChf").textContent = wd > 0 ? `Soit ${pc(taxRate(E))} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.";
+  const e1 = E.cash1 + (E.p3a1 + E.lpp1) * tx, e2 = E.cash2 + (E.p3a2 + E.lpp2) * tx, eSum = e1 + e2;
   $("t-eq1").textContent = "net " + short(e1);
   $("t-eq2").textContent = "net " + short(e2);
   const sh1 = eSum > 0 ? e1 / eSum : 0.5;
@@ -1203,10 +1266,11 @@ function update(skip) {
   document.querySelectorAll(".pen").forEach(b => b.setAttribute("aria-label", "Renommer " + S["name" + b.dataset.p]));
   // Réserve répartie selon la part de chacun, prise sur son épargne
   const resv = p => Math.min(S["cash" + p], S.reserve * (p === 1 ? sh1 : 1 - sh1));
-  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", S["lpp" + p] * tx], ["3a", S["p3a" + p] * tx]];
+  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", E["lpp" + p] * tx], ["3a", E["p3a" + p] * tx]];
   const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${eSum > 0 ? v / eSum * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
   $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("");
-  const kinds = [["cash", "Épargne", S.cash1 + S.cash2], ["lpp", "2<sup>e</sup> pilier", (S.lpp1 + S.lpp2) * tx], ["3a", "3<sup>e</sup> pilier", (S.p3a1 + S.p3a2) * tx]];
+  const kinds = [["cash", "Épargne", S.cash1 + S.cash2]];
+  if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", (E.lpp1 + E.lpp2) * tx], ["3a", "3<sup>e</sup> pilier", (E.p3a1 + E.p3a2) * tx]);
   const resTot = resv(1) + resv(2);
   kinds[0][2] -= resTot;
   if (resTot > 0) kinds.unshift(["res", "Réserve", resTot]);
@@ -1255,13 +1319,16 @@ function update(skip) {
     [`Entretien et frais (${S.maintPct} % / réel)`, m.maint, S.realCharges * 12]
   ];
   if (S.debt > 0) rows.push(["Autres charges", S.debt, S.debt]);
+  if (m.princ > 0) rows.push(["Logement principal", m.princ, m.princ]);
   const tB = rows.reduce((a, r) => a + r[1], 0), tR = rows.reduce((a, r) => a + r[2], 0);
   $("costs").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${nf.format(Math.round(r[1]))}</td><td>${nf.format(Math.round(r[1] / 12))}</td><td>${nf.format(Math.round(r[2] / 12))}</td></tr>`).join("")
     + `<tr class="total"><td>Total CHF</td><td>${nf.format(Math.round(tB))}</td><td>${nf.format(Math.round(tB / 12))}</td><td>${nf.format(Math.round(tR / 12))}</td></tr>`;
   $("k-real").textContent = chf(tR / 12);
   LAST.keys = { inc: income(S), apport: m.apport, fees: invFees, real: tR / 12 };
   const diff = tR / 12 - S.rent;
-  $("rentNote").innerHTML = S.rent > 0
+  $("rentNote").innerHTML = sec
+    ? `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.${m.princ > 0 ? ` Dont ${chf(m.princ / 12)} pour le logement principal.` : ""}`
+    : S.rent > 0
     ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
     : `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.`;
 
@@ -1313,7 +1380,7 @@ function chartTip(e) {
     why = `Chaque franc emprunté coûte ${S.rate}&nbsp;% d'intérêts théoriques par an, plus l'entretien. Pas d'amortissement obligatoire.`;
   } else {
     zone = "Avec un 2<sup>e</sup> rang";
-    why = `L'hypothèque dépasse ${S.rank1Pct}&nbsp;% du prix. La partie en plus coûte ${S.rate}&nbsp;% d'intérêts et s'amortit en ${m.years}&nbsp;ans (≈ ${(100 / m.years).toFixed(1)}&nbsp;% par an) : la pente est plus forte.`;
+    why = `L'hypothèque dépasse ${effectif(S).rank1Pct}&nbsp;% du prix. La partie en plus coûte ${S.rate}&nbsp;% d'intérêts et s'amortit en ${m.years}&nbsp;ans (≈ ${(100 / m.years).toFixed(1)}&nbsp;% par an) : la pente est plus forte.`;
   }
   const warn = P > CH.pEqLim ? `<p class="ctip-bad">Fonds propres insuffisants à ce prix.</p>` : "";
   tip.innerHTML = `<b>${chf(P)} → ${pc(m.ratio)}</b><span class="ctip-zone">${zone}</span><p>${why}</p>${warn}`;
@@ -1410,15 +1477,17 @@ function drawChart(m, sol) {
 }
 
 /* ---------- Onglet : mensualités selon les taux ---------- */
-// Apport de 20 % : hypothèque à 80 % du prix, 2e rang amorti sur la durée maximale
+// Part financée de l'onglet, en % du prix : 80 % en principale, quel que soit le réglage ltvMax ; ltvMaxSec en secondaire
+const ltvOnglet = () => S.usage === "secondaire" ? S.ltvMaxSec : 80;
+// Hypothèque à la part financée du prix, 2e rang amorti sur la durée maximale
 function monthly(P) {
-  const loan = P * 0.8, rank1 = Math.min(loan, P * S.rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
+  const loan = P * ltvOnglet() / 100, rank1 = Math.min(loan, P * effectif(S).rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
   return { loan, amort, maint, theo: (loan * S.gRate / 100 + amort + maint) / 12, real: (loan * S.gReal / 100 + amort + maint) / 12 };
 }
-// Fonds propres minimum : 20 % du prix plus les frais d'achat
+// Fonds propres minimum : la part non financée du prix plus les frais d'achat
 function minEquity(P) {
-  const fees = P * S.gFees / 100;
-  return { p20: P * 0.2, fees, total: P * 0.2 + fees };
+  const fees = P * S.gFees / 100, part = P * (100 - ltvOnglet()) / 100;
+  return { part, fees, total: part + fees };
 }
 
 // Graphique en lignes en fonction du prix, avec infobulle au survol
@@ -1465,17 +1534,21 @@ for (const id of ["rchart", "echart"]) chartEvents($(id), lineTip, lineHide);
 
 function drawRates() {
   const range = (lo, hi) => `prix <b>${short(lo)}</b> à <b>${short(hi > lo ? hi : lo + 100000)}</b>`;
+  const ltv = ltvOnglet(), N = Math.round(100 - ltv);
+  $("r-apport").textContent = `apport de ${N} %`;
+  $("r-ltv").textContent = ltv;
+  $("e-apport").textContent = N;
   lineChart("rchart", {
     f: monthly, yTitle: "Charges mensuelles (CHF / mois)", xMin: S.gMin, xMax: S.gMax,
     series: [{ key: "theo", color: "var(--warn)", label: `théorique ${S.gRate} %` }, { key: "real", color: "var(--accent)", label: `réel ${S.gReal} %` }],
-    tip: (P, m) => `<dt>Apport 20 %</dt><dd>${chf(P * 0.2)}</dd><dt>Hypothèque</dt><dd>${chf(m.loan)}</dd>`
+    tip: (P, m) => `<dt>Apport ${N} %</dt><dd>${chf(P - m.loan)}</dd><dt>Hypothèque</dt><dd>${chf(m.loan)}</dd>`
       + `<dt class="t-theo">Théorique ${S.gRate} %</dt><dd class="t-theo">${chf(m.theo)}</dd><dt class="t-real">Réel ${S.gReal} %</dt><dd class="t-real">${chf(m.real)}</dd>`
       + `<dt>dont amortissement</dt><dd>${chf(m.amort / 12)}</dd><dt>dont entretien</dt><dd>${chf(m.maint / 12)}</dd>`
   });
   lineChart("echart", {
     f: minEquity, yTitle: "Fonds propres minimum (CHF)", xMin: S.eMin, xMax: S.eMax,
-    series: [{ key: "total", color: "var(--c-eq)", label: `total à apporter (20 % + frais ${S.gFees} %)` }],
-    tip: (P, e) => `<dt>20 % du prix</dt><dd>${chf(e.p20)}</dd><dt>Frais d'achat (${S.gFees} %)</dt><dd>${chf(e.fees)}</dd>`
+    series: [{ key: "total", color: "var(--c-eq)", label: `total à apporter (${N} % + frais ${S.gFees} %)` }],
+    tip: (P, e) => `<dt>${N} % du prix</dt><dd>${chf(e.part)}</dd><dt>Frais d'achat (${S.gFees} %)</dt><dd>${chf(e.fees)}</dd>`
       + `<dt class="t-eq">Total à apporter</dt><dd class="t-eq">${chf(e.total)}</dd>`
   });
   $("rset-sum").innerHTML = `théorique <b>${S.gRate} %</b> · réel <b>${S.gReal} %</b> · ${range(S.gMin, S.gMax)}`;
@@ -1557,6 +1630,7 @@ async function exportPdf() {
       return;
     }
     const { m, sol, req, reasons, status, label, keys } = LAST;
+    const E = effectif(S), sec = S.usage === "secondaire";
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const L = 18, R = 192, INK = [21, 25, 30], MUTED = [91, 101, 112], LINE = [220, 225, 230];
     // Couleurs de marque du thème (sable et anthracite pour Qlear) ; sans thème, le PDF garde ses couleurs
@@ -1608,7 +1682,9 @@ async function exportPdf() {
       doc.text("Simulation d'achat immobilier", L + 13, y + 1);
     }
     y += 8;
-    para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · Canton : ${CANTONS[S.canton].label}`);
+    const lieuDe = (nom, k) => CANTONS[k]?.fees != null ? `Canton ${nom} : ${CANTONS[k].label}` : `Canton ${nom} hors liste`;
+    const lieu = !sec && S.canton === S.cantonMenage ? `Canton : ${CANTONS[S.canton].label}` : `${lieuDe("du bien", S.canton)} · ${lieuDe("du ménage", S.cantonMenage)}`;
+    para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · ${lieu}`);
     const adv = ADVISORS.find(a => a.nom === S.conseiller);
     if (adv) para(`Document préparé par ${[adv.nom, adv.fonction, adv.email, adv.telephone].filter(Boolean).join(" · ")}`, INK);
 
@@ -1631,8 +1707,8 @@ async function exportPdf() {
 
     section("Contrôles de la banque");
     row("Charges théoriques / revenu", tx(pc(m.ratio)) + (multi ? "" : `  (max ${S.ratioMax} %)`));
-    row("Fonds propres après frais", tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - S.ltvMax / 100, 0))})`));
-    row("Fonds propres hors 2e pilier après frais", tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
+    row("Fonds propres après frais", tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
+    row(sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais", tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
     row("Charges à la retraite", tx(pc(m.ratioRet)) + (multi ? "" : `  (revenu ${S.retirePct} %)`));
 
     section("Le ménage");
@@ -1648,23 +1724,26 @@ async function exportPdf() {
     row("Revenu retenu par la banque", chfT(income(S)) + " / an", true);
 
     section("Fonds propres");
-    const t = 1 - taxRate(S);
+    const t = 1 - taxRate(E);
     persons.forEach(p => {
-      row(`${S["name" + p]} : épargne / 2e pilier / 3e pilier`, `${chfT(S["cash" + p])} / ${chfT(S["lpp" + p])} / ${chfT(S["p3a" + p])}`);
+      if (sec) row(`${S["name" + p]} : épargne`, chfT(S["cash" + p]));
+      else row(`${S["name" + p]} : épargne / 2e pilier / 3e pilier`, `${chfT(S["cash" + p])} / ${chfT(E["lpp" + p])} / ${chfT(E["p3a" + p])}`);
     });
     if (S.gift) row("Donation / avance d'hoirie", chfT(S.gift));
-    row(`Impôt estimé sur retraits (${tx(pc(taxRate(S)))})`, chfT((S.p3a1 + S.p3a2 + S.lpp1 + S.lpp2) * taxRate(S)));
+    if (sec) para("2e et 3e pilier : non utilisables pour une résidence secondaire");
+    else row(`Impôt estimé sur retraits (${tx(pc(taxRate(E)))})`, chfT((E.p3a1 + E.p3a2 + E.lpp1 + E.lpp2) * taxRate(E)));
     if (S.reserve) row("Réserve gardée de côté", chfT(S.reserve));
     row("Total net", chfT(m.eq.total));
     row("Disponible après réserve", chfT(m.eq.total - S.reserve), true);
     if (!S.solo) {
-      const e1 = S.cash1 + (S.p3a1 + S.lpp1) * t, e2 = S.cash2 + (S.p3a2 + S.lpp2) * t, es = e1 + e2;
+      const e1 = E.cash1 + (E.p3a1 + E.lpp1) * t, e2 = E.cash2 + (E.p3a2 + E.lpp2) * t, es = e1 + e2;
       if (es > 0) row("Répartition de l'apport", `${S.name1} ${tx(pc(e1 / es, 0))} · ${S.name2} ${tx(pc(e2 / es, 0))}`);
     }
 
     section("Le bien et le financement");
+    if (sec) row("Usage du bien", "Résidence secondaire");
     row("Prix d'achat", chfT(m.P), true);
-    row(`Frais d'achat${S.feesMode === "pct" ? ` (${S.feesPct} %)` : S.feesMode === "ge" ? ` (barème notaires GE${S.casatax ? ", Casatax" : ""})` : ""}`, chfT(m.fees));
+    row(`Frais d'achat${S.feesMode === "pct" ? ` (${S.feesPct} %)` : S.feesMode === "ge" ? ` (barème notaires GE${E.casatax ? ", Casatax" : ""})` : ""}`, chfT(m.fees));
     // Barre de financement
     ensure(14); y += 1;
     const bw = R - L, segs = [[m.apport, [46, 125, 107], "Fonds propres"], [m.rank1, BRAND ? DARK : [31, 79, 134], "1er rang"], [m.rank2, BRAND || [127, 163, 207], "2e rang"]];
@@ -1680,6 +1759,7 @@ async function exportPdf() {
     const realInt = m.loan * S.realRate / 100;
     const lines = [[`Intérêts (${S.rate} % banque / ${S.realRate} % réel)`, m.interest, realInt], ["Amortissement 2e rang", m.amort, m.amort], [`Entretien et frais (${S.maintPct} % / réel)`, m.maint, S.realCharges * 12]];
     if (S.debt) lines.push(["Autres charges", S.debt, S.debt]);
+    if (m.princ > 0) lines.push(["Logement principal", m.princ, m.princ]);
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...MUTED);
     ensure(6); doc.text("BANQUE / AN", 130, y, { align: "right" }); doc.text("BANQUE / MOIS", 162, y, { align: "right" }); doc.text("RÉEL / MOIS", R, y, { align: "right" }); y += 5;
     const crow = (n, a, b, bold) => {
@@ -1691,7 +1771,7 @@ async function exportPdf() {
     };
     lines.forEach(l => crow(l[0], l[1], l[2]));
     crow("Total CHF", lines.reduce((s, l) => s + l[1], 0), lines.reduce((s, l) => s + l[2], 0), true);
-    if (S.rent) row("Loyer actuel", chfT(S.rent) + " / mois");
+    if (S.rent && !sec) row("Loyer actuel", chfT(S.rent) + " / mois");
 
     if (LAST.banks) {
       section("Selon les banques");
@@ -1700,7 +1780,7 @@ async function exportPdf() {
     } else {
       section("Hypothèses");
       row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
-      row("Limite 1er rang / financement max.", `${S.rank1Pct} % / ${S.ltvMax} %`);
+      row("Limite 1er rang / financement max.", `${E.rank1Pct} % / ${E.ltvMax} %`);
       row("Âge de la retraite / revenu à la retraite", `${S.retireAge} ans / ${S.retirePct} %`);
     }
 
@@ -1777,7 +1857,7 @@ if (BANKS || ADVISORS.length) {
   const val = (v, u) => v === undefined || v === null || v === "" ? "–" : `${esc(String(v))}${u ? "&nbsp;" + u : ""}`;
   let html = "";
   if (BANKS) {
-    const cols = [["rate", "Taux théorique", "%"], ["ratioMax", "Charges max.", "%"], ["ltvMax", "Financement max.", "%"], ["rank1Pct", "Limite 1<sup>er</sup> rang", "%"],
+    const cols = [["rate", "Taux théorique", "%"], ["ratioMax", "Charges max.", "%"], ["ltvMax", "Financement max.", "%"], ["ltvMaxSec", "Financement max. (secondaire)", "%"], ["rank1Pct", "Limite 1<sup>er</sup> rang", "%"], ["rank1PctSec", "Limite 1<sup>er</sup> rang (secondaire)", "%"],
       ["amortMax", "Amort. 2<sup>e</sup> rang", "ans"], ["maintPct", "Entretien", "%"], ["retireAge", "Retraite", "ans"], ["retirePct", "Revenu à la retraite", "%"]];
     const row = (nom, b, ref) => ({ cls: ref ? "ref" : "", cells: [nom, ...cols.map(([k, , u]) => val(b[k] ?? DEFAULTS[k], u))],
       cellCls: ["", ...cols.map(([k]) => !ref && b[k] === undefined ? "inh" : "")] });

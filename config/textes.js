@@ -56,12 +56,40 @@ SIMU_CONFIG.textes = {
       ],
     },
 
+    // Limite 1er rang (résidence secondaire)
+    rank1PctSec: {
+      texte: "Limite sous laquelle l'hypothèque n'a plus à être amortie.",
+      points: [
+        "Souvent 50 % du prix à atteindre en 15 ans, contre environ 2/3 pour le logement habité.",
+        "Certaines banques exigent davantage, jusqu'au remboursement complet dans un délai fixé.",
+      ],
+    },
+
     // Financement max.
     ltvMax: {
       texte: "Part maximale du prix que la banque prête. Le reste, plus les frais d'achat, doit venir de vos fonds propres.",
       points: [
         "80 % pour un logement que vous habitez : règle de l'Association suisse des banquiers, reconnue par la FINMA.",
-        "Souvent 60 à 75 % pour une résidence secondaire, un bien à louer ou un bien de luxe.",
+        "Souvent 50 à 75 % pour une résidence secondaire ou un bien à louer, parfois moins pour un bien de luxe.",
+      ],
+    },
+
+    // Financement max. (résidence secondaire)
+    ltvMaxSec: {
+      texte: "Part maximale du prix que la banque prête pour une résidence secondaire.",
+      points: [
+        "Souvent 60 %, soit 40 % de fonds propres. Selon la banque, 50 à 75 %.",
+        "Les fonds propres doivent venir de l'épargne ou d'une donation : ni 2e ni 3e pilier.",
+      ],
+    },
+
+    // Charges du logement principal (résidence secondaire)
+    chargesPrincipale: {
+      texte: "Ce que coûte déjà le logement où vous habitez, car la banque contrôle les deux logements ensemble.",
+      points: [
+        "Locataire : votre loyer, selon la banque.",
+        "Propriétaire : vos charges théoriques (intérêts à 5 %, amortissement, entretien), pas ce que vous payez réellement.",
+        "Le total des deux logements doit rester sous le plafond de charges.",
       ],
     },
 
@@ -111,6 +139,7 @@ SIMU_CONFIG.textes = {
         "**1er rang** : jusqu'à environ 2/3 du prix. Pas d'amortissement obligatoire.",
         "**2e rang** : la partie entre 2/3 et 80 % du prix. Elle doit être remboursée en 15 ans au plus, ou avant la retraite si elle arrive plus tôt.",
         "Les intérêts, au taux théorique comme au taux réel, se calculent sur l'hypothèque totale.",
+        "**Résidence secondaire** : le 1er rang et le financement sont plus bas, par défaut 50 % et 60 % du prix.",
       ],
     },
   },
@@ -120,6 +149,8 @@ SIMU_CONFIG.textes = {
     "Hypothèque max. 80 % du prix. 1er rang jusqu'à env. 2/3 du prix, sans amortissement obligatoire. 2e rang amorti linéairement en 15 ans, ou avant l'âge de la retraite si c'est plus tôt.",
     "Charges théoriques = intérêts au taux théorique (5 %) + amortissement du 2e rang + entretien et frais (≈ 1 % du prix) + autres charges (leasing, pensions). Elles doivent rester sous 33 % du revenu brut retenu.",
     "Fonds propres : au moins 20 % du prix, dont 10 % hors 2e pilier. Les frais d'achat (droits de mutation, notaire, registre foncier, cédule) s'ajoutent et ne sont pas financés.",
+    "Résidence secondaire : pas de 2e ni de 3e pilier, financement à 60 % du prix, 1er rang à 50 %, pas de Casatax. Les charges du logement principal s'ajoutent au contrôle du revenu.",
+    "Non pris en compte pour une résidence secondaire : revenus locatifs, taux souvent plus élevés, amortissement plus exigeant de certaines banques, frais accessoires plus élevés, impôts et restrictions d'achat (Lex Koller).",
     "Les retraits de 2e et 3e pilier sont imposés à part : le taux saisi est déduit du montant brut.",
     "Tous les fonds propres disponibles servent à réduire l'hypothèque, sauf la réserve que vous gardez.",
     "Les frais par canton et les montants d'allocations sont des ordres de grandeur à vérifier ; ils restent modifiables. Ce simulateur ne remplace pas une offre bancaire.",

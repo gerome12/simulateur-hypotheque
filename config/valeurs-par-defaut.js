@@ -2,7 +2,8 @@
 window.SIMU_CONFIG = window.SIMU_CONFIG || {};
 
 SIMU_CONFIG.valeursParDefaut = {
-  canton: "GE",                 // code d'un canton de la liste « cantons » plus bas
+  canton: "GE",                 // canton du bien et, par défaut, du ménage : code d'un canton de la liste « cantons » plus bas
+                                // (facultatif : cantonMenage pour un autre canton du ménage, qui préremplit les allocations)
 
   // Le ménage (revenus bruts annuels, 13e salaire compris)
   name1: "Personne 1", inc1: 120000, bonus1: 0, age1: 38,
@@ -24,6 +25,8 @@ SIMU_CONFIG.valeursParDefaut = {
 
   // Le bien
   price: 1200000,
+  usage: "principale",          // usage du bien : "principale" ou "secondaire"
+  chargesPrincipale: 0,         // logement principal déjà payé par le ménage, en CHF par mois (usage "secondaire")
   feesMode: "ge",               // frais d'achat : "pct" (en %), "chf" (montant) ou "ge" (barème genevois)
   feesPct: 5,
   feesChf: 60000,
