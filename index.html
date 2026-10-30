@@ -58,6 +58,7 @@ h1 { font-family: var(--font-display); font-stretch: 80%; font-weight: 800; font
 .sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
 .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dossier-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--bad); background: var(--bad-soft); }
+.dossier-msg[role="status"] { color: var(--warn); background: var(--warn-soft); }
 select, button { font: inherit; }
 .btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -1008,17 +1009,25 @@ function valeurSure(k, v) {
   if (k === "canton" || k === "cantonMenage") return cantonConnu(v);
   if (CHOIX[k]) return CHOIX[k].includes(v);
   if (k === "apportSel") return v === null || Number.isFinite(v);
-  if (k === "p2saved") return v === null || (estObjet(v) && P2_KEYS.every(c => Number.isFinite(v[c])));
-  return typeof v === typeof DEFAULTS[k] && (typeof v !== "number" || Number.isFinite(v));
+  if (k === "p2saved") return v === null || (estObjet(v) && P2_KEYS.every(c => valeurSure(c, v[c])));
+  if (typeof v !== typeof DEFAULTS[k]) return false;
+  if (typeof v !== "number") return true;
+  // Pas de borne haute, comme la saisie ; la borne basse du champ écarte les négatifs et les diviseurs à 0
+  const f = BY[k];
+  return Number.isFinite(v) && (!f || f.min < 0 || v >= f.min);
 }
-// Seules les clés connues sont reprises : __proto__ ou constructor ne sont jamais fusionnées
+// Seules les clés connues sont reprises : __proto__ ou constructor ne sont jamais fusionnées.
+// Renvoie aussi les clés connues du fichier écartées, y compris les cantons retirés par migrer()
 function nettoyer(sim) {
-  const m = migrer(sim), sur = {};
-  for (const k of Object.keys(DEFAULTS)) if (Object.hasOwn(m, k) && valeurSure(k, m[k])) sur[k] = m[k];
+  const fournies = new Set(Object.keys(sim)), m = migrer(sim), sur = {}, ecartees = [];
+  for (const k of Object.keys(DEFAULTS)) {
+    if (Object.hasOwn(m, k) && valeurSure(k, m[k])) sur[k] = m[k];
+    else if (fournies.has(k) || Object.hasOwn(m, k)) ecartees.push(k);
+  }
   if (sur.p2saved) sur.p2saved = Object.fromEntries(P2_KEYS.map(c => [c, sur.p2saved[c]]));
-  return sur;
+  return { sur, ecartees };
 }
-// Texte d'un fichier → simulation sûre ; un fichier refusé lève une erreur au message lisible
+// Texte d'un fichier → { sur, ecartees } ; un fichier refusé lève une erreur au message lisible
 function lireDossier(txt) {
   let d;
   try { d = JSON.parse(txt); } catch (e) { throw new Error("Ce fichier n'est pas un JSON valide."); }
@@ -1028,19 +1037,25 @@ function lireDossier(txt) {
   if (!estObjet(d.simulation)) throw new Error("Ce dossier ne contient pas de simulation.");
   return nettoyer(d.simulation);
 }
-const dossierMsg = txt => { $("dossierMsg").textContent = txt; $("dossierMsg").hidden = !txt; };
-$("dossierSave").addEventListener("click", () => {
+const dossierMsg = (txt, role = "alert") => { const m = $("dossierMsg"); m.setAttribute("role", role); m.textContent = txt; m.hidden = !txt; };
+// Dans claude.ai : capacité downloads. Fichier ouvert seul : lien temporaire.
+async function telecharger(nom, blob) {
+  if (DL) return DL.save({ filename: nom, data: blob });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nom;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$("dossierSave").addEventListener("click", async () => {
   dossierMsg("");
   const iso = new Date().toISOString(), date = iso.slice(0, 10);
   const nom = String(S.name1).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 40).replace(/^-+|-+$/g, "");
   const blob = new Blob([JSON.stringify({ app: DOSSIER.app, version: DOSSIER.version, enregistreLe: iso, simulation: S }, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `dossier-${nom ? nom + "-" : ""}${date}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  try { await telecharger(`dossier-${nom ? nom + "-" : ""}${date}.json`, blob); }
+  catch (err) { if (err?.code !== "declined") dossierMsg("Enregistrement indisponible."); }
 });
-$("dossierOpen").addEventListener("click", () => $("dossierFile").click());
+$("dossierOpen").addEventListener("click", () => { dossierMsg(""); $("dossierFile").click(); });
 $("dossierFile").addEventListener("change", async e => {
   const f = e.target.files[0];
   e.target.value = "";   // le même fichier pourra être rouvert
@@ -1048,9 +1063,10 @@ $("dossierFile").addEventListener("change", async e => {
   dossierMsg("");
   try {
     if (f.size > DOSSIER.tailleMax) throw new Error("Ce fichier dépasse 1 Mo : ce n'est pas un dossier du simulateur.");
-    const sur = lireDossier(await f.text());
+    const { sur, ecartees } = lireDossier(await f.text());
     S = { ...DEFAULTS, ...sur }; touched = true;
     update();
+    if (ecartees.length) dossierMsg(`Dossier ouvert. Valeurs ignorées, remplacées par celles par défaut : ${ecartees.map(k => BY[k]?.label || k).join(", ")}.`, "status");
   } catch (err) { dossierMsg(err.message); }
 });
 
@@ -1875,8 +1891,7 @@ async function exportPdf() {
     }
 
     const name = `simulation-hypotheque-${new Date().toISOString().slice(0, 10)}.pdf`;
-    if (DL) await DL.save({ filename: name, data: doc.output("blob") });
-    else doc.save(name);
+    await telecharger(name, doc.output("blob"));
     btn.textContent = old;
   } catch (e) {
     btn.textContent = e && e.code === "declined" ? old : "Export indisponible";
