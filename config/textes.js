@@ -110,7 +110,7 @@ SIMU_CONFIG.textes = {
         "Au moins 20'000 CHF auprès d'une caisse de pension, et un retrait tous les 5 ans.",
         "Après 50 ans, le montant est limité au plus élevé de ces deux montants : l'avoir à 50 ans, ajusté des retraits et remboursements faits depuis, ou la moitié de l'avoir actuel après déduction de ce qui a déjà servi au logement. Demandez le montant à votre caisse.",
         "Il sert à un seul logement à la fois.",
-        "Possible au plus tard 3 ans avant le droit aux prestations de vieillesse, date à confirmer par votre caisse.",
+        "En principe au plus tard 3 ans avant le droit aux prestations de vieillesse. Le règlement de votre caisse peut réduire ce délai, mais aucun retrait une fois l'âge ordinaire de la retraite atteint.",
       ],
     },
 
