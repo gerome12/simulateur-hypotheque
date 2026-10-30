@@ -19,6 +19,10 @@ Les chiffres saisis restent dans le navigateur (`localStorage`). Rien n'est envo
 
 Ouvrir `index.html` dans un navigateur. Aucune installation. Sans internet, la page fonctionne avec les polices du système, et l'export PDF passe par l'impression du navigateur.
 
+## Dossier client
+
+« Enregistrer » télécharge la simulation dans un fichier JSON, et « Ouvrir » la recharge à l'identique. Le fichier suit la structure de la page : `menage` avec ses `personnes`, `fondsPropres`, `bien`, `hypotheses`, `apport`, `coutReel` et `graphiques`. Il contient des données personnelles (revenus, âges, fonds propres) : il reste chez l'utilisateur, rien n'est envoyé à un serveur.
+
 ## Personnaliser
 
 Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par sujet, commentés en français :

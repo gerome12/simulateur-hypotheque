@@ -57,6 +57,8 @@ header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-cont
 h1 { font-family: var(--font-display); font-stretch: 80%; font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
 .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.dossier-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--bad); background: var(--bad-soft); }
+.dossier-msg[role="status"] { color: var(--warn); background: var(--warn-soft); }
 select, button { font: inherit; }
 .btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -149,7 +151,7 @@ select, button { font: inherit; }
 .casatax .tick { width: 2px; height: 24px; background: var(--warn); border-radius: 1px; }
 .casatax .lbl { font: 500 11px/1.2 var(--font-data); color: var(--warn); white-space: nowrap; transform: translateX(-50%); }
 @media print {
-  .tabs, #tab-rates, .top-actions, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
+  .tabs, #tab-rates, .top-actions, .dossier-msg, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
   body { padding-block: 0; background: #fff; color: #000; }
   .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "inputs" "details"; }
   .panel, .verdict { break-inside: avoid; }
@@ -378,10 +380,14 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <span class="example" id="exampleTag">Chiffres d'exemple</span>
       <label for="conseiller" class="sr">Conseiller</label>
       <select id="conseiller" class="canton" hidden></select>
+      <button class="btn" id="dossierSave" type="button">Enregistrer</button>
+      <button class="btn" id="dossierOpen" type="button">Ouvrir</button>
+      <input type="file" id="dossierFile" accept=".json,application/json" hidden>
       <button class="btn primary" id="export" type="button" hidden>Exporter en PDF</button>
       <button class="btn" id="reset" type="button">Réinitialiser</button>
     </div>
   </header>
+  <p class="dossier-msg" id="dossierMsg" role="alert" hidden></p>
 
   <nav class="tabs" role="tablist" aria-label="Vues">
     <button type="button" role="tab" id="t-simu" aria-controls="tab-simu" aria-selected="true">Ma simulation</button>
@@ -751,7 +757,9 @@ for (const [id, b] of Object.entries(CFG.curseurs || {})) if (BY[id]) Object.ass
 const KEY = "simu-hypo-ch-v1";
 let S = { ...DEFAULTS };
 let touched = false;
-try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
+const cantonConnu = k => typeof k === "string" && Object.hasOwn(CANTONS, k);
+// Remet un état enregistré (navigateur ou dossier client) au format actuel
+function migrer(saved) {
   // Ancienne version : fonds propres communs, repris sur la personne 1
   if (saved.cash != null && saved.cash1 == null) {
     Object.assign(saved, { cash1: saved.cash, p3a1: saved.p3a || 0, lpp1: saved.lpp || 0, cash2: 0, p3a2: 0, lpp2: 0 });
@@ -760,8 +768,11 @@ try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) 
   // Ancienne version : un seul canton, repris pour le ménage
   if (saved.cantonMenage == null) saved.cantonMenage = saved.canton;
   // Canton absent de la liste : valeur par défaut
-  for (const k of ["canton", "cantonMenage"]) if (!CANTONS[saved[k]]) delete saved[k];
-  S = { ...DEFAULTS, ...saved }; touched = true;
+  for (const k of ["canton", "cantonMenage"]) if (!cantonConnu(saved[k])) delete saved[k];
+  return saved;
+}
+try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
+  S = { ...DEFAULTS, ...migrer(saved) }; touched = true;
 } } catch (e) {}
 
 const $ = id => document.getElementById(id);
@@ -875,6 +886,7 @@ function syncInputs(skip) {
   $("lockPrice").checked = !!S.lockPrice;
   $("canton").value = S.canton;
   $("cantonMenage").value = S.cantonMenage;
+  $("conseiller").value = S.conseiller;
   $("in-price").disabled = $("rg-price").disabled = !!S.lockPrice;
   document.querySelectorAll(".person.p2").forEach(el => { el.hidden = !!S.solo; });
   document.querySelectorAll(".people").forEach(el => el.classList.toggle("solo", !!S.solo));
@@ -986,6 +998,184 @@ $("reset").addEventListener("click", () => {
   if (TAB === "rates") Object.assign(S, keep);
   else { S = { ...DEFAULTS, ...keep, conseiller: S.conseiller }; touched = false; }   // le conseiller choisi reste sélectionné
   update();
+});
+
+/* ---------- Dossier client : la simulation dans un fichier JSON, sans rien envoyer ---------- */
+const DOSSIER = { app: "simu-hypo-ch", version: 1, tailleMax: 1024 * 1024 };
+const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"] };
+const LIBELLES = {
+  canton: "Canton du bien", cantonMenage: "Canton du ménage", usage: "Usage du bien", feesMode: "Mode des frais", taxMode: "Mode de l'impôt",
+  name1: "Nom de la personne 1", name2: "Nom de la personne 2", solo: "Nombre de personnes", apportSel: "Apport choisi", p2saved: "Montants de la personne 2",
+  allocCount: "Compter les allocations", lockPrice: "Prix bloqué", realChargesAuto: "Charges réelles automatiques", casatax: "Casatax", conseiller: "Conseiller"
+};
+// Nom lisible d'une clé, avec la personne quand le champ en concerne une
+const libelleCle = k => {
+  const f = BY[k];
+  if (!f) return LIBELLES[k] || DOSSIER_BLOCS[k] || k;
+  return f.who ? `${f.label} (${S["name" + f.who.slice(-1)] || f.who})` : f.label;
+};
+const estObjet = v => typeof v === "object" && v !== null && !Array.isArray(v);
+// Une valeur du fichier n'est gardée que si elle a la forme attendue pour sa clé
+function valeurSure(k, v) {
+  if (k === "canton" || k === "cantonMenage") return cantonConnu(v);
+  if (CHOIX[k]) return CHOIX[k].includes(v);
+  if (k === "apportSel") return v === null || Number.isFinite(v);
+  if (k === "p2saved") return v === null || (estObjet(v) && P2_KEYS.every(c => valeurSure(c, v[c])));
+  if (typeof v !== typeof DEFAULTS[k]) return false;
+  if (typeof v !== "number") return true;
+  // Même règle que la saisie : un dossier rend ce que la page permet
+  return Number.isFinite(v) && (BY[k]?.min < 0 || v >= 0);
+}
+// Seules les clés connues sont reprises : __proto__ ou constructor ne sont jamais fusionnées.
+// Renvoie aussi les clés connues du fichier écartées, y compris les cantons retirés par migrer()
+function nettoyer(sim) {
+  const fournies = new Set(Object.keys(sim)), m = migrer(sim), sur = {}, ecartees = [];
+  for (const k of Object.keys(DEFAULTS)) {
+    if (Object.hasOwn(m, k) && valeurSure(k, m[k])) sur[k] = m[k];
+    else if (fournies.has(k) || Object.hasOwn(m, k)) ecartees.push(k);
+  }
+  if (sur.p2saved) sur.p2saved = Object.fromEntries(P2_KEYS.map(c => [c, sur.p2saved[c]]));
+  return { sur, ecartees };
+}
+// Correspondance entre le fichier (chemin) et l'état de la page (clé de S), lue dans les deux sens
+const DOSSIER_CHAMPS = [
+  ["conseiller", "conseiller"],
+  ["menage.cantonMenage", "cantonMenage"],
+  ["menage.partBonusRetenue", "bonusPct"],
+  ["menage.autresChargesAnnuelles", "debt"],
+  ["menage.enfants.nombre", "kids"],
+  ["menage.enfants.allocationMensuelle", "alloc"],
+  ["menage.enfants.compterDansRevenu", "allocCount"],
+  ["fondsPropres.donation", "gift"],
+  ["fondsPropres.reserve", "reserve"],
+  ["fondsPropres.impotRetraits.mode", "taxMode"],
+  ["fondsPropres.impotRetraits.pct", "taxPct"],
+  ["fondsPropres.impotRetraits.chf", "taxChf"],
+  ["bien.prix", "price"],
+  ["bien.prixBloque", "lockPrice"],
+  ["bien.usage", "usage"],
+  ["bien.canton", "canton"],
+  ["bien.chargesLogementPrincipal", "chargesPrincipale"],
+  ["bien.frais.mode", "feesMode"],
+  ["bien.frais.pct", "feesPct"],
+  ["bien.frais.chf", "feesChf"],
+  ["bien.casatax", "casatax"],
+  ["bien.cedulesReprises", "cedReprise"],
+  ["hypotheses.tauxTheorique", "rate"],
+  ["hypotheses.chargesMaxPct", "ratioMax"],
+  ["hypotheses.entretienPct", "maintPct"],
+  ["hypotheses.limite1erRangPct", "rank1Pct"],
+  ["hypotheses.limite1erRangSecondairePct", "rank1PctSec"],
+  ["hypotheses.financementMaxPct", "ltvMax"],
+  ["hypotheses.financementMaxSecondairePct", "ltvMaxSec"],
+  ["hypotheses.dureeAmortissement", "amortMax"],
+  ["hypotheses.ageRetraite", "retireAge"],
+  ["hypotheses.revenuRetraitePct", "retirePct"],
+  ["apport.choisi", "apportSel"],
+  ["coutReel.tauxReel", "realRate"],
+  ["coutReel.chargesReelles", "realCharges"],
+  ["coutReel.chargesReellesAuto", "realChargesAuto"],
+  ["coutReel.loyer", "rent"],
+  ["graphiques.mensualites.tauxTheorique", "gRate"],
+  ["graphiques.mensualites.tauxReel", "gReal"],
+  ["graphiques.mensualites.prixMin", "gMin"],
+  ["graphiques.mensualites.prixMax", "gMax"],
+  ["graphiques.fondsPropres.fraisPct", "gFees"],
+  ["graphiques.fondsPropres.prixMin", "eMin"],
+  ["graphiques.fondsPropres.prixMax", "eMax"]
+];
+// Blocs du fichier : un bloc qui n'est pas un objet est signalé, ses valeurs reprennent les défauts
+const DOSSIER_BLOCS = {
+  fondsPropres: "Fonds propres", bien: "Le bien", hypotheses: "Hypothèses", apport: "Apport", coutReel: "Coût réel", graphiques: "Graphiques",
+  "menage.enfants": "Enfants", "fondsPropres.impotRetraits": "Impôt sur retraits", "bien.frais": "Frais d'achat", "graphiques.mensualites": "Graphiques", "graphiques.fondsPropres": "Graphiques"
+};
+// Champs d'une personne : clé de S sans son numéro
+const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"]];
+// Seuls les chemins des tables sont lus, et seulement en propre : __proto__ et consorts sont sans effet
+const lireChemin = (o, chemin) => chemin.split(".").reduce((v, c) => estObjet(v) && Object.hasOwn(v, c) ? v[c] : undefined, o);
+function ecrireChemin(o, chemin, v) {
+  const cles = chemin.split("."), fin = cles.pop();
+  for (const c of cles) o = o[c] ??= {};
+  if (v !== undefined) o[fin] = v;
+}
+function versPersonne(s, p) {
+  const o = {};
+  for (const [chemin, c] of PERSONNE_CHAMPS) ecrireChemin(o, chemin, s[c + p]);
+  return o;
+}
+function versDossier(s, enregistreLe) {
+  const personnes = s.solo ? [versPersonne(s, 1)] : [versPersonne(s, 1), versPersonne(s, 2)];
+  // Personne retirée : ses montants sont dans p2saved, son nom et son âge restent dans S
+  const miseDeCote = { ...s, ...Object.fromEntries(P2_KEYS.map(k => [k, s.p2saved?.[k]])) };
+  const d = { app: DOSSIER.app, version: DOSSIER.version, enregistreLe, conseiller: s.conseiller, menage: { personnes, personneRetiree: s.solo ? versPersonne(miseDeCote, 2) : null } };
+  for (const [chemin, k] of DOSSIER_CHAMPS) ecrireChemin(d, chemin, s[k]);
+  return d;
+}
+// Fichier → état plat, qui passe ensuite par nettoyer() comme le reste, et ce qui n'a pas pu être lu
+function depuisDossier(d) {
+  const personnes = lireChemin(d, "menage.personnes");
+  if (!Array.isArray(personnes) || !personnes.length || !personnes.every(estObjet)) throw new Error("Ce dossier doit contenir une ou deux personnes.");
+  if (personnes.length > 2) throw new Error("Ce dossier compte plus de deux personnes : il n'a pas été ouvert.");
+  const plat = {}, lire = (o, chemin, k) => { const v = lireChemin(o, chemin); if (v !== undefined) plat[k] = v; };
+  const ignores = Object.keys(DOSSIER_BLOCS).filter(b => { const v = lireChemin(d, b); return v !== undefined && !estObjet(v); });
+  for (const [chemin, k] of DOSSIER_CHAMPS) lire(d, chemin, k);
+  personnes.forEach((o, i) => { for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
+  plat.solo = personnes.length === 1;
+  const r = lireChemin(d, "menage.personneRetiree"), miseDeCote = {};
+  if (!plat.solo) { if (r != null) ignores.push("p2saved"); }
+  else {
+    P2_KEYS.forEach(k => { plat[k] = 0; });
+    if (estObjet(r)) {
+      for (const [chemin, c] of PERSONNE_CHAMPS) {
+        const k = c + 2, v = lireChemin(r, chemin);
+        if (v !== undefined) (P2_KEYS.includes(k) ? miseDeCote : plat)[k] = v;
+      }
+      if (Object.keys(miseDeCote).length) plat.p2saved = miseDeCote;
+    } else if (r != null) plat.p2saved = r;
+  }
+  return { plat, ignores };
+}
+// Texte d'un fichier → { sur, ecartees } ; un fichier refusé lève une erreur au message lisible
+function lireDossier(txt) {
+  let d;
+  try { d = JSON.parse(txt); } catch (e) { throw new Error("Ce fichier n'est pas un JSON valide."); }
+  if (!estObjet(d) || d.app !== DOSSIER.app) throw new Error("Ce fichier n'est pas un dossier du simulateur.");
+  if (!Number.isInteger(d.version)) throw new Error("La version de ce dossier est illisible.");
+  if (d.version > DOSSIER.version) throw new Error("Ce dossier vient d'une version plus récente du simulateur : il n'a pas été ouvert.");
+  const { plat, ignores } = depuisDossier(d), { sur, ecartees } = nettoyer(plat);
+  return { sur, ecartees: [...ignores, ...ecartees] };
+}
+const dossierMsg = (txt, role = "alert") => { const m = $("dossierMsg"); m.setAttribute("role", role); m.textContent = txt; m.hidden = !txt; };
+// Dans claude.ai : capacité downloads. Fichier ouvert seul : lien temporaire.
+async function telecharger(nom, blob) {
+  if (DL) return DL.save({ filename: nom, data: blob });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nom;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 40000);   // même délai que jsPDF : le téléchargement peut démarrer tard
+}
+$("dossierSave").addEventListener("click", async () => {
+  dossierMsg("");
+  const iso = new Date().toISOString(), date = iso.slice(0, 10);
+  const nom = String(S.name1).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 40).replace(/^-+|-+$/g, "");
+  const blob = new Blob([JSON.stringify(versDossier(S, iso), null, 2)], { type: "application/json" });
+  try { await telecharger(`dossier-${nom ? nom + "-" : ""}${date}.json`, blob); }
+  catch (err) { if (err?.code !== "declined") dossierMsg("Enregistrement indisponible."); }
+});
+$("dossierOpen").addEventListener("click", () => { dossierMsg(""); $("dossierFile").click(); });
+$("dossierFile").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  e.target.value = "";   // le même fichier pourra être rouvert
+  if (!f) return;
+  dossierMsg("");
+  try {
+    if (f.size > DOSSIER.tailleMax) throw new Error("Ce fichier dépasse 1 Mo : ce n'est pas un dossier du simulateur.");
+    const { sur, ecartees } = lireDossier(await f.text());
+    S = { ...DEFAULTS, ...sur }; touched = true;
+    update();
+    if (ecartees.length) dossierMsg(`Dossier ouvert. Valeurs ignorées, remplacées par celles par défaut : ${ecartees.map(libelleCle).join(", ")}.`, "status");
+  } catch (err) { dossierMsg(err.message); }
 });
 
 /* ---------- Modèle ---------- */
@@ -1809,8 +1999,7 @@ async function exportPdf() {
     }
 
     const name = `simulation-hypotheque-${new Date().toISOString().slice(0, 10)}.pdf`;
-    if (DL) await DL.save({ filename: name, data: doc.output("blob") });
-    else doc.save(name);
+    await telecharger(name, doc.output("blob"));
     btn.textContent = old;
   } catch (e) {
     btn.textContent = e && e.code === "declined" ? old : "Export indisponible";
