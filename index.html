@@ -57,6 +57,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-cont
 h1 { font-family: var(--font-display); font-stretch: 80%; font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 62ch; }
 .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+#taxCouple { margin: 10px 0 12px; }
 .dossier-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--bad); background: var(--bad-soft); }
 .dossier-msg[role="status"] { color: var(--warn); background: var(--warn-soft); }
 select, button { font: inherit; }
@@ -448,6 +449,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="person"><h3><span class="pname" data-p="1">Personne 1</span> <small id="t-eq1"></small></h3><div class="fields" id="f-eq1"></div></div>
           <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span> <small id="t-eq2"></small></h3><div class="fields" id="f-eq2"></div></div>
         </div>
+        <p class="hint" id="taxCouple" hidden>Couple marié ou partenaires enregistrés vivant en ménage commun&nbsp;: les retraits de 2<sup>e</sup>&nbsp;et 3<sup>e</sup>&nbsp;pilier d'une même année sont en général additionnés pour fixer l'impôt. Calculez l'impôt de chacun sur ce total.</p>
         <div class="split" aria-live="polite">
           <div class="split-row"><span id="sp1"></span><span id="sp2"></span></div>
           <div class="split-bar" id="spbar"></div>
@@ -676,6 +678,18 @@ const DEFAULTS = {
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
 DEFAULTS.cantonMenage ??= DEFAULTS.canton;
+// Impôt commun (ancien état, config) → une valeur par personne. En CHF, au prorata des retraits : même taux pour les deux, donc mêmes chiffres.
+function repartirImpot(o, base) {
+  const retraits = p => ["p3a", "lpp"].reduce((a, k) => a + (Number.isFinite(o[k + p]) && o[k + p] >= 0 ? o[k + p] : base[k + p]), 0);
+  if (o.taxPct != null) { o.taxPct1 ??= o.taxPct; o.taxPct2 ??= o.taxPct; }
+  if (o.taxChf != null) {
+    const w1 = retraits(1), w2 = retraits(2), w = w1 + w2;
+    o.taxChf1 ??= w > 0 ? o.taxChf * w1 / w : o.taxChf / 2;
+    o.taxChf2 ??= w > 0 ? o.taxChf * w2 / w : o.taxChf / 2;
+  }
+  delete o.taxPct; delete o.taxChf;
+}
+repartirImpot(DEFAULTS, DEFAULTS);
 const P2_KEYS = ["inc2", "bonus2", "cash2", "p3a2", "lpp2"];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -705,17 +719,19 @@ const F = {
   eq1: [
     { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
     { id: "lpp1", color: "lpp", who: "Personne 1", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true },
-    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true }
+    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true },
+    { id: "taxPct1", who: "Personne 1", label: "Impôt sur retraits", min: 0, max: 15, step: 0.5, unit: "%", dyn: true, segTax: true },
+    { id: "taxChf1", who: "Personne 1", label: "Impôt sur retraits", min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
   ],
   eq2: [
     { id: "cash2", color: "cash", who: "Personne 2", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
     { id: "lpp2", color: "lpp", who: "Personne 2", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true },
-    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true }
+    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true },
+    { id: "taxPct2", who: "Personne 2", label: "Impôt sur retraits", min: 0, max: 15, step: 0.5, unit: "%", dyn: true, segTax: true },
+    { id: "taxChf2", who: "Personne 2", label: "Impôt sur retraits", min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
   ],
   fp2: [
     { id: "gift", label: "Donation / avance d'hoirie", min: 0, max: 1000000, step: 5000, unit: "CHF" },
-    { id: "taxPct", label: "Impôt sur retraits 2e et 3e pilier", min: 0, max: 15, step: 0.5, unit: "%", dyn: true, segTax: true },
-    { id: "taxChf", label: "Impôt sur retraits 2e et 3e pilier", min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true },
     { id: "reserve", label: "Réserve gardée de côté", min: 0, max: 300000, step: 5000, unit: "CHF", note: "Non investie dans l'achat", dyn: true }
   ],
   hyp: [
@@ -769,6 +785,8 @@ function migrer(saved) {
   if (saved.cantonMenage == null) saved.cantonMenage = saved.canton;
   // Canton absent de la liste : valeur par défaut
   for (const k of ["canton", "cantonMenage"]) if (!cantonConnu(saved[k])) delete saved[k];
+  // Ancienne version : un seul impôt, repris pour chaque personne
+  repartirImpot(saved, DEFAULTS);
   return saved;
 }
 try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
@@ -821,12 +839,16 @@ document.addEventListener("click", e => {
   if (tm) {
     const mode = tm.dataset.tm;
     if (mode === S.taxMode) return;
-    const wd = S.p3a1 + S.p3a2 + S.lpp1 + S.lpp2, cur = wd * taxRate(S);
-    if (mode === "chf") S.taxChf = Math.round(cur / 100) * 100;
-    else S.taxPct = wd > 0 ? Math.round(cur / wd * 200) / 2 : S.taxPct;   // arrondi au demi-pour-cent du curseur
+    // Conversion par personne ; en solo, la personne 2 se convertit sur ses montants mis de côté
+    const base = S.solo && S.p2saved ? { ...S, ...S.p2saved } : S, taux = taxRates(base);
+    for (const p of [1, 2]) {
+      const wd = base["p3a" + p] + base["lpp" + p], cur = wd * taux["t" + p];
+      if (mode === "chf") S["taxChf" + p] = Math.round(cur / 100) * 100;
+      else if (wd > 0) S["taxPct" + p] = Math.round(cur / wd * 200) / 2;   // arrondi au demi-pour-cent de la saisie
+    }
     S.taxMode = mode; touched = true;
     update();
-    const next = $("field-" + (mode === "chf" ? "taxChf" : "taxPct")).querySelector(`.seg button[data-tm="${mode}"]`);
+    const next = $("field-" + (mode === "chf" ? "taxChf" : "taxPct") + tm.closest(".field").id.slice(-1)).querySelector(`.seg button[data-tm="${mode}"]`);
     if (next) next.focus();
     return;
   }
@@ -907,6 +929,7 @@ function syncInputs(skip) {
   }
   $("secNote").hidden = !sec;
   $("fpLead").hidden = sec;
+  $("taxCouple").hidden = sec || !!S.solo;
   $("t-hard").parentElement.hidden = sec;
   $("g-hard-t").innerHTML = `Fonds propres durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"}`;
   $("field-rent").hidden = sec;   // le loyer ne disparaît pas avec cet achat
@@ -916,8 +939,10 @@ function syncInputs(skip) {
   $("field-rank1Pct").hidden = sec;
   $("field-rank1PctSec").hidden = !sec;
   document.querySelector('label[for="casataxOn"]').hidden = sec;
-  $("field-taxPct").hidden = sec || S.taxMode === "chf";
-  $("field-taxChf").hidden = sec || S.taxMode !== "chf";
+  for (const p of [1, 2]) {
+    $("field-taxPct" + p).hidden = sec || S.taxMode === "chf";
+    $("field-taxChf" + p).hidden = sec || S.taxMode !== "chf";
+  }
   document.querySelectorAll(".seg button[data-tm]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tm === S.taxMode));
 }
 
@@ -1001,7 +1026,7 @@ $("reset").addEventListener("click", () => {
 });
 
 /* ---------- Dossier client : la simulation dans un fichier JSON, sans rien envoyer ---------- */
-const DOSSIER = { app: "simu-hypo-ch", version: 1, tailleMax: 1024 * 1024 };
+const DOSSIER = { app: "simu-hypo-ch", version: 2, tailleMax: 1024 * 1024 };
 const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"] };
 const LIBELLES = {
   canton: "Canton du bien", cantonMenage: "Canton du ménage", usage: "Usage du bien", feesMode: "Mode des frais", taxMode: "Mode de l'impôt",
@@ -1049,8 +1074,6 @@ const DOSSIER_CHAMPS = [
   ["fondsPropres.donation", "gift"],
   ["fondsPropres.reserve", "reserve"],
   ["fondsPropres.impotRetraits.mode", "taxMode"],
-  ["fondsPropres.impotRetraits.pct", "taxPct"],
-  ["fondsPropres.impotRetraits.chf", "taxChf"],
   ["bien.prix", "price"],
   ["bien.prixBloque", "lockPrice"],
   ["bien.usage", "usage"],
@@ -1090,7 +1113,7 @@ const DOSSIER_BLOCS = {
   "menage.enfants": "Enfants", "fondsPropres.impotRetraits": "Impôt sur retraits", "bien.frais": "Frais d'achat", "graphiques.mensualites": "Graphiques", "graphiques.fondsPropres": "Graphiques"
 };
 // Champs d'une personne : clé de S sans son numéro
-const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"]];
+const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"], ["impotRetraits.pct", "taxPct"], ["impotRetraits.chf", "taxChf"]];
 // Seuls les chemins des tables sont lus, et seulement en propre : __proto__ et consorts sont sans effet
 const lireChemin = (o, chemin) => chemin.split(".").reduce((v, c) => estObjet(v) && Object.hasOwn(v, c) ? v[c] : undefined, o);
 function ecrireChemin(o, chemin, v) {
@@ -1119,13 +1142,18 @@ function depuisDossier(d) {
   const plat = {}, lire = (o, chemin, k) => { const v = lireChemin(o, chemin); if (v !== undefined) plat[k] = v; };
   const ignores = Object.keys(DOSSIER_BLOCS).filter(b => { const v = lireChemin(d, b); return v !== undefined && !estObjet(v); });
   for (const [chemin, k] of DOSSIER_CHAMPS) lire(d, chemin, k);
-  personnes.forEach((o, i) => { for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
+  // Version 1 : un seul impôt, que migrer() reprend pour chaque personne
+  if (d.version < 2) { lire(d, "fondsPropres.impotRetraits.pct", "taxPct"); lire(d, "fondsPropres.impotRetraits.chf", "taxChf"); }
+  // Impôt d'une personne : bloc illisible signalé à son nom
+  const impotIllisible = (o, p) => { const v = lireChemin(o, "impotRetraits"); if (v !== undefined && !estObjet(v)) ignores.push("taxPct" + p); };
+  personnes.forEach((o, i) => { impotIllisible(o, i + 1); for (const [chemin, c] of PERSONNE_CHAMPS) lire(o, chemin, c + (i + 1)); });
   plat.solo = personnes.length === 1;
   const r = lireChemin(d, "menage.personneRetiree"), miseDeCote = {};
   if (!plat.solo) { if (r != null) ignores.push("p2saved"); }
   else {
     P2_KEYS.forEach(k => { plat[k] = 0; });
     if (estObjet(r)) {
+      impotIllisible(r, 2);
       for (const [chemin, c] of PERSONNE_CHAMPS) {
         const k = c + 2, v = lireChemin(r, chemin);
         if (v !== undefined) (P2_KEYS.includes(k) ? miseDeCote : plat)[k] = v;
@@ -1220,16 +1248,19 @@ function amortYears(s) {
   const oldest = Math.max(s.age1, s.inc2 > 0 ? s.age2 : 0);
   return Math.max(1, Math.min(s.amortMax, s.retireAge - oldest));
 }
-// Taux d'impôt effectif sur les retraits : le % saisi, ou le montant en CHF rapporté aux retraits
-function taxRate(s) {
-  if (s.taxMode !== "chf") return s.taxPct / 100;
-  const w = s.p3a1 + s.p3a2 + s.lpp1 + s.lpp2;
-  return w > 0 ? Math.min(1, s.taxChf / w) : 0;
+// Taux d'impôt effectif de chaque personne : le % saisi, ou le montant en CHF rapporté à ses retraits
+function taxRates(s) {
+  const t = p => {
+    if (s.taxMode !== "chf") return s["taxPct" + p] / 100;
+    const w = s["p3a" + p] + s["lpp" + p];
+    return w > 0 ? Math.min(1, s["taxChf" + p] / w) : 0;
+  };
+  return { t1: t(1), t2: t(2) };
 }
 function equity(s) {
-  const t = taxRate(s);
-  const hard = s.cash1 + s.cash2 + (s.p3a1 + s.p3a2) * (1 - t) + s.gift;
-  const lpp = (s.lpp1 + s.lpp2) * (1 - t);
+  const { t1, t2 } = taxRates(s);
+  const hard = s.cash1 + s.cash2 + s.p3a1 * (1 - t1) + s.p3a2 * (1 - t2) + s.gift;
+  const lpp = s.lpp1 * (1 - t1) + s.lpp2 * (1 - t2);
   return { hard, lpp, total: hard + lpp };
 }
 function model(s, P) {
@@ -1443,10 +1474,13 @@ function update(skip) {
   $("m-sum").innerHTML = `${who.join(" · ") || "Aucun salaire"} · ${S.kids} enfant${S.kids > 1 ? "s" : ""} · revenu retenu <b>${chf(income(S))}</b>`;
   $("t-fp").textContent = `net ${chf(m.eq.total)}`;
   $("t-hard").textContent = `${chf(m.eq.hard)} / ${chf(m.eq.lpp)}`;
-  const tx = 1 - taxRate(E), wd = E.p3a1 + E.p3a2 + E.lpp1 + E.lpp2;
-  $("hint-taxPct").textContent = `Soit ${chf(wd * S.taxPct / 100)} d'impôt estimé.`;
-  $("hint-taxChf").textContent = wd > 0 ? `Soit ${pc(taxRate(E))} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.";
-  const e1 = E.cash1 + (E.p3a1 + E.lpp1) * tx, e2 = E.cash2 + (E.p3a2 + E.lpp2) * tx, eSum = e1 + e2;
+  const taux = taxRates(E), net = { 1: 1 - taux.t1, 2: 1 - taux.t2 };
+  for (const p of [1, 2]) {
+    const wd = E["p3a" + p] + E["lpp" + p];
+    $("hint-taxPct" + p).textContent = `Soit ${chf(wd * S["taxPct" + p] / 100)} d'impôt estimé.`;
+    $("hint-taxChf" + p).textContent = wd > 0 ? `Soit ${pc(taux["t" + p])} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.";
+  }
+  const e1 = E.cash1 + (E.p3a1 + E.lpp1) * net[1], e2 = E.cash2 + (E.p3a2 + E.lpp2) * net[2], eSum = e1 + e2;
   $("t-eq1").textContent = "net " + short(e1);
   $("t-eq2").textContent = "net " + short(e2);
   const sh1 = eSum > 0 ? e1 / eSum : 0.5;
@@ -1456,11 +1490,11 @@ function update(skip) {
   document.querySelectorAll(".pen").forEach(b => b.setAttribute("aria-label", "Renommer " + S["name" + b.dataset.p]));
   // Réserve répartie selon la part de chacun, prise sur son épargne
   const resv = p => Math.min(S["cash" + p], S.reserve * (p === 1 ? sh1 : 1 - sh1));
-  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", E["lpp" + p] * tx], ["3a", E["p3a" + p] * tx]];
+  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", E["lpp" + p] * net[p]], ["3a", E["p3a" + p] * net[p]]];
   const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${eSum > 0 ? v / eSum * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
   $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("");
   const kinds = [["cash", "Épargne", S.cash1 + S.cash2]];
-  if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", (E.lpp1 + E.lpp2) * tx], ["3a", "3<sup>e</sup> pilier", (E.p3a1 + E.p3a2) * tx]);
+  if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", E.lpp1 * net[1] + E.lpp2 * net[2]], ["3a", "3<sup>e</sup> pilier", E.p3a1 * net[1] + E.p3a2 * net[2]]);
   const resTot = resv(1) + resv(2);
   kinds[0][2] -= resTot;
   if (resTot > 0) kinds.unshift(["res", "Réserve", resTot]);
@@ -1914,19 +1948,21 @@ async function exportPdf() {
     row("Revenu retenu par la banque", chfT(income(S)) + " / an", true);
 
     section("Fonds propres");
-    const t = 1 - taxRate(E);
+    const { t1, t2 } = taxRates(E), wd1 = E.p3a1 + E.lpp1, wd2 = E.p3a2 + E.lpp2;
     persons.forEach(p => {
       if (sec) row(`${S["name" + p]} : épargne`, chfT(S["cash" + p]));
       else row(`${S["name" + p]} : épargne / 2e pilier / 3e pilier`, `${chfT(S["cash" + p])} / ${chfT(E["lpp" + p])} / ${chfT(E["p3a" + p])}`);
     });
     if (S.gift) row("Donation / avance d'hoirie", chfT(S.gift));
     if (sec) para("2e et 3e pilier : non utilisables pour une résidence secondaire");
-    else row(`Impôt estimé sur retraits (${tx(pc(taxRate(E)))})`, chfT((E.p3a1 + E.p3a2 + E.lpp1 + E.lpp2) * taxRate(E)));
+    // Une seule ligne si un seul taux compte : même taux affiché, solo, ou une personne sans retrait
+    else if (S.solo || !wd1 || !wd2 || pc(t1) === pc(t2)) row(`Impôt estimé sur retraits (${tx(pc(wd1 || S.solo ? t1 : t2))})`, chfT(wd1 * t1 + wd2 * t2));
+    else persons.forEach(p => row(`${S["name" + p]} : impôt estimé sur retraits (${tx(pc(p === 1 ? t1 : t2))})`, chfT(p === 1 ? wd1 * t1 : wd2 * t2)));
     if (S.reserve) row("Réserve gardée de côté", chfT(S.reserve));
     row("Total net", chfT(m.eq.total));
     row("Disponible après réserve", chfT(m.eq.total - S.reserve), true);
     if (!S.solo) {
-      const e1 = E.cash1 + (E.p3a1 + E.lpp1) * t, e2 = E.cash2 + (E.p3a2 + E.lpp2) * t, es = e1 + e2;
+      const e1 = E.cash1 + wd1 * (1 - t1), e2 = E.cash2 + wd2 * (1 - t2), es = e1 + e2;
       if (es > 0) row("Répartition de l'apport", `${S.name1} ${tx(pc(e1 / es, 0))} · ${S.name2} ${tx(pc(e2 / es, 0))}`);
     }
 

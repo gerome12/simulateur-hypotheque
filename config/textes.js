@@ -151,7 +151,7 @@ SIMU_CONFIG.textes = {
     "Fonds propres : au moins 20 % du prix, dont 10 % hors 2e pilier. Les frais d'achat (droits de mutation, notaire, registre foncier, cédule) s'ajoutent et ne sont pas financés.",
     "Résidence secondaire : pas de 2e ni de 3e pilier, financement à 60 % du prix, 1er rang à 50 %, pas de Casatax. Les charges du logement principal s'ajoutent au contrôle du revenu.",
     "Non pris en compte pour une résidence secondaire : revenus locatifs, taux souvent plus élevés, amortissement plus exigeant de certaines banques, frais accessoires plus élevés, impôts et restrictions d'achat (Lex Koller).",
-    "Les retraits de 2e et 3e pilier sont imposés à part : le taux saisi est déduit du montant brut.",
+    "Les retraits de 2e et 3e pilier sont imposés à part : l'impôt saisi pour chaque personne est déduit de ses retraits. Pour un couple marié ou des partenaires enregistrés vivant en ménage commun, les retraits d'une même année sont en général additionnés pour fixer l'impôt : ce simulateur ne le calcule pas, c'est l'impôt saisi qui compte.",
     "Tous les fonds propres disponibles servent à réduire l'hypothèque, sauf la réserve que vous gardez.",
     "Les frais par canton et les montants d'allocations sont des ordres de grandeur à vérifier ; ils restent modifiables. Ce simulateur ne remplace pas une offre bancaire.",
   ],

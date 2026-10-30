@@ -18,9 +18,9 @@ SIMU_CONFIG.valeursParDefaut = {
   cash1: 110000, lpp1: 60000, p3a1: 25000,
   cash2: 70000,  lpp2: 40000, p3a2: 15000,
   gift: 0,                      // donation / avance d'hoirie
-  taxPct: 6,                    // impôt estimé sur les retraits de 2e et 3e pilier, en %
+  taxPct: 6,                    // impôt estimé sur les retraits de 2e et 3e pilier, en % (facultatif : taxPct1 et taxPct2, un taux par personne)
   taxMode: "pct",              // impôt saisi en "pct" (%) ou en "chf" (montant)
-  taxChf: 8400,                 // impôt estimé en CHF (mode "chf")
+  taxChf: 8400,                 // impôt estimé en CHF (mode "chf"), réparti selon les retraits de chacun (facultatif : taxChf1 et taxChf2)
   reserve: 0,                   // réserve gardée de côté
 
   // Le bien
