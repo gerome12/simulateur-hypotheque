@@ -655,7 +655,7 @@ const DEFAULTS = {
   bonusPct: 50, kids: 2, alloc: 311, debt: 0, allocCount: false,
   price: 1200000, feesPct: 5, maintPct: 1, usage: "principale", chargesPrincipale: 0,
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, taxMode: "pct", taxChf: 8400, reserve: 0,
-  rate: 5, ratioMax: 33, rank1Pct: 66.7, ltvMax: 80, ltvMaxSec: 70, amortMax: 15, retireAge: 65, retirePct: 60,
+  rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
@@ -713,6 +713,7 @@ const F = {
     { id: "rate", label: "Taux théorique", min: 3, max: 7, step: 0.25, unit: "%" },
     { id: "ratioMax", label: "Charges max. / revenu", min: 25, max: 40, step: 1, unit: "%" },
     { id: "maintPct", label: "Entretien et frais accessoires", min: 0.5, max: 1.5, step: 0.1, unit: "%/an", dyn: true },    { id: "rank1Pct", label: "Limite 1er rang", min: 60, max: 70, step: 0.1, unit: "%" },
+    { id: "rank1PctSec", label: "Limite 1er rang (secondaire)", min: 40, max: 65, step: 1, unit: "%" },
     { id: "ltvMax", label: "Financement max.", min: 70, max: 90, step: 1, unit: "%" },
     { id: "ltvMaxSec", label: "Financement max. (secondaire)", min: 50, max: 80, step: 1, unit: "%" },
     { id: "amortMax", label: "Durée d'amortissement 2e rang", min: 5, max: 20, step: 1, unit: "ans" },
@@ -883,6 +884,8 @@ function syncInputs(skip) {
   $("field-chargesPrincipale").hidden = !sec;
   $("field-ltvMax").hidden = sec;
   $("field-ltvMaxSec").hidden = !sec;
+  $("field-rank1Pct").hidden = sec;
+  $("field-rank1PctSec").hidden = !sec;
   document.querySelector('label[for="casataxOn"]').hidden = sec;
   $("field-taxPct").hidden = sec || S.taxMode === "chf";
   $("field-taxChf").hidden = sec || S.taxMode !== "chf";
@@ -948,7 +951,8 @@ $("lockPrice").addEventListener("change", e => { S.lockPrice = e.target.checked;
 $("casataxOn").addEventListener("change", e => { S.casatax = e.target.checked; touched = true; update(); });
 $("canton").addEventListener("change", e => {
   S.canton = e.target.value; const c = CANTONS[S.canton];
-  if (c.fees != null) { S.feesPct = c.fees; S.alloc = c.alloc; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
+  // En secondaire, le canton est celui du bien : le ménage garde ses allocations
+  if (c.fees != null) { S.feesPct = c.fees; if (S.usage !== "secondaire") S.alloc = c.alloc; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
   update();
 });
 // Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
@@ -991,9 +995,9 @@ function feesGE(P, C, casatax) {
   return { vente, ced, total: vente.total + ced.total };
 }
 
-// Résidence secondaire : ni 2e ni 3e pilier, pas de Casatax, financement limité à ltvMaxSec. Les valeurs saisies ne changent pas.
+// Résidence secondaire : ni 2e ni 3e pilier, pas de Casatax, financement limité à ltvMaxSec et 1er rang à rank1PctSec. Les valeurs saisies ne changent pas.
 function effectif(s) {
-  return s.usage === "secondaire" ? { ...s, lpp1: 0, lpp2: 0, p3a1: 0, p3a2: 0, casatax: false, ltvMax: s.ltvMaxSec } : s;
+  return s.usage === "secondaire" ? { ...s, lpp1: 0, lpp2: 0, p3a1: 0, p3a2: 0, casatax: false, ltvMax: s.ltvMaxSec, rank1Pct: s.rank1PctSec } : s;
 }
 function income(s) {
   return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? s.kids * s.alloc * 12 : 0);
@@ -1214,7 +1218,7 @@ function update(skip) {
   $("hint-feesChf").textContent = `Soit ${pc(m.fees / m.P)} du prix.`;
   $("b-sum").innerHTML = `Prix <b>${chf(m.P)}</b> · frais d'achat ${chf(m.fees)} (${pc(m.fees / m.P)})`;
   $("h-sum").innerHTML = `Taux théorique <b>${S.rate}&nbsp;%</b> · charges max. <b>${S.ratioMax}&nbsp;%</b> · entretien ${S.maintPct}&nbsp;% · `
-    + `1<sup>er</sup> rang ${S.rank1Pct}&nbsp;% · financement max. ${E.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
+    + `1<sup>er</sup> rang ${E.rank1Pct}&nbsp;% · financement max. ${E.ltvMax}&nbsp;% · 2<sup>e</sup> rang en ${m.years} ans · retraite ${S.retireAge} ans à ${S.retirePct}&nbsp;%`;
   $("hint-reserve").textContent = `Maximum : ${chf(resMax)} (épargne${S.gift ? " + donation" : ""}).`;
   $("hint-realCharges").innerHTML = S.realChargesAuto
     ? "Forfait de la banque repris. Saisissez vos charges PPE et votre entretien réels."
@@ -1352,7 +1356,7 @@ function chartTip(e) {
     why = `Chaque franc emprunté coûte ${S.rate}&nbsp;% d'intérêts théoriques par an, plus l'entretien. Pas d'amortissement obligatoire.`;
   } else {
     zone = "Avec un 2<sup>e</sup> rang";
-    why = `L'hypothèque dépasse ${S.rank1Pct}&nbsp;% du prix. La partie en plus coûte ${S.rate}&nbsp;% d'intérêts et s'amortit en ${m.years}&nbsp;ans (≈ ${(100 / m.years).toFixed(1)}&nbsp;% par an) : la pente est plus forte.`;
+    why = `L'hypothèque dépasse ${effectif(S).rank1Pct}&nbsp;% du prix. La partie en plus coûte ${S.rate}&nbsp;% d'intérêts et s'amortit en ${m.years}&nbsp;ans (≈ ${(100 / m.years).toFixed(1)}&nbsp;% par an) : la pente est plus forte.`;
   }
   const warn = P > CH.pEqLim ? `<p class="ctip-bad">Fonds propres insuffisants à ce prix.</p>` : "";
   tip.innerHTML = `<b>${chf(P)} → ${pc(m.ratio)}</b><span class="ctip-zone">${zone}</span><p>${why}</p>${warn}`;
@@ -1453,7 +1457,7 @@ function drawChart(m, sol) {
 const ltvOnglet = () => S.usage === "secondaire" ? S.ltvMaxSec : 80;
 // Hypothèque à la part financée du prix, 2e rang amorti sur la durée maximale
 function monthly(P) {
-  const loan = P * ltvOnglet() / 100, rank1 = Math.min(loan, P * S.rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
+  const loan = P * ltvOnglet() / 100, rank1 = Math.min(loan, P * effectif(S).rank1Pct / 100), amort = (loan - rank1) / S.amortMax, maint = P * S.maintPct / 100;
   return { loan, amort, maint, theo: (loan * S.gRate / 100 + amort + maint) / 12, real: (loan * S.gReal / 100 + amort + maint) / 12 };
 }
 // Fonds propres minimum : la part non financée du prix plus les frais d'achat
@@ -1750,7 +1754,7 @@ async function exportPdf() {
     } else {
       section("Hypothèses");
       row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
-      row("Limite 1er rang / financement max.", `${S.rank1Pct} % / ${E.ltvMax} %`);
+      row("Limite 1er rang / financement max.", `${E.rank1Pct} % / ${E.ltvMax} %`);
       row("Âge de la retraite / revenu à la retraite", `${S.retireAge} ans / ${S.retirePct} %`);
     }
 
@@ -1827,7 +1831,7 @@ if (BANKS || ADVISORS.length) {
   const val = (v, u) => v === undefined || v === null || v === "" ? "–" : `${esc(String(v))}${u ? "&nbsp;" + u : ""}`;
   let html = "";
   if (BANKS) {
-    const cols = [["rate", "Taux théorique", "%"], ["ratioMax", "Charges max.", "%"], ["ltvMax", "Financement max.", "%"], ["ltvMaxSec", "Financement max. (secondaire)", "%"], ["rank1Pct", "Limite 1<sup>er</sup> rang", "%"],
+    const cols = [["rate", "Taux théorique", "%"], ["ratioMax", "Charges max.", "%"], ["ltvMax", "Financement max.", "%"], ["ltvMaxSec", "Financement max. (secondaire)", "%"], ["rank1Pct", "Limite 1<sup>er</sup> rang", "%"], ["rank1PctSec", "Limite 1<sup>er</sup> rang (secondaire)", "%"],
       ["amortMax", "Amort. 2<sup>e</sup> rang", "ans"], ["maintPct", "Entretien", "%"], ["retireAge", "Retraite", "ans"], ["retirePct", "Revenu à la retraite", "%"]];
     const row = (nom, b, ref) => ({ cls: ref ? "ref" : "", cells: [nom, ...cols.map(([k, , u]) => val(b[k] ?? DEFAULTS[k], u))],
       cellCls: ["", ...cols.map(([k]) => !ref && b[k] === undefined ? "inh" : "")] });
