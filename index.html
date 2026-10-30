@@ -885,8 +885,8 @@ function syncInputs(skip) {
   $("g-hard-t").innerHTML = `Fonds propres durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"}`;
   const ct = CANTONS[S.canton];
   $("hint-usage").hidden = !sec;
-  $("hint-usage").textContent = ct?.fees != null ? `Frais d'achat calculés pour le canton du bien : ${ct.label}. Choisissez-le en haut de la page.`
-    : "Canton du bien hors liste : indiquez les frais d'achat ci-dessous. Vous pouvez le changer en haut de la page.";
+  $("hint-usage").textContent = ct?.fees != null ? `Canton du bien : ${ct.label}. Choisissez-le en haut de la page.`
+    : "Canton du bien hors liste. Choisissez-le en haut de la page si besoin.";
   $("field-rent").hidden = sec;   // le loyer ne disparaît pas avec cet achat
   $("field-chargesPrincipale").hidden = !sec;
   $("field-ltvMax").hidden = sec;

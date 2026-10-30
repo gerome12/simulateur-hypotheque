@@ -139,6 +139,7 @@ SIMU_CONFIG.textes = {
         "**1er rang** : jusqu'à environ 2/3 du prix. Pas d'amortissement obligatoire.",
         "**2e rang** : la partie entre 2/3 et 80 % du prix. Elle doit être remboursée en 15 ans au plus, ou avant la retraite si elle arrive plus tôt.",
         "Les intérêts, au taux théorique comme au taux réel, se calculent sur l'hypothèque totale.",
+        "**Résidence secondaire** : le 1er rang et le financement sont plus bas, par défaut 50 % et 60 % du prix.",
       ],
     },
   },
