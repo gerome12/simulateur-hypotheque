@@ -7,6 +7,7 @@ Une page web pour simuler l'achat d'un logement en Suisse et jouer avec les chif
 ## Ce que fait la page
 
 - Applique les règles usuelles des banques : 20 % de fonds propres dont 10 % hors 2e pilier, charges théoriques à 5 % plafonnées à un tiers du revenu, 2e rang amorti en 15 ans ou avant la retraite, contrôle à la retraite.
+- Distingue la résidence principale de la résidence secondaire : pour cette dernière, ni 2e ni 3e pilier, financement à 60 % du prix, 1er rang à 50 %, pas de Casatax, et les charges du logement principal comptent dans le contrôle du revenu.
 - Calcule en direct le prix maximum, le revenu nécessaire et les fonds propres nécessaires pour un prix donné.
 - Montre la structure du financement, les charges calculées par la banque et le coût réel par mois, et un graphique du taux d'effort selon le prix.
 - Exporte un résumé en PDF.
@@ -23,7 +24,7 @@ Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par
 
 - [`configs.js`](config/configs.js) : la liste des fichiers chargés par la page, et le mode d'emploi ;
 - [`valeurs-par-defaut.js`](config/valeurs-par-defaut.js) : les valeurs d'exemple au premier affichage ;
-- [`hypotheses-bancaires.js`](config/hypotheses-bancaires.js) : les hypothèses de la banque (taux théorique, charges maximales, 1er rang, financement maximal…) ;
+- [`hypotheses-bancaires.js`](config/hypotheses-bancaires.js) : les hypothèses de la banque (taux théorique, charges maximales, 1er rang, financement maximal…), dont `ltvMaxSec` et `rank1PctSec` pour une résidence secondaire ;
 - [`cantons.js`](config/cantons.js) : frais d'achat en % et allocations familiales ;
 - [`geneve.js`](config/geneve.js) : barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
 - [`curseurs.js`](config/curseurs.js) : bornes des curseurs.
@@ -35,4 +36,4 @@ Modifiez un fichier en local ou directement sur GitHub, puis rechargez la page. 
 
 ## Avertissement
 
-Simulation indicative. Les frais d'achat par canton, les allocations familiales et l'impôt sur les retraits sont des ordres de grandeur à vérifier. Cette page ne remplace pas une offre bancaire.
+Simulation indicative. Les frais d'achat par canton, les allocations familiales et l'impôt sur les retraits sont des ordres de grandeur à vérifier. Les valeurs retenues pour une résidence secondaire sont indicatives et varient selon les banques. Cette page ne remplace pas une offre bancaire.

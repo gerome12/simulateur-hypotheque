@@ -408,7 +408,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         <div class="gauges">
           <div class="gauge" id="g-ratio"><div class="gt"><span>Charges / revenu</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
           <div class="gauge" id="g-eq"><div class="gt"><span>Fonds propres</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
-          <div class="gauge" id="g-hard"><div class="gt"><span>Fonds propres durs (hors 2<sup>e</sup> pilier)</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
+          <div class="gauge" id="g-hard"><div class="gt"><span id="g-hard-t">Fonds propres durs (hors 2<sup>e</sup> pilier)</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
           <div class="gauge" id="g-ret"><div class="gt"><span>Charges à la retraite</span><span class="state"></span></div><div class="gv"></div><div class="track"><div class="fill"></div><div class="mark"></div></div></div>
         </div>
         <div class="banks" id="banks" hidden></div>
@@ -460,6 +460,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         </summary>
         <div class="field" id="field-usage">
           <div class="frow"><span class="flabel">Usage du bien</span><span class="seg seg-usage" role="group" aria-label="Usage du bien"><button type="button" data-usage="principale">Principale</button><button type="button" data-usage="secondaire">Secondaire</button></span></div>
+          <p class="hint" id="hint-usage" hidden></p>
         </div>
         <div class="fields" id="f-bien"></div>
         <div class="field" id="field-feesGe" hidden>
@@ -691,7 +692,7 @@ const F = {
     { id: "price", label: "Prix d'achat", min: 200000, max: 4000000, step: 10000, unit: "CHF" },
     { id: "feesPct", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 7, step: 0.1, unit: "%", seg: true, dyn: true },
     { id: "feesChf", label: "Frais d'achat (mutation, notaire, cédule)", min: 0, max: 250000, step: 500, unit: "CHF", seg: true, dyn: true },
-    { id: "chargesPrincipale", label: "Charges du logement principal", min: 0, max: 20000, step: 50, unit: "CHF/mois", hint: "Loyer ou charges du logement que vous gardez." }
+    { id: "chargesPrincipale", label: "Charges du logement principal", min: 0, max: 20000, step: 50, unit: "CHF/mois", hint: "Votre loyer, ou vos charges théoriques si vous êtes propriétaire." }
   ],
   eq1: [
     { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
@@ -880,6 +881,12 @@ function syncInputs(skip) {
   for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) $("in-" + id).disabled = sec;
   $("secNote").hidden = !sec;
   $("fpLead").hidden = sec;
+  $("t-hard").parentElement.hidden = sec;
+  $("g-hard-t").innerHTML = `Fonds propres durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"}`;
+  const ct = CANTONS[S.canton];
+  $("hint-usage").hidden = !sec;
+  $("hint-usage").textContent = ct?.fees != null ? `Frais d'achat calculés pour le canton du bien : ${ct.label}. Choisissez-le en haut de la page.`
+    : "Canton du bien hors liste : indiquez les frais d'achat ci-dessous. Vous pouvez le changer en haut de la page.";
   $("field-rent").hidden = sec;   // le loyer ne disparaît pas avec cet achat
   $("field-chargesPrincipale").hidden = !sec;
   $("field-ltvMax").hidden = sec;
@@ -1099,7 +1106,7 @@ function verdict(st) {
   if (!okRatio) why.push(`charges ${pc(m.ratio)} au-delà de ${st.ratioMax} %`);
   else if (near) why.push(`charges ${pc(m.ratio)}, plafond ${st.ratioMax} %`);
   if (!okEq) why.push(`fonds propres ${pc(m.eqPct)}, minimum ${pc(minEq, 0)}`);
-  if (!okHard) why.push(`fonds propres hors 2e pilier ${pc(m.hardPct)}, minimum 10 %`);
+  if (!okHard) why.push(`fonds propres ${st.usage === "secondaire" ? "durs" : "hors 2e pilier"} ${pc(m.hardPct)}, minimum 10 %`);
   if (!okRet) why.push(`charges à la retraite ${pc(m.ratioRet)}`);
   return { status, why };
 }
@@ -1126,7 +1133,7 @@ function update(skip) {
   $("rg-reserve").max = Math.max(resMax, 0);
   syncInputs(skip);
   const m = model(S, S.price), sol = sol0, req = required(S, m);
-  const E = effectif(S), lim = S.ratioMax / 100, minEq = 1 - E.ltvMax / 100;
+  const E = effectif(S), sec = S.usage === "secondaire", lim = S.ratioMax / 100, minEq = 1 - E.ltvMax / 100;
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
   if (skip) touched = true;
   $("exampleTag").hidden = touched;
@@ -1136,7 +1143,7 @@ function update(skip) {
   const reasons = [];
   if (!okRatio) reasons.push(`Charges théoriques à ${pc(m.ratio)} du revenu, au-delà de ${S.ratioMax} %.`);
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
-  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 % hors 2e pilier.`);
+  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
@@ -1167,7 +1174,7 @@ function update(skip) {
       `<div class="bank${b.own ? " own" : ""}"><span class="bank-name">${esc(b.nom)}${b.own ? " <small>vos réglages</small>" : ""}</span><span class="pill ${b.status}">${lab[b.status]}</span></div>`).join("");
   }
   LAST = { m, sol, req, reasons, status: BANKS ? (banks.some(b => !b.own && b.status === "ok") ? "ok" : banks.some(b => !b.own && b.status === "warn") ? "warn" : "bad") : status, label: BANKS ? $("vpill").textContent : label, banks };
-  $("casatax").hidden = S.canton !== "GE" || S.usage === "secondaire";
+  $("casatax").hidden = S.canton !== "GE" || sec;
 
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
   gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}`, okEq ? "ok" : "bad");
@@ -1187,7 +1194,7 @@ function update(skip) {
   } else {
     $("s-eq").textContent = chf(req.reqTotal);
     $("s-eq-d").innerHTML = `Total : vous ${chf(m.eq.total)} · ${delta(m.eq.total - req.reqTotal)}<br>`
-      + `Dont durs (hors 2<sup>e</sup> pilier) : minimum ${chf(req.reqHard)} · vous ${chf(m.eq.hard)} · ${delta(m.eq.hard - req.reqHard)}`;
+      + `Dont durs${sec ? "" : " (hors 2<sup>e</sup> pilier)"} : minimum ${chf(req.reqHard)} · vous ${chf(m.eq.hard)} · ${delta(m.eq.hard - req.reqHard)}`;
   }
 
   // Tallies
@@ -1246,7 +1253,7 @@ function update(skip) {
   const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${eSum > 0 ? v / eSum * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
   $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("");
   const kinds = [["cash", "Épargne", S.cash1 + S.cash2]];
-  if (S.usage !== "secondaire") kinds.push(["lpp", "2<sup>e</sup> pilier", (E.lpp1 + E.lpp2) * tx], ["3a", "3<sup>e</sup> pilier", (E.p3a1 + E.p3a2) * tx]);
+  if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", (E.lpp1 + E.lpp2) * tx], ["3a", "3<sup>e</sup> pilier", (E.p3a1 + E.p3a2) * tx]);
   const resTot = resv(1) + resv(2);
   kinds[0][2] -= resTot;
   if (resTot > 0) kinds.unshift(["res", "Réserve", resTot]);
@@ -1302,7 +1309,7 @@ function update(skip) {
   $("k-real").textContent = chf(tR / 12);
   LAST.keys = { inc: income(S), apport: m.apport, fees: invFees, real: tR / 12 };
   const diff = tR / 12 - S.rent;
-  $("rentNote").innerHTML = S.usage === "secondaire"
+  $("rentNote").innerHTML = sec
     ? `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.${m.princ > 0 ? ` Dont ${chf(m.princ / 12)} pour le logement principal.` : ""}`
     : S.rent > 0
     ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
@@ -1658,7 +1665,8 @@ async function exportPdf() {
       doc.text("Simulation d'achat immobilier", L + 13, y + 1);
     }
     y += 8;
-    para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · Canton : ${CANTONS[S.canton].label}`);
+    const ct = CANTONS[S.canton], lieu = !sec ? `Canton : ${ct.label}` : ct.fees != null ? `Canton du bien : ${ct.label}` : "Canton du bien hors liste";
+    para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · ${lieu}`);
     const adv = ADVISORS.find(a => a.nom === S.conseiller);
     if (adv) para(`Document préparé par ${[adv.nom, adv.fonction, adv.email, adv.telephone].filter(Boolean).join(" · ")}`, INK);
 
@@ -1682,7 +1690,7 @@ async function exportPdf() {
     section("Contrôles de la banque");
     row("Charges théoriques / revenu", tx(pc(m.ratio)) + (multi ? "" : `  (max ${S.ratioMax} %)`));
     row("Fonds propres après frais", tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
-    row("Fonds propres hors 2e pilier après frais", tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
+    row(sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais", tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
     row("Charges à la retraite", tx(pc(m.ratioRet)) + (multi ? "" : `  (revenu ${S.retirePct} %)`));
 
     section("Le ménage");
