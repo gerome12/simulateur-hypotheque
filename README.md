@@ -13,6 +13,8 @@ Une page web pour simuler l'achat d'un logement en Suisse et jouer avec les chif
 - Montre la structure du financement, les charges calculées par la banque et le coût réel par mois, et un graphique du taux d'effort selon le prix.
 - Exporte un résumé en PDF.
 
+Les montants d'allocations viennent du tableau OFAS 2026, et les règles des directives de l'Association suisse des banquiers (décembre 2023) et de l'OEPL.
+
 Les chiffres saisis restent dans le navigateur (`localStorage`). Rien n'est envoyé à un serveur.
 
 ## Utilisation

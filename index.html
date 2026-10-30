@@ -648,23 +648,24 @@ if (TH) {
 }
 
 const CANTONS = {
-  GE: { label: "Genève",    fees: 5.0, alloc: 311 },
-  VD: { label: "Vaud",      fees: 4.5, alloc: 322 },
-  FR: { label: "Fribourg",  fees: 3.5, alloc: 265 },
-  NE: { label: "Neuchâtel", fees: 4.5, alloc: 220 },
-  VS: { label: "Valais",    fees: 3.0, alloc: 305 },
-  BE: { label: "Berne",     fees: 2.5, alloc: 230 },
-  ZH: { label: "Zurich",    fees: 1.5, alloc: 215 },
+  // Allocations : OFAS, 2026. ZH : 268 au-delà de 12 ans, non géré. Allocation de formation (dès 16 ans), plus élevée, non gérée.
+  GE: { label: "Genève",    fees: 5.0, alloc: 311, alloc3: 411 },
+  VD: { label: "Vaud",      fees: 4.5, alloc: 322, alloc3: 365 },
+  FR: { label: "Fribourg",  fees: 3.5, alloc: 265, alloc3: 285 },
+  NE: { label: "Neuchâtel", fees: 4.5, alloc: 240, alloc3: 270 },
+  VS: { label: "Valais",    fees: 3.0, alloc: 327, alloc3: 435 },
+  BE: { label: "Berne",     fees: 2.5, alloc: 250, alloc3: 250 },
+  ZH: { label: "Zurich",    fees: 1.5, alloc: 215, alloc3: 215 },
   XX: { label: "Autre canton" }
 };
 
 const DEFAULTS = {
   canton: "GE",
   inc1: 120000, inc2: 90000, bonus1: 0, bonus2: 0, age1: 38, age2: 36,
-  bonusPct: 50, kids: 2, alloc: 311, debt: 0, allocCount: false,
+  bonusPct: 50, kids: 2, alloc: 311, alloc3: 411, debt: 0, allocCount: false,
   price: 1200000, feesPct: 5, maintPct: 1, usage: "principale", chargesPrincipale: 0,
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, taxMode: "pct", taxChf: 8400, reserve: 0,
-  rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60,
+  rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60, eplMin: 20000,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
@@ -678,6 +679,8 @@ const DEFAULTS = {
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
 DEFAULTS.cantonMenage ??= DEFAULTS.canton;
+// Config qui ne donne que alloc : le même montant dès le 3e enfant
+if (CFG.valeursParDefaut?.alloc != null && CFG.valeursParDefaut.alloc3 == null) DEFAULTS.alloc3 = DEFAULTS.alloc;
 // Impôt commun (ancien état, config) → une valeur par personne. En CHF, au prorata des retraits : même taux pour les deux, donc mêmes chiffres.
 function repartirImpot(o, base) {
   const retraits = p => ["p3a", "lpp"].reduce((a, k) => a + (Number.isFinite(o[k + p]) && o[k + p] >= 0 ? o[k + p] : base[k + p]), 0);
@@ -708,7 +711,8 @@ const F = {
     { id: "bonusPct", label: "Part du bonus retenue", min: 0, max: 100, step: 5, unit: "%", hint: "Souvent la moyenne des 3 dernières années, partiellement." },
     { id: "debt", label: "Autres charges fixes annuelles", min: 0, max: 60000, step: 500, unit: "CHF", hint: "Leasing, crédit privé, pension alimentaire." },
     { id: "kids", label: "Nombre d'enfants", min: 0, max: 6, step: 1, unit: "" },
-    { id: "alloc", label: "Allocation par enfant", min: 0, max: 600, step: 1, unit: "CHF/mois", dyn: true }
+    { id: "alloc", label: "Allocation par enfant", min: 0, max: 600, step: 1, unit: "CHF/mois", dyn: true },
+    { id: "alloc3", label: "Allocation dès le 3e enfant", min: 0, max: 600, step: 1, unit: "CHF/mois" }
   ],
   bien: [
     { id: "price", label: "Prix d'achat", min: 200000, max: 4000000, step: 10000, unit: "CHF" },
@@ -787,6 +791,8 @@ function migrer(saved) {
   for (const k of ["canton", "cantonMenage"]) if (!cantonConnu(saved[k])) delete saved[k];
   // Ancienne version : un seul impôt, repris pour chaque personne
   repartirImpot(saved, DEFAULTS);
+  // Ancienne version : un seul montant d'allocation, gardé pour ne pas changer les chiffres enregistrés
+  if (saved.alloc3 == null && saved.alloc != null) saved.alloc3 = saved.alloc;
   return saved;
 }
 try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) {
@@ -824,7 +830,7 @@ for (const [group, list] of Object.entries(F)) $("f-" + group).innerHTML = list.
     <div class="frow"><label for="cantonMenage">Canton du ménage</label><span class="ctl"><select id="cantonMenage" class="canton"></select></span></div>
     <p class="hint">Sert au montant des allocations. Elles dépendent en général du canton de travail : ajustez le montant si besoin.</p>
   </div>`;
-  g.append($("field-alloc"), document.querySelector('label[for="allocCount"]'));
+  g.append($("field-alloc"), $("field-alloc3"), document.querySelector('label[for="allocCount"]'));
 }
 
 // Repère Casatax (Genève) sur le curseur du prix, à titre indicatif
@@ -924,9 +930,11 @@ function syncInputs(skip) {
   const sec = S.usage === "secondaire";
   document.querySelectorAll(".seg button[data-usage]").forEach(b => b.setAttribute("aria-pressed", b.dataset.usage === S.usage));
   for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) {
-    $("hint-" + id).textContent = "Non pris en compte pour une résidence secondaire.";
-    $("hint-" + id).hidden = !sec;
+    const apres50 = id.startsWith("lpp") && S["age" + id.slice(-1)] >= 50 && S[id] > 0;
+    $("hint-" + id).textContent = sec ? "Non pris en compte pour une résidence secondaire." : "Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.";
+    $("hint-" + id).hidden = !sec && !apres50;
   }
+  $("field-alloc3").hidden = S.kids < 3;
   $("secNote").hidden = !sec;
   $("fpLead").hidden = sec;
   $("taxCouple").hidden = sec || !!S.solo;
@@ -1007,13 +1015,13 @@ $("canton").addEventListener("change", e => {
   S.canton = e.target.value; const c = CANTONS[S.canton];
   if (c.fees != null) { S.feesPct = c.fees; S.feesMode = S.canton === "GE" ? "ge" : "pct"; }
   // En principale, le ménage habitera le bien : il suit son canton. En secondaire, il garde le sien et ses allocations.
-  if (S.usage !== "secondaire") { S.cantonMenage = S.canton; if (c.fees != null) S.alloc = c.alloc; }
+  if (S.usage !== "secondaire") { S.cantonMenage = S.canton; if (c.fees != null) { S.alloc = c.alloc; S.alloc3 = c.alloc3 ?? c.alloc; } }
   update();
 });
 // Le canton du ménage ne sert qu'à préremplir les allocations
 $("cantonMenage").addEventListener("change", e => {
   S.cantonMenage = e.target.value; const c = CANTONS[S.cantonMenage];
-  if (c.alloc != null) S.alloc = c.alloc;
+  if (c.alloc != null) { S.alloc = c.alloc; S.alloc3 = c.alloc3 ?? c.alloc; }
   touched = true; update();
 });
 // Réinitialise seulement l'onglet affiché : les réglages des graphiques d'un côté, la simulation de l'autre
@@ -1140,8 +1148,10 @@ function feesGE(P, C, casatax) {
 function effectif(s) {
   return s.usage === "secondaire" ? { ...s, lpp1: 0, lpp2: 0, p3a1: 0, p3a2: 0, casatax: false, ltvMax: s.ltvMaxSec, rank1Pct: s.rank1PctSec } : s;
 }
+// Allocations par an : un montant pour les deux premiers enfants, un autre dès le 3e
+const allocAnnuelle = s => 12 * (Math.min(s.kids, 2) * s.alloc + Math.max(s.kids - 2, 0) * s.alloc3);
 function income(s) {
-  return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? s.kids * s.alloc * 12 : 0);
+  return s.inc1 + s.inc2 + (s.bonus1 + s.bonus2) * s.bonusPct / 100 + (s.allocCount ? allocAnnuelle(s) : 0);
 }
 function amortYears(s) {
   const oldest = Math.max(s.age1, s.inc2 > 0 ? s.age2 : 0);
@@ -1282,13 +1292,15 @@ function update(skip) {
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
   if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
+  // Signalé sans changer le verdict
+  if (!sec) for (const p of S.solo ? [1] : [1, 2]) if (S["lpp" + p] > 0 && S["lpp" + p] < S.eplMin) reasons.push(`2e pilier de ${S["name" + p]} : le retrait minimal est de ${nf.format(S.eplMin)} CHF.`);
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
   const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
   const label = { ok: "Finançable", warn: "À la limite", bad: "Non finançable" }[status];
   for (const id of ["vpill", "m-pill"]) { $(id).className = "pill " + status; $(id).textContent = label; }
   if (near) reasons.unshift(`Taux d'effort proche du plafond : peu de marge si la banque est plus stricte.`);
-  $("reasons").innerHTML = reasons.map(r => `<li>${r.replace(/(\d)e /g, "$1<sup>e</sup> ")}</li>`).join("");
+  $("reasons").innerHTML = reasons.map(r => `<li>${esc(r).replace(/(\d)e /g, "$1<sup>e</sup> ")}</li>`).join("");
   $("vprice").textContent = chf(m.P);
   const invFees = Math.min(m.fees, Math.max(0, m.eq.total - S.reserve));
   $("k-inc").textContent = chf(income(S));
@@ -1335,7 +1347,7 @@ function update(skip) {
   }
 
   // Tallies
-  const allocY = S.kids * S.alloc * 12;
+  const allocY = allocAnnuelle(S);
   $("t-income").textContent = `allocations ${chf(allocY)}/an`;
   $("t-retenu").textContent = chf(income(S)) + " / an";
   const bonusTot = S.bonus1 + S.bonus2, noBonus = bonusTot <= 0;
@@ -1347,7 +1359,7 @@ function update(skip) {
   $("allocGroup").classList.toggle("off", noKids);
   $("in-alloc").disabled = $("allocCount").disabled = $("cantonMenage").disabled = noKids;
   $("hint-alloc").textContent = noKids ? "Aucun enfant : pas d'allocation."
-    : `Soit ${chf(S.kids * S.alloc * 12)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
+    : `Soit ${chf(allocY)} par an pour ${S.kids} enfant${S.kids > 1 ? "s" : ""}.`;
   if (m.feeGE) {
     $("hint-cedReprise").textContent = S.cedReprise > 0
       ? `Nouvelle cédule : ${chf(m.feeGE.ced.montant)} au lieu de ${chf(m.loan)}. Le prix de reprise convenu avec le vendeur n'est pas compté.`
@@ -1842,7 +1854,7 @@ async function exportPdf() {
       else row(`${S["name" + p]} : salaire brut / âge`, `${chfT(S["inc" + p])} / ${S["age" + p]} ans`);
     });
     if (hasBonus) row("Part du bonus retenue", `${S.bonusPct} %`);
-    row("Enfants / allocations", `${S.kids} · ${chfT(S.kids * S.alloc * 12)} par an${S.allocCount ? " (comptées)" : " (non comptées)"}`);
+    row("Enfants / allocations", `${S.kids} · ${chfT(allocAnnuelle(S))} par an${S.allocCount ? " (comptées)" : " (non comptées)"}`);
     if (S.debt) row("Autres charges fixes annuelles", chfT(S.debt));
     row("Revenu retenu par la banque", chfT(income(S)) + " / an", true);
 

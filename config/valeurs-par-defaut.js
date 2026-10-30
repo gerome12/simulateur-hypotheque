@@ -12,6 +12,7 @@ SIMU_CONFIG.valeursParDefaut = {
   debt: 0,                      // autres charges fixes annuelles (leasing, pension…)
   kids: 2,
   alloc: 311,                   // allocation familiale par enfant et par mois
+  alloc3: 411,                  // allocation dès le 3e enfant
   allocCount: false,            // compter les allocations dans le revenu
 
   // Fonds propres (retraits 2e et 3e pilier avant impôt)
