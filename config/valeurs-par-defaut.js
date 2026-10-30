@@ -2,10 +2,10 @@
 window.SIMU_CONFIG = window.SIMU_CONFIG || {};
 
 SIMU_CONFIG.valeursParDefaut = {
-  canton: "GE",                 // canton du bien : code d'un canton de la liste « cantons » plus bas
+  canton: "GE",                 // canton du bien et, par défaut, du ménage : code d'un canton de la liste « cantons » plus bas
+                                // (facultatif : cantonMenage pour un autre canton du ménage, qui préremplit les allocations)
 
   // Le ménage (revenus bruts annuels, 13e salaire compris)
-  cantonMenage: "GE",           // canton du ménage, pour préremplir les allocations
   name1: "Personne 1", inc1: 120000, bonus1: 0, age1: 38,
   name2: "Personne 2", inc2: 90000,  bonus2: 0, age2: 36,
   bonusPct: 50,                 // part du bonus retenue par la banque, en %
