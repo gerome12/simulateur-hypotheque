@@ -1,4 +1,4 @@
-/* ---------- Textes explicatifs ---------- */
+/* ---------- Textes explicatifs, en français ---------- */
 // Textes affichés dans la page et le PDF, modifiables sans toucher au code.
 //
 // Mise en forme automatique :
@@ -12,7 +12,8 @@
 // la retire de la page. Pour ajouter une bulle, utilisez le nom du réglage.
 window.SIMU_CONFIG = window.SIMU_CONFIG || {};
 
-SIMU_CONFIG.textes = {
+SIMU_CONFIG.langues = SIMU_CONFIG.langues || {};
+SIMU_CONFIG.langues.fr = {
 
   // ---------- En-tête de la page (le thème peut remplacer le titre)
   titre: "Simulateur hypothécaire suisse",
@@ -220,4 +221,4 @@ SIMU_CONFIG.textes = {
   // ---------- Dernier paragraphe du PDF
   avertissementPdf: "Simulation indicative selon les règles usuelles des banques suisses. Les frais d'achat, allocations et impôts sur retraits sont des estimations. Ce document ne remplace pas une offre bancaire.",
 };
-SIMU_CONFIG.textes.aide.lpp2 = SIMU_CONFIG.textes.aide.lpp1;
+SIMU_CONFIG.langues.fr.aide.lpp2 = SIMU_CONFIG.langues.fr.aide.lpp1;
