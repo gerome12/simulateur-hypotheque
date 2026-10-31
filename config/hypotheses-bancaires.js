@@ -12,5 +12,7 @@ SIMU_CONFIG.hypothesesBancaires = {
   amortMax: 15,                 // durée maximale d'amortissement du 2e rang, en années
   retireAge: 65,                // âge de la retraite
   retirePct: 60,                // revenu à la retraite, en % des salaires actuels
-  eplMin: 20000                 // retrait minimal du 2e pilier pour le logement, en CHF (OEPL art. 5)
+  eplMin: 20000,                // retrait minimal du 2e pilier pour le logement, en CHF (OEPL art. 5)
+  gageAlerteLtv: 80,            // gage compté : alerte au-delà de cette part du prix financée, en %
+  gageMaxLtv: 90                // gage compté : au-delà, le verdict n'est jamais « Finançable »
 };
