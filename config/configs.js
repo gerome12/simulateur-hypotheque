@@ -23,7 +23,8 @@
   - Les montants s'écrivent sans apostrophe : 1394928 et non 1'394'928.
     Les pourcentages s'écrivent en % : 5 pour 5 %.
   - Si un fichier est absent ou contient une erreur, la page utilise ses
-    propres valeurs par défaut.
+    propres valeurs par défaut. Exception : sans langues/fr, qui contient
+    tous les textes, elle n'affiche qu'un message d'erreur.
 */
 
 window.SIMU_CONFIG_FICHIERS = [
@@ -32,7 +33,9 @@ window.SIMU_CONFIG_FICHIERS = [
   "cantons",                // frais d'achat et allocations par canton
   "geneve",                 // barème des notaires de Genève et Casatax
   "curseurs",               // bornes des curseurs
-  "textes"                  // textes explicatifs : titre, bulles (i), règles, avertissement du PDF
+  "langues/fr",             // tous les textes en français, obligatoire : sans ce fichier, la page affiche une erreur
+  "langues/en",             // traduction anglaise : sans ce fichier, l'anglais n'est pas proposé dans le menu
+  "langues/de"              // traduction allemande : sans ce fichier, l'allemand n'est pas proposé dans le menu
 ];
 
 // Fichiers facultatifs, à ajouter à la liste ci-dessus s'ils existent :
