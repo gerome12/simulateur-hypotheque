@@ -16,6 +16,7 @@ Une page web pour simuler l'achat d'un logement en Suisse et jouer avec les chif
 - Compte les fonds propres venant d'un autre bien : vente, crédit relais, ou hypothèque augmentée sur un bien gardé.
 - Compare acheter et louer sur 10 à 20 ans, à budget égal et avant impôts, avec des hypothèses réglables.
 - Exporte un résumé en PDF.
+- S'affiche en français, en allemand ou en anglais. Le français fait foi, et `?lang=de` choisit la langue dans l'adresse.
 
 Les montants d'allocations viennent du tableau OFAS 2026, et les règles des directives de l'Association suisse des banquiers (décembre 2023) et de l'OEPL.
 
@@ -39,11 +40,12 @@ Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par
 - [`cantons.js`](config/cantons.js) : frais d'achat en % et allocations familiales ;
 - [`geneve.js`](config/geneve.js) : barème genevois des frais d'achat et Casatax (montants revus chaque année au 1er mars) ;
 - [`curseurs.js`](config/curseurs.js) : bornes des curseurs.
-- [`textes.js`](config/textes.js) : textes explicatifs (titre, bulles (i), règles appliquées, avertissement du PDF), en texte simple. C'est leur seule source : sans ce fichier, ces textes n'apparaissent pas.
+- [`langues/en.js`](config/langues/en.js) et [`langues/de.js`](config/langues/de.js) : traductions anglaise et allemande de tous les textes ; sans ces fichiers, elles ne sont pas proposées dans le menu et la page reste en français.
+- [`langues/fr.js`](config/langues/fr.js) : tous les textes en français, interface, bulles (i), règles appliquées et PDF. C'est la source : sans ce fichier, la page n'affiche qu'un message d'erreur.
 
 Si la configuration contient des banques ou des conseillers, un onglet « Ma config » les affiche en lecture seule.
 
-Modifiez un fichier en local ou directement sur GitHub, puis rechargez la page. Les nouvelles valeurs d'exemple ne remplacent pas les chiffres déjà saisis dans un navigateur : cliquez « Réinitialiser » pour les voir. Si un fichier manque, la page utilise ses propres valeurs par défaut.
+Modifiez un fichier en local ou directement sur GitHub, puis rechargez la page. Les nouvelles valeurs d'exemple ne remplacent pas les chiffres déjà saisis dans un navigateur : cliquez « Réinitialiser » pour les voir. Si un fichier de réglages manque, la page utilise ses propres valeurs par défaut.
 
 ## Avertissement
 
