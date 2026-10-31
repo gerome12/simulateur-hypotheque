@@ -747,6 +747,9 @@ const DEFAULTS = {
 };
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
+// Seuils d'alerte du gage : des constantes de texte, hors de l'état
+const GAGE_LTV = { alerte: DEFAULTS.gageAlerteLtv ?? 80, max: DEFAULTS.gageMaxLtv ?? 90 };
+delete DEFAULTS.gageAlerteLtv; delete DEFAULTS.gageMaxLtv;
 DEFAULTS.cantonMenage ??= DEFAULTS.canton;
 // Config qui ne donne que alloc : le même montant dès le 3e enfant
 if (CFG.valeursParDefaut?.alloc != null && CFG.valeursParDefaut.alloc3 == null) DEFAULTS.alloc3 = DEFAULTS.alloc;
@@ -1047,6 +1050,7 @@ function syncInputs(skip) {
       msgs.push(...eplMsgs(p).map((m, i) => i ? m[0].toUpperCase() + m.slice(1) : eplPrefixe(p) + m));
       if (S["age" + p] >= 50 && S[id] > 0) msgs.push(gage ? "Après 50 ans, le montant mis en gage est limité : vérifiez-le auprès de votre caisse." : "Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.");
     } else if (!sec && gage) {
+      msgs.push("Marié ou partenaire enregistré : consentement écrit du conjoint ou du partenaire.");
       msgs.push(...gage3Msgs(p).map(m => gage3Prefixe(p) + m));
       if (S["age" + p] >= 50 && S[id] > 0) msgs.push("Après 50 ans, le montant mis en gage est limité : vérifiez-le auprès de votre fondation.");
     }
@@ -1532,28 +1536,32 @@ function required(s, m) {
   else L = kP + (B - r * kP) / (r + 1 / n);
   const gageEq = s.gageCompte ? m.gage2 + m.gage3 : 0, gageHard = s.gageCompte ? m.gage3 : 0;
   const Lmax = Math.min(Math.max(L, 0), gageEq > 0 ? Math.min(P, P * s.ltvMax / 100 + gageEq) : P * s.ltvMax / 100);
-  const reqTotal = (P - Lmax) + m.fees + s.reserve;
   const reqHard = Math.max(0, P * 0.10 - gageHard) + m.fees + s.reserve;
+  const reqTotal = Math.max((P - Lmax) + m.fees + s.reserve, reqHard);
   return { reqIncome, reqTotal, reqHard, impossible: L < 0 };
 }
 
 /* ---------- Rendu ---------- */
 // Plusieurs banques (config.banques) : leurs critères remplacent les hypothèses bancaires affichées
 const BANKS = Array.isArray(CFG.banques) && CFG.banques.length ? CFG.banques : null;
+// Gage compté : au-delà de ces seuils, le financement dépend de la banque
+const gageAlerte = m => m.gageEq > 0 && m.ltv > GAGE_LTV.alerte / 100 ? `Hypothèque à ${pc(m.ltv)} du prix : au-delà de ${GAGE_LTV.alerte} %, le gage n'augmente le financement que si la banque l'accepte.` : null;
+const gageTropHaut = m => m.gageEq > 0 && m.ltv > GAGE_LTV.max / 100;
 // Verdict d'une situation donnée (les hypothèses d'une banque appliquées aux chiffres saisis)
 function verdict(st) {
   st = effectif(st);   // après la fusion avec les hypothèses de la banque
   const m = model(st, st.price), lim = st.ratioMax / 100, minEq = 1 - st.ltvMax / 100;
   const okRatio = m.ratio <= lim, okEq = m.apport + m.gageEq >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
   const near = okRatio && m.ratio > lim - 0.015;
-  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
+  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m)) ? "warn" : "ok";
   const why = [];
   if (!okRatio) why.push(`charges ${pc(m.ratio)} au-delà de ${st.ratioMax} %`);
   else if (near) why.push(`charges ${pc(m.ratio)}, plafond ${st.ratioMax} %`);
   if (!okEq) why.push(`fonds propres ${pc(m.eqPct)}, minimum ${pc(minEq, 0)}`);
   if (!okHard) why.push(`fonds propres ${st.usage === "secondaire" ? "durs" : "hors 2e pilier"} ${pc(m.hardPct)}, minimum 10 %`);
   if (!okRet) why.push(`charges à la retraite ${pc(m.ratioRet)}`);
-  return { status, why };
+  if (gageAlerte(m)) why.push(gageAlerte(m));
+  return { status, why, alerte: gageAlerte(m) };
 }
 
 function gauge(id, val, limit, scaleMax, text, sub, state) {
@@ -1590,10 +1598,11 @@ function update(skip) {
   if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais${m.gageEq > 0 ? ", gage compris" : ""}, minimum ${pc(minEq, 0)}.`);
   if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais${m.gageHard > 0 ? ", gage du 3e pilier compris" : ""}, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
+  if (gageAlerte(m)) reasons.push(gageAlerte(m));
   reasons.push(...eplRaisons());
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
-  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
+  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m)) ? "warn" : "ok";
   const label = { ok: "Finançable", warn: "À la limite", bad: "Non finançable" }[status];
   for (const id of ["vpill", "m-pill"]) { $(id).className = "pill " + status; $(id).textContent = label; }
   if (near) reasons.unshift(`Taux d'effort proche du plafond : peu de marge si la banque est plus stricte.`);
@@ -1617,13 +1626,14 @@ function update(skip) {
     // Vos propres hypothèses bancaires (section réglable), en tête de liste ; elles ne comptent pas dans le résumé
     banks.unshift({ nom: "Hypothèses bancaires", own: true, ...verdict(S) });
     $("banks").innerHTML = `<h3>Selon les banques</h3>` + banks.map(b =>
-      `<div class="bank${b.own ? " own" : ""}"><span class="bank-name">${esc(b.nom)}${b.own ? " <small>vos réglages</small>" : ""}</span><span class="pill ${b.status}">${lab[b.status]}</span></div>`).join("");
+      `<div class="bank${b.own ? " own" : ""}"><span class="bank-name">${esc(b.nom)}${b.own ? " <small>vos réglages</small>" : ""}</span><span class="pill ${b.status}">${lab[b.status]}</span></div>${b.alerte ? `<p class="hint">${esc(b.alerte)}</p>` : ""}`).join("");
   }
   LAST = { m, sol, req, reasons, status: BANKS ? (banks.some(b => !b.own && b.status === "ok") ? "ok" : banks.some(b => !b.own && b.status === "warn") ? "warn" : "bad") : status, label: BANKS ? $("vpill").textContent : label, banks };
   $("casatax").hidden = S.canton !== "GE" || sec;
 
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
-  gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}${m.gageEq > 0 ? ", gage compris" : ""}`, okEq ? "ok" : "bad");
+  const eqAffiche = Math.min(1, m.eqPct);   // le gage peut dépasser le prix : seul l'affichage s'arrête à 100 %
+  gauge("g-eq", eqAffiche, minEq, Math.max(minEq * 2, eqAffiche), pc(eqAffiche), `min ${pc(minEq, 0)}${m.gageEq > 0 ? ", gage compris" : ""}`, okEq ? "ok" : "bad");
   gauge("g-hard", m.hardPct, 0.10, Math.max(0.2, m.hardPct), pc(m.hardPct), `min 10 %${m.gageHard > 0 ? ", gage compris" : ""}`, okHard ? "ok" : "bad");
   gauge("g-ret", m.ratioRet, lim, Math.max(lim * 1.6, m.ratioRet), pc(m.ratioRet), `revenu ${S.retirePct} %`, okRet ? "ok" : "warn");
 
@@ -1686,7 +1696,8 @@ function update(skip) {
   for (const p of [1, 2]) {
     const wd = R["p3a" + p] + R["lpp" + p];
     $("hint-taxPct" + p).textContent = `Soit ${chf(wd * S["taxPct" + p] / 100)} d'impôt estimé.`;
-    $("hint-taxChf" + p).textContent = wd > 0 ? `Soit ${pc(taux["t" + p])} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.";
+    const gagePersonne = E["lpp" + p] + E["p3a" + p] > wd;
+    $("hint-taxChf" + p).textContent = (wd > 0 ? `Soit ${pc(taux["t" + p])} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.") + (gagePersonne ? " Montant saisi avec un gage : vérifiez-le, il porte sur les retraits restants." : "");
   }
   const e1 = R.cash1 + (R.p3a1 + R.lpp1) * net[1], e2 = R.cash2 + (R.p3a2 + R.lpp2) * net[2], eSum = e1 + e2;
   $("t-eq1").textContent = "net " + short(e1);
@@ -2176,7 +2187,7 @@ async function exportPdf() {
 
     section("Contrôles de la banque");
     row("Charges théoriques / revenu", tx(pc(m.ratio)) + (multi ? "" : `  (max ${S.ratioMax} %)`));
-    row(`Fonds propres après frais${m.gageEq > 0 ? ", gage compris" : ""}`, tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
+    row(`Fonds propres après frais${m.gageEq > 0 ? ", gage compris" : ""}`, tx(pc(Math.min(1, m.eqPct))) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
     row((sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais") + (m.gageHard > 0 ? ", gage du 3e pilier compris" : ""), tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
     row("Charges à la retraite", tx(pc(m.ratioRet)) + (multi ? "" : `  (revenu ${S.retirePct} %)`));
 
@@ -2280,7 +2291,7 @@ async function exportPdf() {
     if (LAST.banks) {
       section("Selon les banques");
       const lab = { ok: "OK", warn: "À la limite", bad: "Pas OK" };
-      LAST.banks.forEach(b => row(b.nom, lab[b.status], b.status === "ok"));
+      LAST.banks.forEach(b => { row(b.nom, lab[b.status], b.status === "ok"); if (b.alerte) para(b.alerte); });
     } else {
       section("Hypothèses");
       row("Taux théorique / plafond des charges", `${S.rate} % / ${S.ratioMax} %`);
