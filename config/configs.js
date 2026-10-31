@@ -32,7 +32,8 @@ window.SIMU_CONFIG_FICHIERS = [
   "cantons",                // frais d'achat et allocations par canton
   "geneve",                 // barème des notaires de Genève et Casatax
   "curseurs",               // bornes des curseurs
-  "langues/fr"              // textes explicatifs en français : titre, bulles (i), règles, avertissement du PDF
+  "langues/fr",             // textes explicatifs en français : titre, bulles (i), règles, avertissement du PDF
+  "langues/en"              // traduction anglaise : sans ce fichier, la page reste en français
 ];
 
 // Fichiers facultatifs, à ajouter à la liste ci-dessus s'ils existent :
