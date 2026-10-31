@@ -699,6 +699,7 @@ const LANGUE = (() => {
 const FR = {
   "langue.choix": "Langue",
   "langue.bandeau": "",
+  "langue.perte": "Ce navigateur bloque le stockage local : changer de langue efface votre saisie. Continuer ?",
   "html.simulateur_hypothecaire_suisse": "Simulateur hypothécaire suisse",
   "html.chiffres_exemple": "Chiffres d'exemple",
   "html.conseiller": "Conseiller",
@@ -3107,12 +3108,16 @@ if (BANKS || ADVISORS.length) {
   try { if (localStorage.getItem(KEY + "-tab") === "config") showTab("config"); } catch (e) {}
 }
 $("casataxTxt").textContent = CED_RED === 0.5 ? t("msg.achat_au_plus_habite_au", { casatax: chf(CASATAX), casatax_red: chf(CASATAX_RED) }) : t("msg.achat_au_plus_habite_au_2", { casatax: chf(CASATAX), casatax_red: chf(CASATAX_RED), ced_red: CED_RED * 100 });
-// Changer de langue recharge la page. L'état passe par window.name, ce qui marche aussi quand localStorage est bloqué.
-const LANGUE_ETAT = "simu-hypo-langue:";
+// Changer de langue recharge la page. L'état passe par window.name, lu seulement avec le jeton posé juste avant dans
+// sessionStorage : une page d'un autre site peut écrire window.name, pas ce jeton. Sans sessionStorage, la saisie est
+// perdue après confirmation : la mettre dans l'URL exposerait des données personnelles dans l'historique.
+const LANGUE_ETAT = "simu-hypo-langue:", LANGUE_JETON = "simu-hypo-langue-jeton";
 function changerLangue(l) {
-  let memo = false;
+  let memo = false, jeton = null;
   try { localStorage.setItem(LANGUE_MEMO, l); memo = localStorage.getItem(LANGUE_MEMO) === l; } catch (e) {}
-  window.name = LANGUE_ETAT + JSON.stringify({ S, touched, tab: TAB });
+  try { jeton = crypto.randomUUID(); sessionStorage.setItem(LANGUE_JETON, jeton); if (sessionStorage.getItem(LANGUE_JETON) !== jeton) jeton = null; } catch (e) { jeton = null; }
+  if (jeton) window.name = `${LANGUE_ETAT}${jeton}:${JSON.stringify({ S, touched, tab: TAB })}`;
+  else if (!confirm(t("langue.perte"))) return;
   const u = new URL(location.href);
   if (u.searchParams.has("lang") || !memo) u.searchParams.set("lang", l);
   if (u.href === location.href) location.reload(); else location.replace(u.href);
@@ -3123,14 +3128,18 @@ if (langues.length > 1) {
   document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { if (b.dataset.lang !== LANGUE) changerLangue(b.dataset.lang); }));
 }
 if (t("langue.bandeau")) document.querySelector(".top").insertAdjacentHTML("afterend", `<p class="note" id="langueNote">${fmtTxt(t("langue.bandeau"))}</p>`);
-if (window.name.startsWith(LANGUE_ETAT)) {
-  try {
-    const e = JSON.parse(window.name.slice(LANGUE_ETAT.length));
-    S = { ...DEFAULTS, ...nettoyer(e.S).sur };
-    touched = !!e.touched;
-    if ($("t-" + e.tab) && !$("t-" + e.tab).hidden) showTab(e.tab);
-  } catch (e) {}
-  window.name = "";
+{
+  let jeton = null;
+  try { jeton = sessionStorage.getItem(LANGUE_JETON); sessionStorage.removeItem(LANGUE_JETON); } catch (e) {}
+  if (jeton && window.name.startsWith(`${LANGUE_ETAT}${jeton}:`)) {
+    try {
+      const e = JSON.parse(window.name.slice(LANGUE_ETAT.length + jeton.length + 1));
+      S = { ...DEFAULTS, ...nettoyer(e.S).sur };
+      touched = !!e.touched;
+      if ($("t-" + e.tab) && !$("t-" + e.tab).hidden) showTab(e.tab);
+    } catch (e) {}
+  }
+  if (window.name.startsWith(LANGUE_ETAT)) window.name = "";
 }
 update();
 </script>
