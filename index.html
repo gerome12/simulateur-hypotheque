@@ -145,6 +145,7 @@ select, button { font: inherit; }
 .seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 40px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-left: auto; flex: none; }
 .seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button { box-shadow: -1px 0 0 var(--line); }   /* séparateur : sans effet sur les largeurs, et coupé par le overflow du groupe au bord gauche */
 .seg + .num { margin-left: 0; }
 .pmode { margin-top: 6px; }
 .seg-mode { grid-auto-columns: 64px; margin-left: 0; }
