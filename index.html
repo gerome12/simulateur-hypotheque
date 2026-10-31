@@ -1602,6 +1602,7 @@ const AB_ALERTE_LTV = 80;
 function abRaisons(s, ab) {
   const msgs = [];
   if (ab.net < 0) msgs.push("Autre bien : le net de la vente est négatif, il réduit vos fonds propres.");
+  if (ab.net > 0 && ab.durs < 0) msgs.push("Le 2e pilier à rembourser dépasse le net : la différence sort de vos fonds propres durs.");
   if (s.abMode === "relais") msgs.push("Vente pas encore faite : la banque doit accepter de compter ce montant, et le délai de vente est un risque.");
   if (ab.degage > 0) msgs.push("Ce montant est un emprunt : la banque doit l'accepter comme fonds propres. Les directives de l'ASB ne citent pas ce cas : seule la banque décide.");
   if (s.abMode === "conserve" && s.abHypoNouvelle < s.abHypoActuelle) msgs.push("L'hypothèque nouvelle est plus basse que l'actuelle : aucun montant n'est dégagé.");
