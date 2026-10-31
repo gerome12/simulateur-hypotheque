@@ -193,6 +193,10 @@ SIMU_CONFIG.langues.de = {
   "canton.ZH": "Zürich",
   "canton.XX": "Anderer Kanton",
 
+  // ---------- Dateinamen
+  "fichier.dossier": "dossier",
+  "fichier.simulation": "hypothekarsimulation",
+
   // ---------- Oberfläche
   "html.simulateur_hypothecaire_suisse": "Schweizer Hypothekarrechner",
   "html.chiffres_exemple": "Beispielzahlen",

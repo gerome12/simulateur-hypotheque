@@ -228,6 +228,20 @@ SIMU_CONFIG.langues.fr = {
   "langue.perte": "Ce navigateur bloque le stockage local : changer de langue efface votre saisie. Continuer ?",
   "langue.bandeau": "",
 
+  // ---------- Cantons
+  "canton.GE": "Genève",
+  "canton.VD": "Vaud",
+  "canton.FR": "Fribourg",
+  "canton.NE": "Neuchâtel",
+  "canton.VS": "Valais",
+  "canton.BE": "Berne",
+  "canton.ZH": "Zurich",
+  "canton.XX": "Autre canton",
+
+  // ---------- Noms de fichiers
+  "fichier.dossier": "dossier",
+  "fichier.simulation": "simulation-hypotheque",
+
   // ---------- Interface
   "html.simulateur_hypothecaire_suisse": "Simulateur hypothécaire suisse",
   "html.chiffres_exemple": "Chiffres d'exemple",

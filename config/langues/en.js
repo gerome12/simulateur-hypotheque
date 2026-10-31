@@ -192,6 +192,10 @@ SIMU_CONFIG.langues.en = {
   "canton.ZH": "Zurich",
   "canton.XX": "Other canton",
 
+  // ---------- File names
+  "fichier.dossier": "mortgage-file",
+  "fichier.simulation": "mortgage-simulation",
+
   // ---------- Interface
   "html.simulateur_hypothecaire_suisse": "Swiss mortgage simulator",
   "html.chiffres_exemple": "Sample figures",

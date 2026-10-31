@@ -776,14 +776,14 @@ if (TH) {
 
 const CANTONS = {
   // Allocations : OFAS, 2026. ZH : 268 au-delà de 12 ans, non géré. Allocation de formation (dès 16 ans), plus élevée, non gérée. VD : majoré dès la 3e allocation versée à l'ayant droit, ici dès le 3e enfant du ménage.
-  GE: { label: "Genève",    fees: 5.0, alloc: 311, alloc3: 411 },
-  VD: { label: "Vaud",      fees: 4.5, alloc: 322, alloc3: 365 },
-  FR: { label: "Fribourg",  fees: 3.5, alloc: 265, alloc3: 285 },
-  NE: { label: "Neuchâtel", fees: 4.5, alloc: 240, alloc3: 270 },
-  VS: { label: "Valais",    fees: 3.0, alloc: 327, alloc3: 435 },
-  BE: { label: "Berne",     fees: 2.5, alloc: 250, alloc3: 250 },
-  ZH: { label: "Zurich",    fees: 1.5, alloc: 215, alloc3: 215 },
-  XX: { label: "Autre canton" }
+  GE: { fees: 5.0, alloc: 311, alloc3: 411 },
+  VD: { fees: 4.5, alloc: 322, alloc3: 365 },
+  FR: { fees: 3.5, alloc: 265, alloc3: 285 },
+  NE: { fees: 4.5, alloc: 240, alloc3: 270 },
+  VS: { fees: 3.0, alloc: 327, alloc3: 435 },
+  BE: { fees: 2.5, alloc: 250, alloc3: 250 },
+  ZH: { fees: 1.5, alloc: 215, alloc3: 215 },
+  XX: {}
 };
 
 const DEFAULTS = {
@@ -807,7 +807,8 @@ const DEFAULTS = {
   cantonMenage: null
 };
 if (CFG.cantons) { for (const k in CANTONS) delete CANTONS[k]; Object.assign(CANTONS, CFG.cantons); }
-const libCanton = k => { const c = "canton." + k, v = t(c); return v === c ? CANTONS[k].label : v; };
+// Nom du canton : canton.XX dans les fichiers de langue ; un canton ajouté sans traduction garde son label, sinon son code
+const libCanton = k => { const c = "canton." + k, v = t(c); return v === c ? CANTONS[k].label ?? k : v; };
 Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {});
 // Seuils d'alerte du gage : des constantes de texte, hors de l'état
 const GAGE_LTV = { alerte: DEFAULTS.gageAlerteLtv ?? 80, max: DEFAULTS.gageMaxLtv ?? 90 };
@@ -1424,9 +1425,9 @@ async function telecharger(nom, blob) {
 $("dossierSave").addEventListener("click", async () => {
   dossierMsg("");
   const iso = new Date().toISOString(), date = iso.slice(0, 10);
-  const nom = String(S.name1).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 40).replace(/^-+|-+$/g, "");
+  const nom = String(nomP(1)).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 40).replace(/^-+|-+$/g, "");
   const blob = new Blob([JSON.stringify(versDossier(S, iso), null, 2)], { type: "application/json" });
-  try { await telecharger(`dossier-${nom ? nom + "-" : ""}${date}.json`, blob); }
+  try { await telecharger(`${t("fichier.dossier")}-${nom ? nom + "-" : ""}${date}.json`, blob); }
   catch (err) { if (err?.code !== "declined") dossierMsg(t("msg.enregistrement_indisponible")); }
 });
 $("dossierOpen").addEventListener("click", () => { dossierMsg(""); $("dossierFile").click(); });
@@ -2499,7 +2500,7 @@ async function exportPdf() {
       }
     }
 
-    const name = `simulation-hypotheque-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const name = `${t("fichier.simulation")}-${new Date().toISOString().slice(0, 10)}.pdf`;
     await telecharger(name, doc.output("blob"));
     btn.textContent = old;
   } catch (e) {
