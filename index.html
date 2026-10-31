@@ -140,6 +140,12 @@ select, button { font: inherit; }
 .seg button { width: 40px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1 var(--font-data); padding: 5px 0; text-align: center; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
 .seg + .num { margin-left: 0; }
+.pmode { margin-top: 6px; }
+.seg-mode { grid-auto-columns: 64px; margin-left: 0; }
+.seg-mode button { width: 64px; }
+#gageBloc .frow { flex-wrap: nowrap; align-items: flex-start; }
+#gageBloc .check { border-top: 0; padding: 6px 0; }
+#gageBloc .info { margin-top: 6px; }
 .seg-usage { grid-auto-columns: auto; }
 .seg-usage button { width: auto; padding: 5px 10px; }
 #field-usage, #field-canton { border-top: 0; }
@@ -456,6 +462,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="person p2"><h3><span class="pname" data-p="2">Personne 2</span> <small id="t-eq2"></small></h3><div class="fields" id="f-eq2"></div></div>
         </div>
         <p class="hint" id="taxCouple" hidden>Couple marié ou partenaires enregistrés vivant en ménage commun&nbsp;: les retraits de 2<sup>e</sup>&nbsp;et 3<sup>e</sup>&nbsp;pilier d'une même année sont en général additionnés pour fixer l'impôt. Calculez l'impôt de chacun sur ce total.</p>
+        <div id="gageBloc" hidden></div>
         <div class="split" aria-live="polite">
           <div class="split-row"><span id="sp1"></span><span id="sp2"></span></div>
           <div class="split-bar" id="spbar"></div>
@@ -463,6 +470,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
         </div>
         <div class="fields" id="f-fp2"></div>
         <div class="tally"><span>Durs nets / 2<sup>e</sup> pilier net</span><b id="t-hard">–</b></div>
+        <div class="tally" id="t-gage-l" hidden><span>Mis en gage, hors fonds propres</span><b id="t-gage">–</b></div>
       </details>
 
       <details class="panel fold" id="bien" open>
@@ -724,6 +732,7 @@ const DEFAULTS = {
   bonusPct: 50, kids: 2, alloc: 311, alloc3: 411, debt: 0, allocCount: false,
   price: 1200000, feesPct: 5, maintPct: 1, usage: "principale", chargesPrincipale: 0,
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, taxMode: "pct", taxChf: 8400, reserve: 0,
+  modeLpp1: "retrait", modeP3a1: "retrait", modeLpp2: "retrait", modeP3a2: "retrait", gageCompte: false,
   rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60, eplMin: 20000,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   alHorizon: 15, alHausseLoyer: 1.5, alHausseBien: 1, alRendement: 2, alFraisVente: 2,
@@ -741,9 +750,17 @@ Object.assign(DEFAULTS, CFG.valeursParDefaut || {}, CFG.hypothesesBancaires || {
 DEFAULTS.cantonMenage ??= DEFAULTS.canton;
 // Config qui ne donne que alloc : le même montant dès le 3e enfant
 if (CFG.valeursParDefaut?.alloc != null && CFG.valeursParDefaut.alloc3 == null) DEFAULTS.alloc3 = DEFAULTS.alloc;
+// Pilier retiré ou mis en gage : un pilier en gage reste en prévoyance et sort des fonds propres
+const MODE_CLE = { lpp: "modeLpp", p3a: "modeP3a" };
+const enGage = (s, k, p) => s[MODE_CLE[k] + p] === "gage";
+function horsGage(s) {
+  const o = { ...s };
+  for (const p of [1, 2]) for (const k of ["lpp", "p3a"]) if (enGage(s, k, p)) o[k + p] = 0;
+  return o;
+}
 // Impôt commun (ancien état, config) → une valeur par personne. En CHF, au prorata des retraits : même taux pour les deux, donc mêmes chiffres.
 function repartirImpot(o, base) {
-  const retraits = p => ["p3a", "lpp"].reduce((a, k) => a + (Number.isFinite(o[k + p]) && o[k + p] >= 0 ? o[k + p] : base[k + p]), 0);
+  const retraits = p => ["p3a", "lpp"].reduce((a, k) => a + (enGage({ ...base, ...o }, k, p) ? 0 : Number.isFinite(o[k + p]) && o[k + p] >= 0 ? o[k + p] : base[k + p]), 0);
   if (o.taxPct != null) { o.taxPct1 ??= o.taxPct; o.taxPct2 ??= o.taxPct; }
   if (o.taxChf != null) {
     const w1 = retraits(1), w2 = retraits(2), w = w1 + w2;
@@ -782,15 +799,15 @@ const F = {
   ],
   eq1: [
     { id: "cash1", color: "cash", who: "Personne 1", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
-    { id: "lpp1", color: "lpp", who: "Personne 1", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true },
-    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true },
+    { id: "lpp1", color: "lpp", who: "Personne 1", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true, segMode: true },
+    { id: "p3a1", color: "3a", who: "Personne 1", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true, segMode: true },
     { id: "taxPct1", who: "Personne 1", label: "Impôt sur retraits", min: 0, max: 15, step: 0.5, unit: "%", dyn: true, segTax: true },
     { id: "taxChf1", who: "Personne 1", label: "Impôt sur retraits", min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
   ],
   eq2: [
     { id: "cash2", color: "cash", who: "Personne 2", label: "Épargne", min: 0, max: 1500000, step: 5000, unit: "CHF" },
-    { id: "lpp2", color: "lpp", who: "Personne 2", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true },
-    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true },
+    { id: "lpp2", color: "lpp", who: "Personne 2", label: "2e pilier (EPL)", min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true, segMode: true },
+    { id: "p3a2", color: "3a", who: "Personne 2", label: "3e pilier (3a)", min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true, segMode: true },
     { id: "taxPct2", who: "Personne 2", label: "Impôt sur retraits", min: 0, max: 15, step: 0.5, unit: "%", dyn: true, segTax: true },
     { id: "taxChf2", who: "Personne 2", label: "Impôt sur retraits", min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
   ],
@@ -881,12 +898,15 @@ function fieldHTML(f) {
   return `<div class="field" id="field-${f.id}">
     <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="Explication : ${f.label}">i</button>` : ""}
       <span class="ctl">${f.segTax ? `<span class="seg seg-tax" role="group" aria-label="Saisir l'impôt en"><button type="button" data-tm="pct">%</button><button type="button" data-tm="chf">CHF</button></span>` : ""}${f.seg ? `<span class="seg" role="group" aria-label="Saisir les frais en"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">CHF</button><button type="button" data-fm="ge" class="seg-ge" title="Barème des notaires de Genève">GE</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></span></div>
+    ${f.segMode ? `<div class="pmode"><span class="seg seg-mode" role="group" aria-label="Utilisation de ce pilier"><button type="button" data-pm="retrait">Retrait</button><button type="button" data-pm="gage">Gage</button></span></div>` : ""}
     ${NO_RANGE.has(f.id) ? "" : `<input id="rg-${f.id}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" aria-label="${f.who ? f.who + " – " : ""}${f.label}">`}
     ${f.hint || f.dyn ? `<p class="hint" id="hint-${f.id}">${f.hint || ""}</p>` : ""}
     ${INFO[f.id] ? `<div class="infobox" id="info-${f.id}" hidden>${INFO[f.id]}</div>` : ""}
   </div>`;
 }
 for (const [group, list] of Object.entries(F)) $("f-" + group).innerHTML = list.map(fieldHTML).join("");
+$("gageBloc").innerHTML = `<div class="frow"><label class="check" for="gageCompte"><input type="checkbox" id="gageCompte"><span>Compter le gage dans les fonds propres, selon la banque</span></label>${INFO.gageCompte ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-gageCompte" aria-label="Explication : compter le gage">i</button>` : ""}</div>${INFO.gageCompte ? `<div class="infobox" id="info-gageCompte" hidden>${INFO.gageCompte}</div>` : ""}`;
+$("gageCompte").addEventListener("change", e => { S.gageCompte = e.target.checked; touched = true; update(); });
 
 // Allocations rattachées au nombre d'enfants
 {
@@ -908,12 +928,18 @@ const CASATAX = CFG.geneve?.casatax?.plafondPrix ?? 1394928;
   w.insertAdjacentHTML("beforeend", `<div class="casatax" id="casatax" hidden style="--p:${(CASATAX - f.min) / (f.max - f.min)}" title="Casatax Genève, à titre indicatif"><span class="tick"></span><span class="lbl">Casatax ${nf.format(CASATAX)}</span></div>`);
 }
 document.addEventListener("click", e => {
+  const pm = e.target.closest(".seg button[data-pm]");
+  if (pm) {
+    const id = pm.closest(".field").id.slice(6), cle = MODE_CLE[id.slice(0, -1)] + id.slice(-1);
+    if (S[cle] !== pm.dataset.pm) { S[cle] = pm.dataset.pm; touched = true; update(); }
+    return;
+  }
   const tm = e.target.closest(".seg button[data-tm]");
   if (tm) {
     const mode = tm.dataset.tm;
     if (mode === S.taxMode) return;
     // Conversion par personne ; en solo, la personne 2 se convertit sur ses montants mis de côté
-    const base = S.solo && S.p2saved ? { ...S, ...S.p2saved } : S, taux = taxRates(base);
+    const base = horsGage(S.solo && S.p2saved ? { ...S, ...S.p2saved } : S), taux = taxRates(base);
     for (const p of [1, 2]) {
       const wd = base["p3a" + p] + base["lpp" + p], cur = wd * taux["t" + p];
       if (mode === "chf") S["taxChf" + p] = Math.round(cur / 100) * 100;
@@ -974,13 +1000,17 @@ $("canton").innerHTML = $("cantonMenage").innerHTML = Object.entries(CANTONS).ma
 // Retrait sous le minimal de l'EPL : signalé sans changer le verdict
 const eplPrefixe = p => `2e pilier de ${S["name" + p]} : `;
 const eplMsgs = p => {
-  const lpp = S["lpp" + p], msgs = [];
-  if (lpp > 0 && lpp < S.eplMin) msgs.push(`le retrait minimal auprès d'une caisse de pension est de ${nf.format(S.eplMin)} CHF.`);
-  if (lpp > 0 && S["age" + p] >= S.retireAge - 3) msgs.push("en principe, retrait au plus tard 3 ans avant le droit aux prestations de vieillesse. Votre caisse peut réduire ce délai : vérifiez son règlement.");
+  const lpp = S["lpp" + p], gage = enGage(S, "lpp", p), msgs = [];
+  if (!gage && lpp > 0 && lpp < S.eplMin) msgs.push(`le retrait minimal auprès d'une caisse de pension est de ${nf.format(S.eplMin)} CHF.`);
+  if (lpp > 0 && S["age" + p] >= S.retireAge - 3) msgs.push(`en principe, ${gage ? "mise en gage" : "retrait"} au plus tard 3 ans avant le droit aux prestations de vieillesse. Votre caisse peut réduire ce délai : vérifiez son règlement.`);
   return msgs;
 };
+// 3e pilier en gage : CO 331d s'applique par analogie (OPP 3, art. 4)
+const gage3Prefixe = p => `3e pilier de ${S["name" + p]} : `;
+const gage3Msgs = p => enGage(S, "p3a", p) && S["p3a" + p] > 0 && S["age" + p] >= S.retireAge - 3 ? ["en principe, mise en gage au plus tard 3 ans avant le droit aux prestations de vieillesse. Vérifiez auprès de votre fondation."] : [];
+const GAGE_HINT = "Mis en gage : pas de retrait ni d'impôt, l'argent reste en prévoyance. L'hypothèque et les intérêts sont plus élevés.";
 // Alertes de tout le ménage, pour les raisons de la page et le PDF
-const eplRaisons = () => S.usage === "secondaire" ? [] : (S.solo ? [1] : [1, 2]).flatMap(p => eplMsgs(p).map(m => eplPrefixe(p) + m));
+const eplRaisons = () => S.usage === "secondaire" ? [] : (S.solo ? [1] : [1, 2]).flatMap(p => [...eplMsgs(p).map(m => eplPrefixe(p) + m), ...gage3Msgs(p).map(m => gage3Prefixe(p) + m)]);
 function syncInputs(skip) {
   for (const f of ALL) {
     const t = $("in-" + f.id), r = $("rg-" + f.id);
@@ -988,6 +1018,8 @@ function syncInputs(skip) {
     if (r && r !== skip) r.value = S[f.id];
   }
   $("allocCount").checked = !!S.allocCount;
+  $("gageCompte").checked = !!S.gageCompte;
+  document.querySelectorAll(".seg button[data-pm]").forEach(b => { const id = b.closest(".field").id.slice(6); b.setAttribute("aria-pressed", b.dataset.pm === S[MODE_CLE[id.slice(0, -1)] + id.slice(-1)]); });
   $("lockPrice").checked = !!S.lockPrice;
   $("canton").value = S.canton;
   $("cantonMenage").value = S.cantonMenage;
@@ -1008,10 +1040,15 @@ function syncInputs(skip) {
   document.querySelectorAll(".seg button[data-usage]").forEach(b => b.setAttribute("aria-pressed", b.dataset.usage === S.usage));
   for (const id of ["lpp1", "lpp2", "p3a1", "p3a2"]) {
     const p = id.slice(-1), msgs = sec ? ["Non pris en compte pour une résidence secondaire."] : [];
+    const gage = enGage(S, id.slice(0, -1), p);
+    if (!sec && gage) msgs.push(GAGE_HINT);
     if (!sec && id.startsWith("lpp")) {
       // Le nom n'est écrit qu'une fois quand deux alertes se suivent
       msgs.push(...eplMsgs(p).map((m, i) => i ? m[0].toUpperCase() + m.slice(1) : eplPrefixe(p) + m));
-      if (S["age" + p] >= 50 && S[id] > 0) msgs.push("Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.");
+      if (S["age" + p] >= 50 && S[id] > 0) msgs.push(gage ? "Après 50 ans, le montant mis en gage est limité : vérifiez-le auprès de votre caisse." : "Après 50 ans, le retrait est limité : vérifiez le montant auprès de votre caisse.");
+    } else if (!sec && gage) {
+      msgs.push(...gage3Msgs(p).map(m => gage3Prefixe(p) + m));
+      if (S["age" + p] >= 50 && S[id] > 0) msgs.push("Après 50 ans, le montant mis en gage est limité : vérifiez-le auprès de votre fondation.");
     }
     $("hint-" + id).innerHTML = msgs.map(fmtTxt).join(" ");
     $("hint-" + id).hidden = !msgs.length;
@@ -1120,11 +1157,12 @@ $("reset").addEventListener("click", () => {
 
 /* ---------- Dossier client : la simulation dans un fichier JSON, sans rien envoyer ---------- */
 const DOSSIER = { app: "simu-hypo-ch", version: 2, tailleMax: 1024 * 1024 };
-const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"] };
+const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"], modeLpp1: ["retrait", "gage"], modeLpp2: ["retrait", "gage"], modeP3a1: ["retrait", "gage"], modeP3a2: ["retrait", "gage"] };
 const LIBELLES = {
   canton: "Canton du bien", cantonMenage: "Canton du ménage", usage: "Usage du bien", feesMode: "Mode des frais", taxMode: "Mode de l'impôt",
   name1: "Nom de la personne 1", name2: "Nom de la personne 2", solo: "Nombre de personnes", apportSel: "Apport choisi", p2saved: "Montants de la personne 2",
-  allocCount: "Compter les allocations", lockPrice: "Prix bloqué", realChargesAuto: "Charges réelles automatiques", casatax: "Casatax", conseiller: "Conseiller"
+  allocCount: "Compter les allocations", lockPrice: "Prix bloqué", realChargesAuto: "Charges réelles automatiques", casatax: "Casatax", conseiller: "Conseiller",
+  modeLpp1: "Retrait ou gage du 2e pilier (personne 1)", modeLpp2: "Retrait ou gage du 2e pilier (personne 2)", modeP3a1: "Retrait ou gage du 3e pilier (personne 1)", modeP3a2: "Retrait ou gage du 3e pilier (personne 2)", gageCompte: "Compter le gage dans les fonds propres"
 };
 // Nom lisible d'une clé, avec la personne quand le champ en concerne une
 const libelleCle = k => {
@@ -1168,6 +1206,7 @@ const DOSSIER_CHAMPS = [
   ["fondsPropres.donation", "gift"],
   ["fondsPropres.reserve", "reserve"],
   ["fondsPropres.impotRetraits.mode", "taxMode"],
+  ["fondsPropres.gageCompteCommeFondsPropres", "gageCompte"],
   ["bien.prix", "price"],
   ["bien.prixBloque", "lockPrice"],
   ["bien.usage", "usage"],
@@ -1213,7 +1252,7 @@ const DOSSIER_BLOCS = {
   "menage.enfants": "Enfants", "fondsPropres.impotRetraits": "Impôt sur retraits", "bien.frais": "Frais d'achat", "graphiques.mensualites": "Graphiques", "graphiques.fondsPropres": "Graphiques"
 };
 // Champs d'une personne : clé de S sans son numéro
-const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"], ["impotRetraits.pct", "taxPct"], ["impotRetraits.chf", "taxChf"]];
+const PERSONNE_CHAMPS = [["nom", "name"], ["salaire", "inc"], ["bonus", "bonus"], ["age", "age"], ["epargne", "cash"], ["deuxiemePilier", "lpp"], ["troisiemePilier", "p3a"], ["deuxiemePilierMode", "modeLpp"], ["troisiemePilierMode", "modeP3a"], ["impotRetraits.pct", "taxPct"], ["impotRetraits.chf", "taxChf"]];
 // Seuls les chemins des tables sont lus, et seulement en propre : __proto__ et consorts sont sans effet
 const lireChemin = (o, chemin) => chemin.split(".").reduce((v, c) => estObjet(v) && Object.hasOwn(v, c) ? v[c] : undefined, o);
 function ecrireChemin(o, chemin, v) {
@@ -1353,6 +1392,7 @@ function amortYears(s) {
 }
 // Taux d'impôt effectif de chaque personne : le % saisi, ou le montant en CHF rapporté à ses retraits
 function taxRates(s) {
+  s = horsGage(s);
   const t = p => {
     if (s.taxMode !== "chf") return s["taxPct" + p] / 100;
     const w = s["p3a" + p] + s["lpp" + p];
@@ -1362,6 +1402,7 @@ function taxRates(s) {
 }
 function equity(s) {
   const { t1, t2 } = taxRates(s);
+  s = horsGage(s);
   const hard = s.cash1 + s.cash2 + s.p3a1 * (1 - t1) + s.p3a2 * (1 - t2) + s.gift;
   const lpp = s.lpp1 * (1 - t1) + s.lpp2 * (1 - t2);
   return { hard, lpp, total: hard + lpp };
@@ -1382,6 +1423,9 @@ function model(s, P) {
     loan = P - apport;
   }
   const hardIn = Math.max(0, Math.min(hardAvail, apport));   // le 2e pilier est le dernier investi
+  const enGageTotal = k => [1, 2].reduce((a, p) => a + (enGage(s, k, p) ? s[k + p] : 0), 0), gage2 = enGageTotal("lpp"), gage3 = enGageTotal("p3a");
+  // Selon la banque : le gage compte dans les contrôles, le 2e pilier jamais dans les 10 %. Les frais restent à payer en fonds propres réels.
+  const gageEq = s.gageCompte && avail >= 0 ? gage2 + gage3 : 0, gageHard = s.gageCompte && hardAvail >= 0 ? gage3 : 0;
   const k = s.rank1Pct / 100;
   const rank1 = Math.min(loan, k * P), rank2 = loan - rank1;
   const years = amortYears(s);
@@ -1396,7 +1440,7 @@ function model(s, P) {
   const chargesRet = rank1 * s.rate / 100 + maint + s.debt + princ;
   const ratioRet = incRet > 0 ? chargesRet / incRet : Infinity;
   return { P, eq, fees, feeGE, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, princ, charges, inc, ratio, incRet, chargesRet, ratioRet,
-    eqPct: apport / P, hardPct: hardIn / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
+    gage2, gage3, gageEq, gageHard, eqPct: (apport + gageEq) / P, hardPct: (hardIn + gageHard) / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
 }
 function bisect(ok, hi = 3e7) {
   if (!ok(1000)) return 0;
@@ -1408,8 +1452,9 @@ function solve(s) {
   s = { ...effectif(s), apportSel: null };   // le prix maximum suppose que tout l'investissable est investi
   const eq = equity(s), chfMode = s.feesMode === "chf", f = chfMode ? 0 : s.feesPct / 100, fx = chfMode ? s.feesChf : 0, minEq = 1 - s.ltvMax / 100;
   const ge = s.feesMode === "ge";
-  const pEq = ge ? bisect(P => model(s, P).avail >= minEq * P - 0.5) : Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
-  const pHard = ge ? bisect(P => model(s, P).hardAvail >= 0.10 * P - 0.5) : Math.max(0, (eq.hard - s.reserve - fx) / (0.10 + f));
+  const m0 = model(s, 1e6), parBisection = ge || (s.gageCompte && m0.gage2 + m0.gage3 > 0);   // le gage ne compte que si les frais sont couverts : pas de formule fermée
+  const pEq = parBisection ? bisect(P => { const m = model(s, P); return m.avail + m.gageEq >= minEq * P - 0.5; }) : Math.max(0, (eq.total - s.reserve - fx) / (minEq + f));
+  const pHard = parBisection ? bisect(P => { const m = model(s, P); return m.hardAvail + m.gageHard >= 0.10 * P - 0.5; }) : Math.max(0, (eq.hard - s.reserve - fx) / (0.10 + f));
   const lim = s.ratioMax / 100;
   const pInc = bisect(P => model(s, P).charges <= lim * income(s));
   const pRet = bisect(P => model(s, P).chargesRet <= lim * (s.inc1 + s.inc2) * s.retirePct / 100);
@@ -1443,7 +1488,7 @@ function acheterLouer(s, m) {
   const h = taux(s.alHausseLoyer), g = taux(s.alHausseBien), r = taux(s.alRendement), f = taux(s.alFraisVente, 0);
   const N = Math.min(Math.max(Math.round(s.alHorizon), 1), 100);
   // Impôt sur tous les retraits saisis : le modèle ne dit pas quelle part reste non investie
-  const { t1, t2 } = taxRates(s), impot = (s.p3a1 + s.lpp1) * t1 + (s.p3a2 + s.lpp2) * t2;
+  const { t1, t2 } = taxRates(s), R = horsGage(s), retraits = R.p3a1 + R.lpp1 + R.p3a2 + R.lpp2, impot = (R.p3a1 + R.lpp1) * t1 + (R.p3a2 + R.lpp2) * t2;
   const C0 = m.apport + m.fees + impot, lignes = [];
   let A = 0, C = C0;
   for (let t = 1; t <= N; t++) {
@@ -1458,10 +1503,10 @@ function acheterLouer(s, m) {
   let seuil = null;
   for (let i = N - 1; i >= 0 && lignes[i].ecart > 0.005; i--) seuil = lignes[i].annee;
   const fin = lignes[N - 1];
-  return { N, impot, C0, lignes, acheter: fin.acheter, louer: fin.louer, ecart: fin.ecart, seuil };
+  return { N, retraits, impot, C0, lignes, acheter: fin.acheter, louer: fin.louer, ecart: fin.ecart, seuil };
 }
 const alSeuil = (al, m) => !(m.P > 0) ? "–" : al.seuil ? `année ${al.seuil}` : "jamais sur la période";
-const alHypotheses = (s, m, al) => `Épargne de départ du locataire ${chf(al.C0)} : apport ${chf(m.apport)}, frais d'achat ${chf(m.fees)} et impôt sur les retraits ${chf(al.impot)}.${s.p3a1 + s.lpp1 + s.p3a2 + s.lpp2 > 0 ? ` Cet argent resterait en partie en prévoyance : le rendement de ${s.alRendement} % n'y est qu'une approximation.` : ""}${m.unused > 0 && al.impot > 0 ? " Une partie des fonds propres n'est pas investie : l'impôt compté porte quand même sur tous les retraits saisis." : ""} Loyer de départ ${chf(s.rent)} par mois. Taux réel de ${s.realRate} % et charges de ${chf(s.realCharges)} par mois constants, amortissement comme dans le modèle. Flux en fin d'année.`;
+const alHypotheses = (s, m, al) => `Épargne de départ du locataire ${chf(al.C0)} : apport ${chf(m.apport)}, frais d'achat ${chf(m.fees)} et impôt sur les retraits ${chf(al.impot)}.${al.retraits > 0 ? ` Cet argent resterait en partie en prévoyance : le rendement de ${s.alRendement} % n'y est qu'une approximation.` : ""}${m.unused > 0 && al.impot > 0 ? " Une partie des fonds propres n'est pas investie : l'impôt compté porte quand même sur tous les retraits saisis." : ""}${m.gage2 + m.gage3 > 0 ? " Les piliers mis en gage restent en prévoyance des deux côtés : ils ne comptent dans aucun patrimoine." : ""} Loyer de départ ${chf(s.rent)} par mois. Taux réel de ${s.realRate} % et charges de ${chf(s.realCharges)} par mois constants, amortissement comme dans le modèle. Flux en fin d'année.`;
 const alBiais = (s, al) => ["Le loyer de départ doit être celui d'un logement comparable au bien, pas forcément votre loyer actuel. C'est le paramètre le plus fort.",
   ...(al.impot > 0 ? ["L'impôt sur les retraits est différé, pas évité : le locataire le paiera à la retraite. Cela favorise la location."] : []),
   ...(s.alHausseLoyer > 0 ? ["Les charges et le taux réel restent constants alors que le loyer monte. Cela favorise l'achat."] : []),
@@ -1485,9 +1530,10 @@ function required(s, m) {
   if (B <= 0) L = -1;
   else if (B / r <= kP) L = B / r;
   else L = kP + (B - r * kP) / (r + 1 / n);
-  const Lmax = Math.min(Math.max(L, 0), P * s.ltvMax / 100);
+  const gageEq = s.gageCompte ? m.gage2 + m.gage3 : 0, gageHard = s.gageCompte ? m.gage3 : 0;
+  const Lmax = Math.min(Math.max(L, 0), gageEq > 0 ? Math.min(P, P * s.ltvMax / 100 + gageEq) : P * s.ltvMax / 100);
   const reqTotal = (P - Lmax) + m.fees + s.reserve;
-  const reqHard = P * 0.10 + m.fees + s.reserve;
+  const reqHard = Math.max(0, P * 0.10 - gageHard) + m.fees + s.reserve;
   return { reqIncome, reqTotal, reqHard, impossible: L < 0 };
 }
 
@@ -1498,7 +1544,7 @@ const BANKS = Array.isArray(CFG.banques) && CFG.banques.length ? CFG.banques : n
 function verdict(st) {
   st = effectif(st);   // après la fusion avec les hypothèses de la banque
   const m = model(st, st.price), lim = st.ratioMax / 100, minEq = 1 - st.ltvMax / 100;
-  const okRatio = m.ratio <= lim, okEq = m.apport >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
+  const okRatio = m.ratio <= lim, okEq = m.apport + m.gageEq >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
   const near = okRatio && m.ratio > lim - 0.015;
   const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near) ? "warn" : "ok";
   const why = [];
@@ -1532,17 +1578,17 @@ function update(skip) {
   $("rg-reserve").max = Math.max(resMax, 0);
   syncInputs(skip);
   const m = model(S, S.price), sol = sol0, req = required(S, m);
-  const E = effectif(S), sec = S.usage === "secondaire", lim = S.ratioMax / 100, minEq = 1 - E.ltvMax / 100;
+  const E = effectif(S), R = horsGage(E), sec = S.usage === "secondaire", lim = S.ratioMax / 100, minEq = 1 - E.ltvMax / 100;
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
   if (skip) touched = true;
   $("exampleTag").hidden = touched;
 
   // Contrôles
-  const okRatio = m.ratio <= lim, okEq = m.apport >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
+  const okRatio = m.ratio <= lim, okEq = m.apport + m.gageEq >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
   const reasons = [];
   if (!okRatio) reasons.push(`Charges théoriques à ${pc(m.ratio)} du revenu, au-delà de ${S.ratioMax} %.`);
-  if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais, minimum ${pc(minEq, 0)}.`);
-  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
+  if (!okEq) reasons.push(`Fonds propres à ${pc(m.eqPct)} du prix après frais${m.gageEq > 0 ? ", gage compris" : ""}, minimum ${pc(minEq, 0)}.`);
+  if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais${m.gageHard > 0 ? ", gage du 3e pilier compris" : ""}, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
   reasons.push(...eplRaisons());
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
@@ -1577,8 +1623,8 @@ function update(skip) {
   $("casatax").hidden = S.canton !== "GE" || sec;
 
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
-  gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}`, okEq ? "ok" : "bad");
-  gauge("g-hard", m.hardPct, 0.10, Math.max(0.2, m.hardPct), pc(m.hardPct), "min 10 %", okHard ? "ok" : "bad");
+  gauge("g-eq", m.eqPct, minEq, Math.max(minEq * 2, m.eqPct), pc(m.eqPct), `min ${pc(minEq, 0)}${m.gageEq > 0 ? ", gage compris" : ""}`, okEq ? "ok" : "bad");
+  gauge("g-hard", m.hardPct, 0.10, Math.max(0.2, m.hardPct), pc(m.hardPct), `min 10 %${m.gageHard > 0 ? ", gage compris" : ""}`, okHard ? "ok" : "bad");
   gauge("g-ret", m.ratioRet, lim, Math.max(lim * 1.6, m.ratioRet), pc(m.ratioRet), `revenu ${S.retirePct} %`, okRet ? "ok" : "warn");
 
   // Ce qui est possible
@@ -1638,11 +1684,11 @@ function update(skip) {
   $("t-hard").textContent = `${chf(m.eq.hard)} / ${chf(m.eq.lpp)}`;
   const taux = taxRates(E), net = { 1: 1 - taux.t1, 2: 1 - taux.t2 };
   for (const p of [1, 2]) {
-    const wd = E["p3a" + p] + E["lpp" + p];
+    const wd = R["p3a" + p] + R["lpp" + p];
     $("hint-taxPct" + p).textContent = `Soit ${chf(wd * S["taxPct" + p] / 100)} d'impôt estimé.`;
     $("hint-taxChf" + p).textContent = wd > 0 ? `Soit ${pc(taux["t" + p])} des retraits (${chf(wd)}).` : "Aucun retrait de 2e ou 3e pilier.";
   }
-  const e1 = E.cash1 + (E.p3a1 + E.lpp1) * net[1], e2 = E.cash2 + (E.p3a2 + E.lpp2) * net[2], eSum = e1 + e2;
+  const e1 = R.cash1 + (R.p3a1 + R.lpp1) * net[1], e2 = R.cash2 + (R.p3a2 + R.lpp2) * net[2], eSum = e1 + e2;
   $("t-eq1").textContent = "net " + short(e1);
   $("t-eq2").textContent = "net " + short(e2);
   const sh1 = eSum > 0 ? e1 / eSum : 0.5;
@@ -1652,18 +1698,21 @@ function update(skip) {
   document.querySelectorAll(".pen").forEach(b => b.setAttribute("aria-label", "Renommer " + S["name" + b.dataset.p]));
   // Réserve répartie selon la part de chacun, prise sur son épargne
   const resv = p => Math.min(S["cash" + p], S.reserve * (p === 1 ? sh1 : 1 - sh1));
-  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", E["lpp" + p] * net[p]], ["3a", E["p3a" + p] * net[p]]];
+  const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", R["lpp" + p] * net[p]], ["3a", R["p3a" + p] * net[p]]];
   const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${eSum > 0 ? v / eSum * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
   $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("");
   const kinds = [["cash", "Épargne", S.cash1 + S.cash2]];
-  if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", E.lpp1 * net[1] + E.lpp2 * net[2]], ["3a", "3<sup>e</sup> pilier", E.p3a1 * net[1] + E.p3a2 * net[2]]);
+  if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", R.lpp1 * net[1] + R.lpp2 * net[2]], ["3a", "3<sup>e</sup> pilier", R.p3a1 * net[1] + R.p3a2 * net[2]]);
   const resTot = resv(1) + resv(2);
   kinds[0][2] -= resTot;
   if (resTot > 0) kinds.unshift(["res", "Réserve", resTot]);
   $("splg").innerHTML = kinds.map(([k, n, v]) => `<span><i class="sw ${k === "res" ? "hatch" : ""}" style="${k === "res" ? "" : `background:var(--c-${k})`}"></i>${n} <b>${short(v)}</b></span>`).join("");
   $("spbar2").innerHTML = $("spbar").innerHTML;
   $("splg2").innerHTML = $("splg").innerHTML;
-  $("f-sum").innerHTML = `Disponible après réserve <b>${chf(m.eq.total - S.reserve)}</b>`;
+  const gageTotal = m.gage2 + m.gage3;
+  $("f-sum").innerHTML = `Disponible après réserve <b>${chf(m.eq.total - S.reserve)}</b>${gageTotal > 0 ? ` · Mis en gage <b>${chf(gageTotal)}</b>, hors fonds propres` : ""}`;
+  $("gageBloc").hidden = $("t-gage-l").hidden = !(gageTotal > 0);
+  $("t-gage").textContent = chf(gageTotal);
 
   // Structure
   const segs = [
@@ -1673,18 +1722,18 @@ function update(skip) {
   ];
   // Curseur d'apport : ce qui n'est pas investi devient la réserve
   const apMax = Math.max(0, Math.min(m.avail, m.P));
-  const apMin = Math.min(apMax, Math.max(0, minEq * m.P));
+  const apMin = Math.min(apMax, Math.max(0, minEq * m.P - m.gageEq));
   const ra = $("rg-apport");
   ra.min = apMin; ra.max = apMax;
   ra.disabled = apMax - apMin < 1000;
   if (ra !== skip) ra.value = m.apport;
   $("apport-v").textContent = `${chf(m.apport)} · ${pc(m.apport / m.P)} du prix`;
   $("apport-h").textContent = ra.disabled
-    ? (apMax < minEq * m.P ? `Fonds propres insuffisants pour atteindre le minimum de ${pc(minEq, 0)}.` : "Tous vos fonds propres sont nécessaires.")
-    : `De ${short(apMin)} (minimum ${pc(minEq, 0)}) à ${short(apMax)} (tout ce qui est investissable, réserve déduite). Non investi : ${chf(m.unused)}.`;
+    ? (apMax + m.gageEq < minEq * m.P ? `Fonds propres insuffisants pour atteindre le minimum de ${pc(minEq, 0)}.` : "Tous vos fonds propres sont nécessaires.")
+    : `De ${short(apMin)} (minimum ${m.gageEq > 0 ? "avec le gage" : pc(minEq, 0)}) à ${short(apMax)} (tout ce qui est investissable, réserve déduite). Non investi : ${chf(m.unused)}.`;
   const em = $("eqmin");
   em.style.left = minEq * 100 + "%";
-  em.querySelector("span").textContent = `min ${pc(minEq, 0)}`;
+  em.querySelector("span").textContent = `min ${pc(minEq, 0)}${m.gageEq > 0 ? ", gage compris" : ""}`;
   em.classList.toggle("bad", !okEq);
   $("stack").innerHTML = segs.map(([n, v, c]) => `<div style="flex-basis:${v / m.P * 100}%;background:${c}" title="${n}">${v / m.P > 0.09 ? pc(v / m.P, 0) : ""}</div>`).join("");
   $("t-ltv").textContent = `hypothèque ${pc(m.ltv)} du prix`;
@@ -1695,6 +1744,7 @@ function update(skip) {
   $("legend").innerHTML = lg.map(([n, v, c]) => `<div class="lg"><i style="background:${c}"></i><span>${n}</span><b>${chf(v)}</b></div>`).join("")
     + `<div class="lg"><i style="background:linear-gradient(135deg, var(--c-r1) 50%, var(--c-r2) 50%)"></i><span class="lg-info">Hypothèque totale ${AIDE.hypothequeTotale ? `<button type="button" class="info" aria-controls="info-loan" aria-expanded="${!$("info-loan").hidden}" aria-label="Explication : hypothèque totale">i</button>` : ""}</span><b>${chf(m.loan)}</b></div>`
     + (m.unused > 0 ? `<div class="lg"><i style="background:transparent;border:1px dashed var(--line)"></i><span>Fonds propres non utilisés</span><b>${chf(m.unused)}</b></div>` : "")
+    + (gageTotal > 0 ? `<div class="lg"><i style="background:transparent;border:1px solid var(--c-lpp)"></i><span>Mis en gage, hors fonds propres</span><b>${chf(gageTotal)}</b></div>` : "")
     + (m.avail < 0 ? `<div class="lg"><i style="background:var(--bad)"></i><span>Frais non couverts</span><b>${chf(-m.avail)}</b></div>` : "");
 
   // Charges
@@ -2126,8 +2176,8 @@ async function exportPdf() {
 
     section("Contrôles de la banque");
     row("Charges théoriques / revenu", tx(pc(m.ratio)) + (multi ? "" : `  (max ${S.ratioMax} %)`));
-    row("Fonds propres après frais", tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
-    row(sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais", tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
+    row(`Fonds propres après frais${m.gageEq > 0 ? ", gage compris" : ""}`, tx(pc(m.eqPct)) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
+    row((sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais") + (m.gageHard > 0 ? ", gage du 3e pilier compris" : ""), tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
     row("Charges à la retraite", tx(pc(m.ratioRet)) + (multi ? "" : `  (revenu ${S.retirePct} %)`));
 
     section("Le ménage");
@@ -2143,10 +2193,10 @@ async function exportPdf() {
     row("Revenu retenu par la banque", chfT(income(S)) + " / an", true);
 
     section("Fonds propres");
-    const { t1, t2 } = taxRates(E), wd1 = E.p3a1 + E.lpp1, wd2 = E.p3a2 + E.lpp2;
+    const Ret = horsGage(E), { t1, t2 } = taxRates(E), wd1 = Ret.p3a1 + Ret.lpp1, wd2 = Ret.p3a2 + Ret.lpp2;
     persons.forEach(p => {
       if (sec) row(`${S["name" + p]} : épargne`, chfT(S["cash" + p]));
-      else row(`${S["name" + p]} : épargne / 2e pilier / 3e pilier`, `${chfT(S["cash" + p])} / ${chfT(E["lpp" + p])} / ${chfT(E["p3a" + p])}`);
+      else row(`${S["name" + p]} : épargne / 2e pilier / 3e pilier`, `${chfT(S["cash" + p])} / ${chfT(Ret["lpp" + p])} / ${chfT(Ret["p3a" + p])}`);
     });
     if (S.gift) row("Donation / avance d'hoirie", chfT(S.gift));
     if (sec) para("2e et 3e pilier : non utilisables pour une résidence secondaire");
@@ -2156,6 +2206,7 @@ async function exportPdf() {
     if (S.reserve) row("Réserve gardée de côté", chfT(S.reserve));
     row("Total net", chfT(m.eq.total));
     row("Disponible après réserve", chfT(m.eq.total - S.reserve), true);
+    if (m.gage2 + m.gage3 > 0) row("Mis en gage, hors fonds propres (2e / 3e pilier)", `${chfT(m.gage2)} / ${chfT(m.gage3)}`);
     if (!S.solo) {
       const e1 = E.cash1 + wd1 * (1 - t1), e2 = E.cash2 + wd2 * (1 - t2), es = e1 + e2;
       if (es > 0) row("Répartition de l'apport", `${S.name1} ${tx(pc(e1 / es, 0))} · ${S.name2} ${tx(pc(e2 / es, 0))}`);

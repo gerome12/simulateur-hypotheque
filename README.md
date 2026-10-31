@@ -12,6 +12,7 @@ Une page web pour simuler l'achat d'un logement en Suisse et jouer avec les chif
 - Calcule en direct le prix maximum, le revenu nécessaire et les fonds propres nécessaires pour un prix donné.
 - Montre la structure du financement, les charges calculées par la banque et le coût réel par mois, et un graphique du taux d'effort selon le prix.
 - Détaille la dette année par année jusqu'à la retraite, avec les intérêts réels et l'amortissement.
+- Permet de mettre en gage le 2e ou le 3e pilier au lieu de le retirer, avec une option pour compter le gage selon la banque.
 - Compare acheter et louer sur 10 à 20 ans, à budget égal et avant impôts, avec des hypothèses réglables.
 - Exporte un résumé en PDF.
 

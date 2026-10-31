@@ -111,6 +111,17 @@ SIMU_CONFIG.textes = {
         "Après 50 ans, le montant est limité au plus élevé de ces deux montants : l'avoir à 50 ans, ajusté des retraits et remboursements faits depuis, ou la moitié de l'avoir actuel après déduction de ce qui a déjà servi au logement. Demandez le montant à votre caisse.",
         "Il sert à un seul logement à la fois.",
         "En principe au plus tard 3 ans avant le droit aux prestations de vieillesse. Le règlement de votre caisse peut réduire ce délai, mais aucun retrait une fois l'âge ordinaire de la retraite atteint.",
+        "Marié ou partenaire enregistré : le retrait et la mise en gage demandent le consentement écrit du conjoint ou du partenaire.",
+      ],
+    },
+
+    // Compter le gage dans les fonds propres
+    gageCompte: {
+      texte: "Les banques traitent le gage différemment.",
+      points: [
+        "Les directives de l'ASB admettent qu'un 3e pilier mis en gage compte comme fonds propres.",
+        "Le 2e pilier, retiré ou mis en gage, ne compte jamais dans les 10 % hors 2e pilier.",
+        "Certaines banques refusent tout financement plus élevé. Demandez à la vôtre.",
       ],
     },
 
@@ -166,6 +177,7 @@ SIMU_CONFIG.textes = {
     "Non pris en compte pour une résidence secondaire : revenus locatifs, taux souvent plus élevés, amortissement plus exigeant de certaines banques, frais accessoires plus élevés, impôts et restrictions d'achat (Lex Koller).",
     "Les retraits de 2e et 3e pilier sont imposés à part : l'impôt saisi pour chaque personne est déduit de ses retraits. Pour un couple marié ou des partenaires enregistrés vivant en ménage commun, les retraits d'une même année sont en général additionnés pour fixer l'impôt : ce simulateur ne le calcule pas, c'est l'impôt saisi qui compte.",
     "Tous les fonds propres disponibles servent à réduire l'hypothèque, sauf la réserve que vous gardez.",
+    "Mise en gage du 2e ou du 3e pilier : pas de retrait ni d'impôt, l'argent reste en prévoyance, mais l'hypothèque et les intérêts sont plus élevés. Par défaut, le gage ne compte pas : les 20 % et les 10 % portent sur les fonds propres réels. Chaque banque le traite à sa façon, ce simulateur ne fixe aucune limite de financement.",
     "Amortissement dans le temps. Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel constant, sans renouvellement de l'hypothèque, aucune vente, jusqu'à la retraite de la personne la plus âgée (la personne 2 ne compte que si elle a un revenu).",
     "Acheter ou louer : comparaison indicative à budget égal, avant impôts, flux en fin d'année. L'acheteur paie intérêts, amortissement et charges constants ; le locataire paie un loyer qui suit la hausse choisie, et place au départ ce que l'achat aurait mobilisé : apport, frais et impôt sur les retraits. Le rendement, les hausses et les frais de vente sont des hypothèses à ajuster. Sans objet pour une résidence secondaire.",
     "Les frais par canton et les montants d'allocations sont des ordres de grandeur à vérifier ; ils restent modifiables. Ce simulateur ne remplace pas une offre bancaire.",

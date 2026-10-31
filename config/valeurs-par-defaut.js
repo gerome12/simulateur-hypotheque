@@ -23,6 +23,9 @@ SIMU_CONFIG.valeursParDefaut = {
   taxMode: "pct",              // impôt saisi en "pct" (%) ou en "chf" (montant)
   taxChf: 8400,                 // impôt estimé en CHF (mode "chf"), réparti selon les retraits de chacun (facultatif : taxChf1 et taxChf2)
   reserve: 0,                   // réserve gardée de côté
+  modeLpp1: "retrait", modeP3a1: "retrait",   // pilier "retrait" ou "gage" : mis en gage, il reste en prévoyance et n'entre pas dans les fonds propres
+  modeLpp2: "retrait", modeP3a2: "retrait",
+  gageCompte: false,            // compter le gage dans les contrôles de fonds propres, selon la banque
 
   // Le bien
   price: 1200000,
