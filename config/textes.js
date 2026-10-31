@@ -127,6 +127,37 @@ SIMU_CONFIG.textes = {
       ],
     },
 
+    // Impôt sur le gain immobilier du bien vendu
+    abImpotGain: {
+      texte: "Impôt cantonal sur le gain de la vente. Ce simulateur ne le calcule pas : indiquez votre estimation.",
+      points: [
+        "Remploi : pour un logement habité durablement et exclusivement par vous jusqu'à la vente, l'impôt est différé si le produit sert, dans un délai approprié, à acquérir en Suisse un logement au même usage. À vérifier auprès de votre canton.",
+        "Pas de report pour une résidence secondaire.",
+      ],
+    },
+
+    // Part du bien vendu venant du 2e pilier
+    abEPL: {
+      texte: "Montant du 2e pilier déjà retiré pour le bien vendu.",
+      points: [
+        "À la vente, il doit être remboursé à la caisse, dans la limite du produit de la vente (prix moins hypothèque et charges légales).",
+        "Traiter l'impôt sur le gain comme une charge légale est une lecture à confirmer par votre caisse.",
+        "Les prêts contractés dans les 2 ans avant la vente ne comptent pas, sauf preuve qu'ils ont financé le logement.",
+        "Si vous réinvestissez dans un logement à usage propre dans les 2 ans, il peut aller sur une institution de libre passage en attendant. Ici, il compte comme 2e pilier, pas dans les fonds propres durs.",
+        "Uniquement pour la même personne assurée, propriétaire et habitant le nouveau logement. La mention au registre foncier suit le nouveau bien.",
+        "Pour une résidence secondaire, il n'est pas disponible : il est retiré du net.",
+        "Après un remboursement, l'impôt payé sur ce retrait peut être restitué sur demande, dans les 3 ans. Ce simulateur ne le compte pas.",
+      ],
+    },
+
+    // Durée du crédit relais
+    abRelaisMois: {
+      texte: "Durée prévue du crédit relais, le temps de vendre.",
+      points: [
+        "Sa durée et son montant dépendent de la banque : ce simulateur ne fixe aucun plafond.",
+      ],
+    },
+
     // Âge de la retraite
     retireAge: {
       texte: "Âge auquel la banque refait le contrôle des charges avec le revenu de retraite.",
@@ -182,6 +213,7 @@ SIMU_CONFIG.textes = {
     "Mise en gage du 2e ou du 3e pilier : pas de retrait ni d'impôt, l'argent reste en prévoyance, mais l'hypothèque et les intérêts sont plus élevés. Par défaut, le gage ne compte pas : les 20 % et les 10 % portent sur les fonds propres réels. Chaque banque le traite à sa façon, ce simulateur ne fixe aucune limite de financement. À la retraite, en cas de paiement en espèces ou de divorce, le versement du montant gagé demande l'accord écrit de la banque. Si la banque réalise le gage, il est imposé comme prestation en capital et les prestations de prévoyance baissent.",
     "Amortissement dans le temps. Simplification : amortissement direct, un versement annuel en fin d'année. Selon les directives de l'ASB, il commence en fin de trimestre au plus tard 12 mois après le versement du prêt : votre banque peut donc le prélever plus souvent, avec des intérêts un peu plus bas. L'amortissement indirect (par exemple 3e pilier mis en gage), où la dette ne baisse pas, n'est pas modélisé. Taux réel constant, sans renouvellement de l'hypothèque, aucune vente, jusqu'à la retraite de la personne la plus âgée (la personne 2 ne compte que si elle a un revenu).",
     "Acheter ou louer : comparaison indicative à budget égal, avant impôts, flux en fin d'année. L'acheteur paie intérêts, amortissement et charges constants ; le locataire paie un loyer qui suit la hausse choisie, et place au départ ce que l'achat aurait mobilisé : apport, frais et impôt sur les retraits. Le rendement, les hausses et les frais de vente sont des hypothèses à ajuster. Sans objet pour une résidence secondaire.",
+    "Autre bien. Vente : le net (prix moins hypothèque, frais et impôt saisi) compte en fonds propres. La part venant du 2e pilier compte comme 2e pilier si elle est réinvestie dans un logement à usage propre, et revient à la caisse pour une résidence secondaire. Crédit relais et emprunt sur un bien gardé dépendent de la banque. Un bien gardé ajoute ses charges théoriques au contrôle du revenu, sans ses revenus locatifs.",
     "Les frais par canton et les montants d'allocations sont des ordres de grandeur à vérifier ; ils restent modifiables. Ce simulateur ne remplace pas une offre bancaire.",
   ],
 
