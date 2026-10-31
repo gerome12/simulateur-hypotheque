@@ -1429,7 +1429,7 @@ function feesGE(P, C, casatax) {
 
 // Résidence secondaire : ni 2e ni 3e pilier, pas de Casatax, financement limité à ltvMaxSec et 1er rang à rank1PctSec. Les valeurs saisies ne changent pas.
 function effectif(s) {
-  return s.usage === "secondaire" ? { ...s, lpp1: 0, lpp2: 0, p3a1: 0, p3a2: 0, casatax: false, ltvMax: s.ltvMaxSec, rank1Pct: s.rank1PctSec } : s;
+  return s.usage === "secondaire" ? { ...s, lpp1: 0, lpp2: 0, p3a1: 0, p3a2: 0, casatax: false, ltvMax: s.ltvMaxSec, rank1Pct: s.rank1PctSec, rank1PctBase: s.rank1PctBase ?? s.rank1Pct } : s;
 }
 // Allocations par an : un montant pour les deux premiers enfants, un autre dès le 3e
 const allocAnnuelle = s => 12 * (Math.min(s.kids, 2) * s.alloc + Math.max(s.kids - 2, 0) * s.alloc3);
@@ -1451,25 +1451,26 @@ function taxRates(s) {
   };
   return { t1: t(1), t2: t(2) };
 }
-// Autre bien, indépendant du prix. Vente : LPP 30d, le 2e pilier retiré revient à la caisse, dans la limite du produit (al. 5),
-// sauf remploi dans un logement à usage propre dans les 2 ans (al. 4). Bien gardé : charges calculées comme celles du modèle.
+// Autre bien, indépendant du prix. Vente : LPP 30d, le 2e pilier retiré revient à la caisse, dans la limite du produit, frais de vente
+// non déduits (al. 5), sauf remploi dans un logement à usage propre dans les 2 ans (al. 4), où il ne compte que dans la limite du net.
+// Bien gardé : charges calculées comme celles du modèle, sur la plus haute des deux hypothèques.
 function autreBien(s) {
   const r = { brut: 0, net: 0, epl: 0, durs: 0, lpp: 0, cout: 0, degage: 0, charges: 0, chargesRet: 0, reel: 0 };
   if (s.abMode === "vente" || s.abMode === "relais") {
     const sec = s.usage === "secondaire";
     r.brut = s.abPrixVente - s.abHypotheque - s.abFraisVente - s.abImpotGain;
-    r.epl = Math.min(s.abEPL, Math.max(0, r.brut));
+    r.epl = Math.min(s.abEPL, Math.max(0, sec ? s.abPrixVente - s.abHypotheque - s.abImpotGain : r.brut));
     r.net = sec ? r.brut - r.epl : r.brut;
     r.lpp = sec ? 0 : r.epl;
     if (s.abMode === "relais") r.cout = Math.max(0, r.net) * s.abRelaisTaux / 100 * s.abRelaisMois / 12;
     r.durs = r.net - r.lpp - r.cout;
   } else if (s.abMode === "conserve") {
-    const rang1 = s.abValeur * s.rank1Pct / 100, entretien = s.abValeur * s.maintPct / 100;
-    const amort = Math.max(0, s.abHypoNouvelle - rang1) / Math.max(1, s.amortMax);
+    const dette = Math.max(s.abHypoNouvelle, s.abHypoActuelle), rang1 = s.abValeur * (s.rank1PctBase ?? s.rank1Pct) / 100, entretien = s.abValeur * s.maintPct / 100;
+    const amort = Math.max(0, dette - rang1) / Math.max(1, s.amortMax);
     r.degage = r.durs = Math.max(0, s.abHypoNouvelle - s.abHypoActuelle);
-    r.charges = s.abHypoNouvelle * s.rate / 100 + entretien + amort;
-    r.chargesRet = Math.min(s.abHypoNouvelle, rang1) * s.rate / 100 + entretien;
-    r.reel = s.abHypoNouvelle * s.realRate / 100 + entretien + amort;
+    r.charges = dette * s.rate / 100 + entretien + amort;
+    r.chargesRet = Math.min(dette, rang1) * s.rate / 100 + entretien;
+    r.reel = dette * s.realRate / 100 + entretien + amort;
   }
   return r;
 }
@@ -1590,7 +1591,7 @@ const alBiais = (s, al) => ["Le loyer de départ doit être celui d'un logement 
 function alMessages(s, m, status) {
   const msgs = [];
   if (status === "bad") msgs.push("Ce prix n'est pas finançable en l'état : la comparaison reste théorique.");
-  if (s.abMode === "relais") msgs.push("Cette comparaison ne tient pas compte de l'autre bien.");
+  if (s.abMode === "vente" || s.abMode === "relais") msgs.push("L'épargne du locataire reprend le net de la vente : le bien est supposé vendu dans les deux cas.");
   if (!(m.P > 0)) msgs.push("Aucun prix saisi : il n'y a rien à comparer.");
   else if (!(m.apport > 0)) msgs.push("Fonds propres insuffisants : aucun apport possible. L'épargne de départ du locataire reprend les frais d'achat, même si vous ne les avez pas.");
   if (!(s.rent > 0)) msgs.push("Aucun loyer saisi : le locataire ne paie rien dans ce calcul. Indiquez votre loyer dans « Ma simulation ».");
@@ -1602,7 +1603,10 @@ function abRaisons(s, ab) {
   const msgs = [];
   if (ab.net < 0) msgs.push("Autre bien : le net de la vente est négatif, il réduit vos fonds propres.");
   if (s.abMode === "relais") msgs.push("Vente pas encore faite : la banque doit accepter de compter ce montant, et le délai de vente est un risque.");
-  if (ab.degage > 0) msgs.push("Ce montant est un emprunt : la banque doit l'accepter comme fonds propres.");
+  if (ab.degage > 0) msgs.push("Ce montant est un emprunt : la banque doit l'accepter comme fonds propres. Les directives de l'ASB ne citent pas ce cas : seule la banque décide.");
+  if (s.abMode === "conserve" && s.abHypoNouvelle < s.abHypoActuelle) msgs.push("L'hypothèque nouvelle est plus basse que l'actuelle : aucun montant n'est dégagé.");
+  if (s.abMode === "conserve" && s.usage !== "secondaire" && s.lpp1 + s.lpp2 > 0) msgs.push("Si le bien gardé a déjà été financé par le 2e pilier, ce pilier ne peut en principe pas servir à un autre logement, sauf remboursement.");
+  if (s.abMode === "conserve" && s.usage === "secondaire" && s.chargesPrincipale > 0) msgs.push("Si le bien gardé est votre logement principal, ne comptez pas ses charges deux fois.");
   if (s.abMode === "conserve" && s.abHypoNouvelle > s.abValeur * AB_ALERTE_LTV / 100) msgs.push(`Autre bien : hypothèque à ${s.abValeur > 0 ? pc(s.abHypoNouvelle / s.abValeur) : "plus de 100 %"} de sa valeur, au-delà de ${AB_ALERTE_LTV} %.`);
   return msgs;
 }
@@ -1635,13 +1639,18 @@ const BANKS = Array.isArray(CFG.banques) && CFG.banques.length ? CFG.banques : n
 // Gage compté : au-delà de ces seuils, le financement dépend de la banque
 const gageAlerte = m => m.gageEq > 0 && m.ltv > GAGE_LTV.alerte / 100 ? `Hypothèque à ${pc(m.ltv)} du prix : au-delà de ${GAGE_LTV.alerte} %, le gage n'augmente le financement que si la banque l'accepte.` : null;
 const gageTropHaut = m => m.gageEq > 0 && m.ltv > GAGE_LTV.max / 100;
+// Bien gardé : les contrôles de fonds propres ne passent que grâce au montant emprunté
+const okFonds = (m, minEq) => m.apport + m.gageEq >= minEq * m.P - 0.5 && m.hardPct * m.P >= 0.10 * m.P - 0.5;
+const abEmpruntDecisif = (st, m, minEq) => m.ab.degage > 0 && okFonds(m, minEq) && !okFonds(model({ ...st, abMode: "aucun" }, m.P), minEq);
+const AB_EMPRUNT_MSG = "Les fonds propres ne passent le contrôle que grâce à ce montant emprunté.";
 // Verdict d'une situation donnée (les hypothèses d'une banque appliquées aux chiffres saisis)
 function verdict(st) {
   st = effectif(st);   // après la fusion avec les hypothèses de la banque
   const m = model(st, st.price), lim = st.ratioMax / 100, minEq = 1 - st.ltvMax / 100;
   const okRatio = m.ratio <= lim, okEq = m.apport + m.gageEq >= minEq * m.P - 0.5, okHard = m.hardPct * m.P >= 0.10 * m.P - 0.5, okRet = m.ratioRet <= lim;
   const near = okRatio && m.ratio > lim - 0.015;
-  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m)) ? "warn" : "ok";
+  const decisif = abEmpruntDecisif(st, m, minEq);
+  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m) || decisif) ? "warn" : "ok";
   const why = [];
   if (!okRatio) why.push(`charges ${pc(m.ratio)} au-delà de ${st.ratioMax} %`);
   else if (near) why.push(`charges ${pc(m.ratio)}, plafond ${st.ratioMax} %`);
@@ -1649,7 +1658,8 @@ function verdict(st) {
   if (!okHard) why.push(`fonds propres ${st.usage === "secondaire" ? "durs" : "hors 2e pilier"} ${pc(m.hardPct)}, minimum 10 %`);
   if (!okRet) why.push(`charges à la retraite ${pc(m.ratioRet)}`);
   if (gageAlerte(m)) why.push(gageAlerte(m));
-  return { status, why, alerte: gageAlerte(m) };
+  if (decisif) why.push(AB_EMPRUNT_MSG);
+  return { status, why, alerte: [gageAlerte(m), decisif && AB_EMPRUNT_MSG].filter(Boolean).join(" ") || null };
 }
 
 function gauge(id, val, limit, scaleMax, text, sub, state) {
@@ -1690,7 +1700,9 @@ function update(skip) {
   reasons.push(...eplRaisons(), ...abRaisons(S, m.ab));
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
-  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m)) ? "warn" : "ok";
+  const decisif = abEmpruntDecisif(S, m, minEq);
+  const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m) || decisif) ? "warn" : "ok";
+  if (decisif) reasons.push(AB_EMPRUNT_MSG);
   const label = { ok: "Finançable", warn: "À la limite", bad: "Non finançable" }[status];
   for (const id of ["vpill", "m-pill"]) { $(id).className = "pill " + status; $(id).textContent = label; }
   if (near) reasons.unshift(`Taux d'effort proche du plafond : peu de marge si la banque est plus stricte.`);

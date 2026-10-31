@@ -131,7 +131,7 @@ SIMU_CONFIG.textes = {
     abImpotGain: {
       texte: "Impôt cantonal sur le gain de la vente. Ce simulateur ne le calcule pas : indiquez votre estimation.",
       points: [
-        "Remploi : pour un logement habité durablement et exclusivement par vous, l'impôt est différé si le produit sert, dans un délai approprié, à acquérir en Suisse un logement au même usage. À vérifier auprès de votre canton.",
+        "Remploi : pour un logement habité durablement et exclusivement par vous jusqu'à la vente, l'impôt est différé si le produit sert, dans un délai approprié, à acquérir en Suisse un logement au même usage. À vérifier auprès de votre canton.",
         "Pas de report pour une résidence secondaire.",
       ],
     },
@@ -140,8 +140,11 @@ SIMU_CONFIG.textes = {
     abEPL: {
       texte: "Montant du 2e pilier déjà retiré pour le bien vendu.",
       points: [
-        "À la vente, il doit être remboursé à la caisse, dans la limite du produit de la vente.",
+        "À la vente, il doit être remboursé à la caisse, dans la limite du produit de la vente (prix moins hypothèque et charges légales).",
+        "Traiter l'impôt sur le gain comme une charge légale est une lecture à confirmer par votre caisse.",
+        "Les prêts contractés dans les 2 ans avant la vente ne comptent pas, sauf preuve qu'ils ont financé le logement.",
         "Si vous réinvestissez dans un logement à usage propre dans les 2 ans, il peut aller sur une institution de libre passage en attendant. Ici, il compte comme 2e pilier, pas dans les fonds propres durs.",
+        "Uniquement pour la même personne assurée, propriétaire et habitant le nouveau logement. La mention au registre foncier suit le nouveau bien.",
         "Pour une résidence secondaire, il n'est pas disponible : il est retiré du net.",
         "Après un remboursement, l'impôt payé sur ce retrait peut être restitué sur demande, dans les 3 ans. Ce simulateur ne le compte pas.",
       ],
