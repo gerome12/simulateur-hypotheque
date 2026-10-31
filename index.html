@@ -49,7 +49,13 @@ body {
   padding-block: 28px 96px;
 }
 .wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 24px; }
-header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+header.top { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.langue { order: -1; flex: 0 0 100%; display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--ink); }
+.langue svg { flex: none; }
+@media (min-width: 1100px) {
+  .langue { position: absolute; top: 0; right: 0; }
+  header.top:has(.langue) { min-height: 80px; }
+}
 .brand { display: flex; gap: 14px; align-items: center; }
 .cross { width: 34px; height: 34px; background: var(--swiss); border-radius: 4px; position: relative; flex: none; }
 .cross::before, .cross::after { content: ""; position: absolute; background: #fff; left: 50%; top: 50%; transform: translate(-50%,-50%); }
@@ -146,7 +152,6 @@ select, button { font: inherit; }
 #gageBloc .frow { flex-wrap: nowrap; align-items: flex-start; }
 #abBloc { border-top: 1px solid var(--line); margin: 12px 0; padding-top: 10px; }
 #abBloc h3 { font-size: 13.5px; font-weight: 500; margin: 0 0 6px; }
-.seg-lang { margin-left: 0; }
 html:not([lang="fr"]) .seg-mode { grid-auto-columns: max-content; }
 html:not([lang="fr"]) .seg-mode button { width: auto; padding: 5px 8px; }
 .seg-ab { display: flex; flex-wrap: wrap; width: fit-content; margin-left: 0; }
@@ -166,7 +171,7 @@ html:not([lang="fr"]) .seg-mode button { width: auto; padding: 5px 8px; }
 .casatax .tick { width: 2px; height: 24px; background: var(--warn); border-radius: 1px; }
 .casatax .lbl { font: 500 11px/1.2 var(--font-data); color: var(--warn); white-space: nowrap; transform: translateX(-50%); }
 @media print {
-  .tabs, #tab-rates, #tab-al, .top-actions, .dossier-msg, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
+  .tabs, #tab-rates, #tab-al, .top-actions, .langue, .dossier-msg, .mbar, .lockbar, .btn, .pen, .rmp, .addp, .seg, .info, .infobox, input[type=range], .casatax, details.rules { display: none !important; }
   body { padding-block: 0; background: #fff; color: #000; }
   .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "summary" "inputs" "details"; }
   .panel, .verdict { break-inside: avoid; }
@@ -689,6 +694,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 // Textes de l'interface, en français : la source, et le repli quand une traduction ou le dossier config/ manque.
 // Les bulles, les règles et le titre sont dans config/langues/fr.js. Une clé par phrase, des paramètres {nom}.
 const LANGUES = ["fr", "de", "en"], LANGUE_MEMO = "simu-hypo-ch-langue";
+const LANGUE_NOMS = { fr: "Français", de: "Deutsch", en: "English" };   // chacune dans sa langue, jamais traduits
 const LANGUE_LOCALE = { fr: "fr-CH", de: "de-CH", en: "en-CH" };
 const langueDispo = l => l === "fr" || (LANGUES.includes(l) && !!window.SIMU_CONFIG?.langues?.[l]);
 // Langue de la page : ?lang= d'abord, puis le choix mémorisé, sinon le français. Hors de S et du dossier.
@@ -3115,18 +3121,18 @@ $("casataxTxt").textContent = CED_RED === 0.5 ? t("msg.achat_au_plus_habite_au",
 const LANGUE_ETAT = "simu-hypo-langue:", LANGUE_JETON = "simu-hypo-langue-jeton";
 function changerLangue(l) {
   let memo = false, jeton = null;
-  try { localStorage.setItem(LANGUE_MEMO, l); memo = localStorage.getItem(LANGUE_MEMO) === l; } catch (e) {}
   try { jeton = crypto.randomUUID(); sessionStorage.setItem(LANGUE_JETON, jeton); if (sessionStorage.getItem(LANGUE_JETON) !== jeton) jeton = null; } catch (e) { jeton = null; }
   if (jeton) window.name = `${LANGUE_ETAT}${jeton}:${JSON.stringify({ S, touched, tab: TAB })}`;
-  else if (!confirm(t("langue.perte"))) return;
+  else if (!confirm(t("langue.perte"))) { $("langue").value = LANGUE; return; }
+  try { localStorage.setItem(LANGUE_MEMO, l); memo = localStorage.getItem(LANGUE_MEMO) === l; } catch (e) {}
   const u = new URL(location.href);
   if (u.searchParams.has("lang") || !memo) u.searchParams.set("lang", l);
   if (u.href === location.href) location.reload(); else location.replace(u.href);
 }
 const langues = LANGUES.filter(langueDispo);
 if (langues.length > 1) {
-  document.querySelector(".top-actions").insertAdjacentHTML("afterbegin", `<span class="seg seg-lang" role="group" aria-label="${t("langue.choix")}">${langues.map(l => `<button type="button" data-lang="${l}" aria-pressed="${l === LANGUE}">${l.toUpperCase()}</button>`).join("")}</span>`);
-  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { if (b.dataset.lang !== LANGUE) changerLangue(b.dataset.lang); }));
+  document.querySelector(".top").insertAdjacentHTML("afterbegin", `<div class="langue"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><select id="langue" class="canton" aria-label="${t("langue.choix")}">${langues.map(l => `<option value="${l}"${l === LANGUE ? " selected" : ""}>${LANGUE_NOMS[l]}</option>`).join("")}</select></div>`);
+  $("langue").addEventListener("change", e => { if (e.target.value !== LANGUE) changerLangue(e.target.value); });
 }
 if (t("langue.bandeau")) document.querySelector(".top").insertAdjacentHTML("afterend", `<p class="note" id="langueNote">${fmtTxt(t("langue.bandeau"))}</p>`);
 {
