@@ -33,7 +33,8 @@ window.SIMU_CONFIG_FICHIERS = [
   "geneve",                 // barème des notaires de Genève et Casatax
   "curseurs",               // bornes des curseurs
   "langues/fr",             // textes explicatifs en français : titre, bulles (i), règles, avertissement du PDF
-  "langues/en"              // traduction anglaise : sans ce fichier, la page reste en français
+  "langues/en",             // traduction anglaise : sans ce fichier, la page reste en français
+  "langues/de"              // traduction allemande : sans ce fichier, le bouton DE n'apparaît pas
 ];
 
 // Fichiers facultatifs, à ajouter à la liste ci-dessus s'ils existent :
