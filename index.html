@@ -1452,14 +1452,14 @@ function taxRates(s) {
   return { t1: t(1), t2: t(2) };
 }
 // Autre bien, indépendant du prix. Vente : LPP 30d, le 2e pilier retiré revient à la caisse, dans la limite du produit, frais de vente
-// non déduits (al. 5), sauf remploi dans un logement à usage propre dans les 2 ans (al. 4), où il ne compte que dans la limite du net.
+// non déduits (al. 5), sauf remploi dans un logement à usage propre dans les 2 ans (al. 4). Le total ne change pas : ce qui dépasse le net sort des durs.
 // Bien gardé : charges calculées comme celles du modèle, sur la plus haute des deux hypothèques.
 function autreBien(s) {
   const r = { brut: 0, net: 0, epl: 0, durs: 0, lpp: 0, cout: 0, degage: 0, charges: 0, chargesRet: 0, reel: 0 };
   if (s.abMode === "vente" || s.abMode === "relais") {
     const sec = s.usage === "secondaire";
     r.brut = s.abPrixVente - s.abHypotheque - s.abFraisVente - s.abImpotGain;
-    r.epl = Math.min(s.abEPL, Math.max(0, sec ? s.abPrixVente - s.abHypotheque - s.abImpotGain : r.brut));
+    r.epl = Math.min(s.abEPL, Math.max(0, s.abPrixVente - s.abHypotheque - s.abImpotGain));
     r.net = sec ? r.brut - r.epl : r.brut;
     r.lpp = sec ? 0 : r.epl;
     if (s.abMode === "relais") r.cout = Math.max(0, r.net) * s.abRelaisTaux / 100 * s.abRelaisMois / 12;
