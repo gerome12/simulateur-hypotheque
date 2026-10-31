@@ -1,5 +1,5 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><link rel="icon" type="image/svg+xml" href="assets/favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png"></head><body>
-<title data-t="html.simulateur_hypothecaire_suisse"></title>
+<title>Simulateur hypothécaire suisse</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,6 +146,9 @@ select, button { font: inherit; }
 #gageBloc .frow { flex-wrap: nowrap; align-items: flex-start; }
 #abBloc { border-top: 1px solid var(--line); margin: 12px 0; padding-top: 10px; }
 #abBloc h3 { font-size: 13.5px; font-weight: 500; margin: 0 0 6px; }
+.seg-lang { margin-left: 0; }
+html:not([lang="fr"]) .seg-mode { grid-auto-columns: max-content; }
+html:not([lang="fr"]) .seg-mode button { width: auto; padding: 5px 8px; }
 .seg-ab { display: flex; flex-wrap: wrap; width: fit-content; margin-left: 0; }
 .seg-ab button { width: auto; padding: 5px 10px; }
 #ab-msg { margin-top: 6px; }
@@ -684,8 +687,18 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
 <script>
 // Textes de l'interface, en français : la source, et le repli quand une traduction ou le dossier config/ manque.
 // Les bulles, les règles et le titre sont dans config/langues/fr.js. Une clé par phrase, des paramètres {nom}.
-const LANGUE = "fr";
+const LANGUES = ["fr", "de", "en"], LANGUE_MEMO = "simu-hypo-ch-langue";
+const LANGUE_LOCALE = { fr: "fr-CH", de: "de-CH", en: "en-CH" };
+const langueDispo = l => l === "fr" || (LANGUES.includes(l) && !!window.SIMU_CONFIG?.langues?.[l]);
+// Langue de la page : ?lang= d'abord, puis le choix mémorisé, sinon le français. Hors de S et du dossier.
+const LANGUE = (() => {
+  let memo = null;
+  try { memo = localStorage.getItem(LANGUE_MEMO); } catch (e) {}
+  return [new URLSearchParams(location.search).get("lang"), memo].find(langueDispo) || "fr";
+})();
 const FR = {
+  "langue.choix": "Langue",
+  "langue.bandeau": "",
   "html.simulateur_hypothecaire_suisse": "Simulateur hypothécaire suisse",
   "html.chiffres_exemple": "Chiffres d'exemple",
   "html.conseiller": "Conseiller",
@@ -1243,8 +1256,10 @@ const FR = {
 // Texte d'une clé dans la langue de la page, sinon en français, sinon la clé
 function t(cle, params) {
   const v = window.SIMU_CONFIG?.langues?.[LANGUE]?.[cle] ?? FR[cle] ?? cle;
-  return params ? v.replace(/\{(\w+)\}/g, (m, k) => k in params ? params[k] : m) : v;
+  return params ? v.replace(/\{(\w+)\}/g, (m, k) => Object.hasOwn(params, k) ? params[k] : m) : v;
 }
+document.documentElement.lang = LANGUE;
+document.title = t("html.simulateur_hypothecaire_suisse");
 // HTML statique : data-t pour le contenu, data-ta-* pour les attributs. Les marques sont retirées une fois appliquées.
 document.querySelectorAll("[data-t]").forEach(el => { el.innerHTML = t(el.dataset.t); el.removeAttribute("data-t"); });
 for (const a of ["aria-label", "title", "placeholder", "alt"]) document.querySelectorAll(`[data-ta-${a}]`).forEach(el => { el.setAttribute(a, t(el.getAttribute("data-ta-" + a))); el.removeAttribute("data-ta-" + a); });
@@ -1254,9 +1269,14 @@ const CFG = window.SIMU_CONFIG || {};
 // Textes explicatifs : config/langues/fr.js est leur seule source (sans ce fichier, pas de titre, de bulles (i) ni de règles)
 const TXT = CFG.langues?.[LANGUE] || CFG.langues?.fr || CFG.textes || {};
 // Mise en forme des textes simples : **gras**, 1er / 2e en exposant, espaces insécables (avant % et « ans », après 1er / 2e)
-const fmtTxt = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))
-  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\b1er\b/g, "1<sup>er</sup>").replace(/\b(\d+)e\b/g, "$1<sup>e</sup>").replace(/ %/g, "&nbsp;%")
-  .replace(/(<sup>e?r?<\/sup>) /g, "$1&nbsp;").replace(/ ans\b/g, "&nbsp;ans");
+const fmtTxt = txt => {
+  const s = String(txt).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  if (LANGUE !== "fr") return s;
+  return s.replace(/\b1er\b/g, "1<sup>er</sup>").replace(/\b(\d+)e\b/g, "$1<sup>e</sup>").replace(/ %/g, "&nbsp;%")
+    .replace(/(<sup>e?r?<\/sup>) /g, "$1&nbsp;").replace(/ ans\b/g, "&nbsp;ans");
+};
+// « 2e » et « 1er » en exposant dans les libellés, en français seulement
+const expo = s => LANGUE === "fr" ? s.replace(/(\d)e /g, "$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>") : s;
 // Une bulle : { texte, points } → paragraphe + liste à puces
 const blocTxt = a => (a.texte ? `<p>${fmtTxt(a.texte)}</p>` : "") + (a.points?.length ? `<ul>${a.points.map(p => `<li>${fmtTxt(p)}</li>`).join("")}</ul>` : "");
 const AIDE = Object.fromEntries(Object.entries(TXT.aide || {}).filter(([, v]) => v && typeof v === "object").map(([k, v]) => [k, blocTxt(v)]));
@@ -1319,7 +1339,7 @@ const DEFAULTS = {
   alHorizon: 15, alHausseLoyer: 1.5, alHausseBien: 1, alRendement: 2, alFraisVente: 2,
   lockPrice: false,
   gRate: 5, gReal: 1.6, gMin: 200000, gMax: 2000000, gFees: 5, eMin: 200000, eMax: 2000000,
-  name1: t("html.personne_1"), name2: t("html.personne_2"),
+  name1: "Personne 1", name2: "Personne 2",
   feesMode: "ge", feesChf: 60000, casatax: true, cedReprise: 0,
   solo: false, p2saved: null,
   apportSel: null,
@@ -1360,14 +1380,14 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 
 const F = {
   p1: [
-    { id: "inc1", who: t("html.personne_1"), label: t("msg.salaire_brut"), min: 0, max: 400000, step: 1000, unit: "CHF" },
-    { id: "bonus1", who: t("html.personne_1"), label: t("msg.bonus"), min: 0, max: 150000, step: 1000, unit: "CHF" },
-    { id: "age1", who: t("html.personne_1"), label: t("html.age"), min: 20, max: 70, step: 1, unit: t("msg.ans") }
+    { id: "inc1", who: t("html.personne_1"), n: 1, label: t("msg.salaire_brut"), min: 0, max: 400000, step: 1000, unit: "CHF" },
+    { id: "bonus1", who: t("html.personne_1"), n: 1, label: t("msg.bonus"), min: 0, max: 150000, step: 1000, unit: "CHF" },
+    { id: "age1", who: t("html.personne_1"), n: 1, label: t("html.age"), min: 20, max: 70, step: 1, unit: t("msg.ans") }
   ],
   p2: [
-    { id: "inc2", who: t("html.personne_2"), label: t("msg.salaire_brut"), min: 0, max: 400000, step: 1000, unit: "CHF" },
-    { id: "bonus2", who: t("html.personne_2"), label: t("msg.bonus"), min: 0, max: 150000, step: 1000, unit: "CHF" },
-    { id: "age2", who: t("html.personne_2"), label: t("html.age"), min: 20, max: 70, step: 1, unit: t("msg.ans") }
+    { id: "inc2", who: t("html.personne_2"), n: 2, label: t("msg.salaire_brut"), min: 0, max: 400000, step: 1000, unit: "CHF" },
+    { id: "bonus2", who: t("html.personne_2"), n: 2, label: t("msg.bonus"), min: 0, max: 150000, step: 1000, unit: "CHF" },
+    { id: "age2", who: t("html.personne_2"), n: 2, label: t("html.age"), min: 20, max: 70, step: 1, unit: t("msg.ans") }
   ],
   menage2: [
     { id: "bonusPct", label: t("msg.part_du_bonus_retenue"), min: 0, max: 100, step: 5, unit: t("msg.texte"), hint: t("msg.souvent_la_moyenne_des_3") },
@@ -1383,18 +1403,18 @@ const F = {
     { id: "chargesPrincipale", label: t("msg.charges_du_logement_principal"), min: 0, max: 20000, step: 50, unit: t("msg.chf_mois"), hint: t("msg.votre_loyer_ou_vos_charges") }
   ],
   eq1: [
-    { id: "cash1", color: "cash", who: t("html.personne_1"), label: t("msg.epargne"), min: 0, max: 1500000, step: 5000, unit: "CHF" },
-    { id: "lpp1", color: "lpp", who: t("html.personne_1"), label: t("msg.2e_pilier_epl"), min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true, segMode: true },
-    { id: "p3a1", color: "3a", who: t("html.personne_1"), label: t("msg.3e_pilier_3a"), min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true, segMode: true },
-    { id: "taxPct1", who: t("html.personne_1"), label: t("msg.impot_sur_retraits"), min: 0, max: 15, step: 0.5, unit: t("msg.texte"), dyn: true, segTax: true },
-    { id: "taxChf1", who: t("html.personne_1"), label: t("msg.impot_sur_retraits"), min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
+    { id: "cash1", color: "cash", who: t("html.personne_1"), n: 1, label: t("msg.epargne"), min: 0, max: 1500000, step: 5000, unit: "CHF" },
+    { id: "lpp1", color: "lpp", who: t("html.personne_1"), n: 1, label: t("msg.2e_pilier_epl"), min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true, segMode: true },
+    { id: "p3a1", color: "3a", who: t("html.personne_1"), n: 1, label: t("msg.3e_pilier_3a"), min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true, segMode: true },
+    { id: "taxPct1", who: t("html.personne_1"), n: 1, label: t("msg.impot_sur_retraits"), min: 0, max: 15, step: 0.5, unit: t("msg.texte"), dyn: true, segTax: true },
+    { id: "taxChf1", who: t("html.personne_1"), n: 1, label: t("msg.impot_sur_retraits"), min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
   ],
   eq2: [
-    { id: "cash2", color: "cash", who: t("html.personne_2"), label: t("msg.epargne"), min: 0, max: 1500000, step: 5000, unit: "CHF" },
-    { id: "lpp2", color: "lpp", who: t("html.personne_2"), label: t("msg.2e_pilier_epl"), min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true, segMode: true },
-    { id: "p3a2", color: "3a", who: t("html.personne_2"), label: t("msg.3e_pilier_3a"), min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true, segMode: true },
-    { id: "taxPct2", who: t("html.personne_2"), label: t("msg.impot_sur_retraits"), min: 0, max: 15, step: 0.5, unit: t("msg.texte"), dyn: true, segTax: true },
-    { id: "taxChf2", who: t("html.personne_2"), label: t("msg.impot_sur_retraits"), min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
+    { id: "cash2", color: "cash", who: t("html.personne_2"), n: 2, label: t("msg.epargne"), min: 0, max: 1500000, step: 5000, unit: "CHF" },
+    { id: "lpp2", color: "lpp", who: t("html.personne_2"), n: 2, label: t("msg.2e_pilier_epl"), min: 0, max: 800000, step: 5000, unit: "CHF", dyn: true, segMode: true },
+    { id: "p3a2", color: "3a", who: t("html.personne_2"), n: 2, label: t("msg.3e_pilier_3a"), min: 0, max: 400000, step: 1000, unit: "CHF", dyn: true, segMode: true },
+    { id: "taxPct2", who: t("html.personne_2"), n: 2, label: t("msg.impot_sur_retraits"), min: 0, max: 15, step: 0.5, unit: t("msg.texte"), dyn: true, segTax: true },
+    { id: "taxChf2", who: t("html.personne_2"), n: 2, label: t("msg.impot_sur_retraits"), min: 0, max: 200000, step: 500, unit: "CHF", dyn: true, segTax: true }
   ],
   fp2: [
     { id: "gift", label: t("msg.donation_avance_hoirie"), min: 0, max: 1000000, step: 5000, unit: "CHF" },
@@ -1481,6 +1501,8 @@ try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) 
 } } catch (e) {}
 
 const $ = id => document.getElementById(id);
+// Nom d'une personne à l'affichage : le défaut français se traduit, S et le dossier gardent la valeur
+const nomP = p => S["name" + p] === `Personne ${p}` ? t(`html.personne_${p}`) : S["name" + p];
 const nf = new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 });
 const chf = v => isFinite(v) ? "CHF " + nf.format(Math.round(v)) : "–";
 const pc = (v, d = 1) => isFinite(v) ? (v * 100).toFixed(d) + " %" : "–";
@@ -1493,7 +1515,7 @@ const fmtField = (f, v) => { const d = decimals(f.step); return d ? Number(v).to
 const INFO = AIDE;
 function fieldHTML(f) {
   return `<div class="field" id="field-${f.id}">
-    <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${f.label.replace(/(\d)e /g,"$1<sup>e</sup> ").replace("1er", "1<sup>er</sup>")}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="${t("attr.explication", { label: f.label })}">i</button>` : ""}
+    <div class="frow"><label for="in-${f.id}">${f.color ? `<i class="sw" style="background:var(--c-${f.color})"></i>` : ""}${expo(f.label)}${f.note ? ` <span class="inote">${f.note}</span>` : ""}</label>${INFO[f.id] ? `<button type="button" class="info" aria-expanded="false" aria-controls="info-${f.id}" aria-label="${t("attr.explication", { label: f.label })}">i</button>` : ""}
       <span class="ctl">${f.segTax ? `<span class="seg seg-tax" role="group" aria-label="${t("attr.saisir_impot_en")}"><button type="button" data-tm="pct">%</button><button type="button" data-tm="chf">${t("html.chf")}</button></span>` : ""}${f.seg ? `<span class="seg" role="group" aria-label="${t("attr.saisir_les_frais_en")}"><button type="button" data-fm="pct">%</button><button type="button" data-fm="chf">${t("html.chf")}</button><button type="button" data-fm="ge" class="seg-ge" title="${t("attr.bareme_des_notaires_de_geneve")}">${t("html.ge")}</button></span>` : ""}<span class="num"><input id="in-${f.id}" type="text" inputmode="decimal" autocomplete="off"><span class="unit">${f.unit}</span></span></span></div>
     ${f.segMode ? `<div class="pmode"><span class="seg seg-mode" role="group" aria-label="${t("attr.utilisation_de_ce_pilier")}"><button type="button" data-pm="retrait">${t("msg.retrait")}</button><button type="button" data-pm="gage">${t("msg.gage")}</button></span></div>` : ""}
     ${NO_RANGE.has(f.id) ? "" : `<input id="rg-${f.id}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" aria-label="${f.who ? f.who + " – " : ""}${f.label}">`}
@@ -1578,13 +1600,13 @@ document.addEventListener("click", e => {
   if (pen) {
     const p = pen.dataset.p, span = pen.previousElementSibling;
     const inp = document.createElement("input");
-    inp.className = "pname-edit"; inp.id = "name-edit-" + p; inp.maxLength = 24; inp.value = S["name" + p];
+    inp.className = "pname-edit"; inp.id = "name-edit-" + p; inp.maxLength = 24; inp.value = nomP(p);
     inp.setAttribute("aria-label", t("msg.nom_de_la_personne", { p: p }));
     span.hidden = true; pen.hidden = true; span.after(inp); inp.focus(); inp.select();
     let done = false;
     const finish = save => {
       if (done) return; done = true;
-      if (save) S["name" + p] = inp.value.trim() || DEFAULTS["name" + p];
+      if (save && inp.value.trim() !== nomP(p)) S["name" + p] = inp.value.trim() || DEFAULTS["name" + p];
       inp.remove(); span.hidden = false; pen.hidden = false; pen.focus();
       update();
     };
@@ -1601,13 +1623,13 @@ $("canton").innerHTML = $("cantonMenage").innerHTML = Object.entries(CANTONS).ma
 
 // Retrait sous le minimal de l'EPL : signalé sans changer le verdict
 const eplMsgs = p => {
-  const lpp = S["lpp" + p], gage = enGage(S, "lpp", p), nom = S["name" + p], msgs = [];
+  const lpp = S["lpp" + p], gage = enGage(S, "lpp", p), nom = nomP(p), msgs = [];
   if (!gage && lpp > 0 && lpp < S.eplMin) msgs.push({ avec: t("msg.2e_pilier_de_le_retrait", { nom: nom, eplmin: nf.format(S.eplMin) }), sans: t("msg.le_retrait_minimal_aupres_une", { eplmin: nf.format(S.eplMin) }) });
   if (lpp > 0 && S["age" + p] >= S.retireAge - 3) msgs.push(gage ? { avec: t("msg.2e_pilier_de_en_principe", { nom: nom }), sans: t("msg.en_principe_mise_en_gage") } : { avec: t("msg.2e_pilier_de_en_principe_2", { nom: nom }), sans: t("msg.en_principe_retrait_au_plus") });
   return msgs;
 };
 // 3e pilier en gage : CO 331d s'applique par analogie (OPP 3, art. 4)
-const gage3Msgs = p => enGage(S, "p3a", p) && S["p3a" + p] > 0 && S["age" + p] >= S.retireAge - 3 ? [t("msg.3e_pilier_de_en_principe", { p: S["name" + p] })] : [];
+const gage3Msgs = p => enGage(S, "p3a", p) && S["p3a" + p] > 0 && S["age" + p] >= S.retireAge - 3 ? [t("msg.3e_pilier_de_en_principe", { p: nomP(p) })] : [];
 const GAGE_HINT = t("msg.mis_en_gage_pas_de");
 // Alertes de tout le ménage, pour les raisons de la page et le PDF
 const eplRaisons = () => S.usage === "secondaire" ? [] : (S.solo ? [1] : [1, 2]).flatMap(p => [...eplMsgs(p).map(m => m.avec), ...gage3Msgs(p)]);
@@ -1774,7 +1796,7 @@ const LIBELLES = {
 const libelleCle = k => {
   const f = BY[k];
   if (!f) return LIBELLES[k] || DOSSIER_BLOCS[k] || k;
-  return f.who ? `${f.label} (${S["name" + f.who.slice(-1)] || f.who})` : f.label;
+  return f.who ? `${f.label} (${nomP(f.n) || f.who})` : f.label;
 };
 const estObjet = v => typeof v === "object" && v !== null && !Array.isArray(v);
 // Une valeur du fichier n'est gardée que si elle a la forme attendue pour sa clé
@@ -2279,7 +2301,7 @@ function update(skip) {
   const label = { ok: t("html.financable"), warn: t("msg.la_limite"), bad: t("msg.non_financable") }[status];
   for (const id of ["vpill", "m-pill"]) { $(id).className = "pill " + status; $(id).textContent = label; }
   if (near) reasons.unshift(t("msg.taux_effort_proche_du_plafond"));
-  $("reasons").innerHTML = reasons.map(r => `<li>${esc(r).replace(/(\d)e /g, "$1<sup>e</sup> ")}</li>`).join("");
+  $("reasons").innerHTML = reasons.map(r => `<li>${LANGUE === "fr" ? esc(r).replace(/(\d)e /g, "$1<sup>e</sup> ") : esc(r)}</li>`).join("");
   $("vprice").textContent = chf(m.P);
   const invFees = Math.min(m.fees, Math.max(0, m.eq.total - S.reserve));
   $("k-inc").textContent = chf(income(S));
@@ -2363,7 +2385,7 @@ function update(skip) {
     ? t("msg.forfait_de_la_banque_repris")
     : `${t("msg.forfait_de_la_banque_mois", { maint: chf(m.maint / 12) })} <button type="button" class="linkbtn" id="useForfait">${t("msg.reprendre_le_forfait")}</button>`;
   $("hint-maintPct").textContent = t("msg.soit_par_an_par_mois", { maint: chf(m.maint), maint2: chf(m.maint / 12) });
-  const who = [[S.inc1, S.bonus1, S.age1, S.name1], [S.inc2, S.bonus2, S.age2, S.name2]].filter(p => p[0] > 0)
+  const who = [[S.inc1, S.bonus1, S.age1, nomP(1)], [S.inc2, S.bonus2, S.age2, nomP(2)]].filter(p => p[0] > 0)
     .map(p => p[1] ? t("msg.bonus_ans", { esc: esc(p[3]), short: short(p[0]), short2: short(p[1]), p: p[2] }) : t("msg.ans_2", { esc: esc(p[3]), short: short(p[0]), p: p[2] }));
   const menage = who.join(" · ") || t("msg.aucun_salaire");
   $("m-sum").innerHTML = S.kids > 1 ? t("msg.enfants_revenu_retenu", { menage: menage, kids: S.kids, s: chf(income(S)) }) : t("msg.enfant_revenu_retenu", { menage: menage, kids: S.kids, s: chf(income(S)) });
@@ -2380,10 +2402,10 @@ function update(skip) {
   $("t-eq1").textContent = t("msg.net_2", { e1: short(e1) });
   $("t-eq2").textContent = t("msg.net_3", { e2: short(e2) });
   const sh1 = eSum > 0 ? e1 / eSum : 0.5;
-  $("sp1").innerHTML = `${esc(S.name1)} <b>${eSum > 0 ? pc(sh1, 0) : "–"}</b>`;
-  $("sp2").innerHTML = `<b>${eSum > 0 ? pc(1 - sh1, 0) : "–"}</b> ${esc(S.name2)}`;
-  document.querySelectorAll(".pname").forEach(el => { el.textContent = S["name" + el.dataset.p]; });
-  document.querySelectorAll(".pen").forEach(b => b.setAttribute("aria-label", t("msg.renommer", { p: S["name" + b.dataset.p] })));
+  $("sp1").innerHTML = `${esc(nomP(1))} <b>${eSum > 0 ? pc(sh1, 0) : "–"}</b>`;
+  $("sp2").innerHTML = `<b>${eSum > 0 ? pc(1 - sh1, 0) : "–"}</b> ${esc(nomP(2))}`;
+  document.querySelectorAll(".pname").forEach(el => { el.textContent = nomP(el.dataset.p); });
+  document.querySelectorAll(".pen").forEach(b => b.setAttribute("aria-label", t("msg.renommer", { p: nomP(b.dataset.p) })));
   // Réserve répartie selon la part de chacun, prise sur son épargne
   const resv = p => Math.min(S["cash" + p], S.reserve * (p === 1 ? sh1 : 1 - sh1));
   const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", R["lpp" + p] * net[p]], ["3a", R["p3a" + p] * net[p]]];
@@ -2433,7 +2455,7 @@ function update(skip) {
   $("stack").innerHTML = segs.map(([n, v, c]) => `<div style="flex-basis:${v / m.P * 100}%;background:${c}" title="${n}">${v / m.P > 0.09 ? pc(v / m.P, 0) : ""}</div>`).join("");
   $("t-ltv").textContent = t("msg.hypotheque_du_prix", { ltv: pc(m.ltv) });
   const lg = [
-    ...segs.map(([n, v, c]) => [n.replace(/(\d)(er|e) /, "$1<sup>$2</sup> "), v, c]),
+    ...segs.map(([n, v, c]) => [LANGUE === "fr" ? n.replace(/(\d)(er|e) /, "$1<sup>$2</sup> ") : n, v, c]),
     [t("msg.frais_achat"), m.fees, "var(--c-fee)"]
   ];
   $("legend").innerHTML = lg.map(([n, v, c]) => `<div class="lg"><i style="background:${c}"></i><span>${n}</span><b>${chf(v)}</b></div>`).join("")
@@ -2851,7 +2873,8 @@ async function exportPdf() {
     y += 8;
     const lieuBien = CANTONS[S.canton]?.fees != null ? t("msg.canton_du_bien", { label: libCanton(S.canton) }) : t("msg.canton_du_bien_hors_liste"), lieuMenage = CANTONS[S.cantonMenage]?.fees != null ? t("msg.canton_du_menage_2", { label: libCanton(S.cantonMenage) }) : t("msg.canton_du_menage_hors_liste");
     const lieu = !sec && S.canton === S.cantonMenage ? t("msg.canton", { label: libCanton(S.canton) }) : `${lieuBien} · ${lieuMenage}`;
-    para(`${new Date().toLocaleDateString("fr-CH", { day: "numeric", month: "long", year: "numeric" })} · ${lieu}`);
+    para(`${new Date().toLocaleDateString(LANGUE_LOCALE[LANGUE], { day: "numeric", month: "long", year: "numeric" })} · ${lieu}`);
+    if (t("langue.bandeau")) para(t("langue.bandeau"));
     const adv = ADVISORS.find(a => a.nom === S.conseiller);
     if (adv) para(t("msg.document_prepare_par", { join: [adv.nom, adv.fonction, adv.email, adv.telephone].filter(Boolean).join(" · ") }), INK);
 
@@ -2882,8 +2905,8 @@ async function exportPdf() {
     const persons = S.solo ? [1] : [1, 2];
     const hasBonus = persons.some(p => S["bonus" + p] > 0);
     persons.forEach(p => {
-      if (hasBonus) row(t("msg.salaire_brut_bonus_age", { p: S["name" + p] }), t("msg.ans_3", { p: chfT(S["inc" + p]), p2: chfT(S["bonus" + p]), p3: S["age" + p] }));
-      else row(t("msg.salaire_brut_age", { p: S["name" + p] }), t("msg.ans_4", { p: chfT(S["inc" + p]), p2: S["age" + p] }));
+      if (hasBonus) row(t("msg.salaire_brut_bonus_age", { p: nomP(p) }), t("msg.ans_3", { p: chfT(S["inc" + p]), p2: chfT(S["bonus" + p]), p3: S["age" + p] }));
+      else row(t("msg.salaire_brut_age", { p: nomP(p) }), t("msg.ans_4", { p: chfT(S["inc" + p]), p2: S["age" + p] }));
     });
     if (hasBonus) row(t("msg.part_du_bonus_retenue"), `${S.bonusPct} %`);
     row(t("msg.enfants_allocations"), S.allocCount ? t("msg.par_an_comptees", { kids: S.kids, s: chfT(allocAnnuelle(S)) }) : t("msg.par_an_non_comptees", { kids: S.kids, s: chfT(allocAnnuelle(S)) }));
@@ -2893,21 +2916,21 @@ async function exportPdf() {
     section(t("html.fonds_propres"));
     const Ret = horsGage(E), { t1, t2 } = taxRates(E), wd1 = Ret.p3a1 + Ret.lpp1, wd2 = Ret.p3a2 + Ret.lpp2;
     persons.forEach(p => {
-      if (sec) row(t("msg.epargne_2", { p: S["name" + p] }), chfT(S["cash" + p]));
-      else row(t("msg.epargne_2e_pilier_3e_pilier", { p: S["name" + p] }), `${chfT(S["cash" + p])} / ${chfT(Ret["lpp" + p])} / ${chfT(Ret["p3a" + p])}`);
+      if (sec) row(t("msg.epargne_2", { p: nomP(p) }), chfT(S["cash" + p]));
+      else row(t("msg.epargne_2e_pilier_3e_pilier", { p: nomP(p) }), `${chfT(S["cash" + p])} / ${chfT(Ret["lpp" + p])} / ${chfT(Ret["p3a" + p])}`);
     });
     if (S.gift) row(t("msg.donation_avance_hoirie"), chfT(S.gift));
     if (sec) para(t("msg.2e_et_3e_pilier_non"));
     // Une seule ligne si un seul taux compte : même taux affiché, solo, ou une personne sans retrait
     else if (S.solo || !wd1 || !wd2 || pc(t1) === pc(t2)) row(t("msg.impot_estime_sur_retraits", { solo: tx(pc(wd1 || S.solo ? t1 : t2)) }), chfT(wd1 * t1 + wd2 * t2));
-    else persons.forEach(p => row(t("msg.impot_estime_sur_retraits_2", { p: S["name" + p], t2: tx(pc(p === 1 ? t1 : t2)) }), chfT(p === 1 ? wd1 * t1 : wd2 * t2)));
+    else persons.forEach(p => row(t("msg.impot_estime_sur_retraits_2", { p: nomP(p), t2: tx(pc(p === 1 ? t1 : t2)) }), chfT(p === 1 ? wd1 * t1 : wd2 * t2)));
     if (S.reserve) row(t("msg.reserve_gardee_de_cote"), chfT(S.reserve));
     row(t("msg.total_net"), chfT(m.eq.total));
     row(t("msg.disponible_apres_reserve_2"), chfT(m.eq.total - S.reserve), true);
     if (m.gage2 + m.gage3 > 0) row(t("msg.mis_en_gage_hors_fonds_2"), `${chfT(m.gage2)} / ${chfT(m.gage3)}`);
     if (!S.solo) {
       const e1 = E.cash1 + wd1 * (1 - t1), e2 = E.cash2 + wd2 * (1 - t2), es = e1 + e2;
-      if (es > 0) row(t("msg.repartition_de_apport"), `${S.name1} ${tx(pc(e1 / es, 0))} · ${S.name2} ${tx(pc(e2 / es, 0))}`);
+      if (es > 0) row(t("msg.repartition_de_apport"), `${nomP(1)} ${tx(pc(e1 / es, 0))} · ${nomP(2)} ${tx(pc(e2 / es, 0))}`);
     }
 
     if (S.abMode !== "aucun") {
@@ -3084,6 +3107,31 @@ if (BANKS || ADVISORS.length) {
   try { if (localStorage.getItem(KEY + "-tab") === "config") showTab("config"); } catch (e) {}
 }
 $("casataxTxt").textContent = CED_RED === 0.5 ? t("msg.achat_au_plus_habite_au", { casatax: chf(CASATAX), casatax_red: chf(CASATAX_RED) }) : t("msg.achat_au_plus_habite_au_2", { casatax: chf(CASATAX), casatax_red: chf(CASATAX_RED), ced_red: CED_RED * 100 });
+// Changer de langue recharge la page. L'état passe par window.name, ce qui marche aussi quand localStorage est bloqué.
+const LANGUE_ETAT = "simu-hypo-langue:";
+function changerLangue(l) {
+  let memo = false;
+  try { localStorage.setItem(LANGUE_MEMO, l); memo = localStorage.getItem(LANGUE_MEMO) === l; } catch (e) {}
+  window.name = LANGUE_ETAT + JSON.stringify({ S, touched, tab: TAB });
+  const u = new URL(location.href);
+  if (u.searchParams.has("lang") || !memo) u.searchParams.set("lang", l);
+  if (u.href === location.href) location.reload(); else location.replace(u.href);
+}
+const langues = LANGUES.filter(langueDispo);
+if (langues.length > 1) {
+  document.querySelector(".top-actions").insertAdjacentHTML("afterbegin", `<span class="seg seg-lang" role="group" aria-label="${t("langue.choix")}">${langues.map(l => `<button type="button" data-lang="${l}" aria-pressed="${l === LANGUE}">${l.toUpperCase()}</button>`).join("")}</span>`);
+  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { if (b.dataset.lang !== LANGUE) changerLangue(b.dataset.lang); }));
+}
+if (t("langue.bandeau")) document.querySelector(".top").insertAdjacentHTML("afterend", `<p class="note" id="langueNote">${fmtTxt(t("langue.bandeau"))}</p>`);
+if (window.name.startsWith(LANGUE_ETAT)) {
+  try {
+    const e = JSON.parse(window.name.slice(LANGUE_ETAT.length));
+    S = { ...DEFAULTS, ...nettoyer(e.S).sur };
+    touched = !!e.touched;
+    if ($("t-" + e.tab) && !$("t-" + e.tab).hidden) showTab(e.tab);
+  } catch (e) {}
+  window.name = "";
+}
 update();
 </script>
 
