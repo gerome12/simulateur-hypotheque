@@ -1634,7 +1634,8 @@ function update(skip) {
   gauge("g-ratio", m.ratio, lim, Math.max(lim * 1.6, m.ratio), pc(m.ratio), `max ${S.ratioMax} %`, okRatio ? (near ? "warn" : "ok") : "bad");
   const eqAffiche = Math.min(1, m.eqPct);   // le gage peut dépasser le prix : seul l'affichage s'arrête à 100 %
   gauge("g-eq", eqAffiche, minEq, Math.max(minEq * 2, eqAffiche), pc(eqAffiche), `min ${pc(minEq, 0)}${m.gageEq > 0 ? ", gage compris" : ""}`, okEq ? "ok" : "bad");
-  gauge("g-hard", m.hardPct, 0.10, Math.max(0.2, m.hardPct), pc(m.hardPct), `min 10 %${m.gageHard > 0 ? ", gage compris" : ""}`, okHard ? "ok" : "bad");
+  const hardAffiche = Math.min(1, m.hardPct);
+  gauge("g-hard", hardAffiche, 0.10, Math.max(0.2, hardAffiche), pc(hardAffiche), `min 10 %${m.gageHard > 0 ? ", gage compris" : ""}`, okHard ? "ok" : "bad");
   gauge("g-ret", m.ratioRet, lim, Math.max(lim * 1.6, m.ratioRet), pc(m.ratioRet), `revenu ${S.retirePct} %`, okRet ? "ok" : "warn");
 
   // Ce qui est possible
@@ -2188,7 +2189,7 @@ async function exportPdf() {
     section("Contrôles de la banque");
     row("Charges théoriques / revenu", tx(pc(m.ratio)) + (multi ? "" : `  (max ${S.ratioMax} %)`));
     row(`Fonds propres après frais${m.gageEq > 0 ? ", gage compris" : ""}`, tx(pc(Math.min(1, m.eqPct))) + (multi ? "" : `  (min ${tx(pc(1 - E.ltvMax / 100, 0))})`));
-    row((sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais") + (m.gageHard > 0 ? ", gage du 3e pilier compris" : ""), tx(pc(m.hardPct)) + (multi ? "" : "  (min 10 %)"));
+    row((sec ? "Fonds propres durs après frais" : "Fonds propres hors 2e pilier après frais") + (m.gageHard > 0 ? ", gage du 3e pilier compris" : ""), tx(pc(Math.min(1, m.hardPct))) + (multi ? "" : "  (min 10 %)"));
     row("Charges à la retraite", tx(pc(m.ratioRet)) + (multi ? "" : `  (revenu ${S.retirePct} %)`));
 
     section("Le ménage");
