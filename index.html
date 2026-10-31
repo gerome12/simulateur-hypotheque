@@ -19,7 +19,7 @@
   --warn: #A86300; --warn-soft: #FBEFD9;
   --bad: #B3261E; --bad-soft: #F9E3E1;
   --c-eq: #2E7D6B; --c-r1: #1F4F86; --c-r2: #7FA3CF; --c-fee: #B7BFC8;
-  --c-cash: #2E7D6B; --c-3a: #D49A2A; --c-lpp: #6B4FA0; --c-cash-dark: #164237;
+  --c-cash: #2E7D6B; --c-3a: #D49A2A; --c-lpp: #6B4FA0; --c-cash-dark: #164237; --c-ab: #7A5C3E;
   --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -29,7 +29,7 @@
     --bg: #101317; --surface: #191D22; --ink: #E7EAEE; --muted: #9AA4AF; --line: #2B3138;
     --accent: #84AEE6; --accent-soft: #1E2A3A; --swiss: #E5483B;
     --ok: #52C48E; --ok-soft: #15291F; --warn: #E4A63E; --warn-soft: #2D2312; --bad: #F2766A; --bad-soft: #321A18;
-    --c-eq: #4FB39B; --c-r1: #5C8FD6; --c-r2: #9DBBE3; --c-fee: #5A636D; --c-cash: #4FB39B; --c-3a: #E2B45A; --c-lpp: #A58BDB; --c-cash-dark: #1F6352;
+    --c-eq: #4FB39B; --c-r1: #5C8FD6; --c-r2: #9DBBE3; --c-fee: #5A636D; --c-cash: #4FB39B; --c-3a: #E2B45A; --c-lpp: #A58BDB; --c-cash-dark: #1F6352; --c-ab: #C9A47E;
     color-scheme: dark;
   }
 }
@@ -37,7 +37,7 @@
   --bg: #101317; --surface: #191D22; --ink: #E7EAEE; --muted: #9AA4AF; --line: #2B3138;
   --accent: #84AEE6; --accent-soft: #1E2A3A; --swiss: #E5483B;
   --ok: #52C48E; --ok-soft: #15291F; --warn: #E4A63E; --warn-soft: #2D2312; --bad: #F2766A; --bad-soft: #321A18;
-  --c-eq: #4FB39B; --c-r1: #5C8FD6; --c-r2: #9DBBE3; --c-fee: #5A636D; --c-cash: #4FB39B; --c-3a: #E2B45A; --c-lpp: #A58BDB; --c-cash-dark: #1F6352;
+  --c-eq: #4FB39B; --c-r1: #5C8FD6; --c-r2: #9DBBE3; --c-fee: #5A636D; --c-cash: #4FB39B; --c-3a: #E2B45A; --c-lpp: #A58BDB; --c-cash-dark: #1F6352; --c-ab: #C9A47E;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -144,6 +144,11 @@ select, button { font: inherit; }
 .seg-mode { grid-auto-columns: 64px; margin-left: 0; }
 .seg-mode button { width: 64px; }
 #gageBloc .frow { flex-wrap: nowrap; align-items: flex-start; }
+#abBloc { border-top: 1px solid var(--line); margin: 12px 0; padding-top: 10px; }
+#abBloc h3 { font-size: 13.5px; font-weight: 500; margin: 0 0 6px; }
+.seg-ab { display: flex; flex-wrap: wrap; width: fit-content; margin-left: 0; }
+.seg-ab button { width: auto; padding: 5px 10px; }
+#ab-msg { margin-top: 6px; }
 #gageBloc .check { border-top: 0; padding: 6px 0; }
 #gageBloc .info { margin-top: 6px; }
 .seg-usage { grid-auto-columns: auto; }
@@ -468,8 +473,16 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
           <div class="split-bar" id="spbar"></div>
           <div class="split-legend" id="splg"></div>
         </div>
+        <div id="abBloc">
+          <h3>Autre bien</h3>
+          <span class="seg seg-ab" role="group" aria-label="Fonds propres venant d'un autre bien"><button type="button" data-ab="aucun">Aucun</button><button type="button" data-ab="vente">Vente</button><button type="button" data-ab="relais">Vente, crédit relais</button><button type="button" data-ab="conserve">Bien gardé</button></span>
+          <div class="fields" id="f-ab"></div>
+          <p class="hint" id="ab-syn" hidden></p>
+          <ul class="reasons" id="ab-msg"></ul>
+        </div>
         <div class="fields" id="f-fp2"></div>
         <div class="tally"><span>Durs nets / 2<sup>e</sup> pilier net</span><b id="t-hard">–</b></div>
+        <div class="tally" id="t-ab-l" hidden><span>Autre bien</span><b id="t-ab">–</b></div>
         <div class="tally" id="t-gage-l" hidden><span>Mis en gage, hors fonds propres</span><b id="t-gage">–</b></div>
       </details>
 
@@ -621,7 +634,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
   <div class="rates" id="tab-al" role="tabpanel" aria-labelledby="t-al" hidden>
     <section class="panel" id="al-sec" hidden>
       <h2>Acheter ou louer</h2>
-      <p class="lead">Sans objet pour une résidence secondaire : le loyer du logement principal continue.</p>
+      <p class="lead" id="al-sec-t">Sans objet pour une résidence secondaire : le loyer du logement principal continue.</p>
     </section>
     <section class="panel" id="al-corps">
       <h2>Acheter ou louer <small id="al-n"></small></h2>
@@ -733,6 +746,7 @@ const DEFAULTS = {
   price: 1200000, feesPct: 5, maintPct: 1, usage: "principale", chargesPrincipale: 0,
   cash1: 110000, p3a1: 25000, lpp1: 60000, cash2: 70000, p3a2: 15000, lpp2: 40000, gift: 0, taxPct: 6, taxMode: "pct", taxChf: 8400, reserve: 0,
   modeLpp1: "retrait", modeP3a1: "retrait", modeLpp2: "retrait", modeP3a2: "retrait", gageCompte: false,
+  abMode: "aucun", abPrixVente: 0, abHypotheque: 0, abFraisVente: 0, abImpotGain: 0, abEPL: 0, abRelaisTaux: 0, abRelaisMois: 12, abValeur: 0, abHypoActuelle: 0, abHypoNouvelle: 0,
   rate: 5, ratioMax: 33, rank1Pct: 66.7, rank1PctSec: 50, ltvMax: 80, ltvMaxSec: 60, amortMax: 15, retireAge: 65, retirePct: 60, eplMin: 20000,
   realRate: 1.6, rent: 3200, realCharges: 1000, realChargesAuto: true,
   alHorizon: 15, alHausseLoyer: 1.5, alHausseBien: 1, alRendement: 2, alFraisVente: 2,
@@ -848,6 +862,18 @@ const F = {
     { id: "realCharges", label: "Charges réelles (PPE, entretien)", min: 0, max: 3000, step: 10, unit: "CHF/mois", dyn: true },
     { id: "rent", label: "Loyer actuel", min: 0, max: 10000, step: 50, unit: "CHF/mois" }
   ],
+  ab: [
+    { id: "abPrixVente", label: "Prix de vente", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "abHypotheque", label: "Hypothèque à rembourser", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "abFraisVente", label: "Frais de vente", min: 0, max: 2000000, step: 1000, unit: "CHF" },
+    { id: "abImpotGain", label: "Impôt sur le gain immobilier", min: 0, max: 5000000, step: 1000, unit: "CHF", note: "Saisi, jamais calculé" },
+    { id: "abEPL", label: "Part venant du 2e pilier (EPL)", min: 0, max: 5000000, step: 5000, unit: "CHF" },
+    { id: "abRelaisTaux", label: "Taux du crédit relais", min: 0, max: 10, step: 0.1, unit: "%/an", hint: "À demander à votre banque." },
+    { id: "abRelaisMois", label: "Durée du crédit relais", min: 0, max: 60, step: 1, unit: "mois" },
+    { id: "abValeur", label: "Valeur du bien gardé", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "abHypoActuelle", label: "Hypothèque actuelle", min: 0, max: 20000000, step: 10000, unit: "CHF" },
+    { id: "abHypoNouvelle", label: "Hypothèque nouvelle", min: 0, max: 20000000, step: 10000, unit: "CHF" }
+  ],
   al: [
     { id: "alHorizon", label: "Horizon", min: 10, max: 20, step: 1, unit: "ans" },
     { id: "alHausseLoyer", label: "Hausse des loyers", min: 0, max: 5, step: 0.1, unit: "%/an", hint: "Par défaut 1,5 % : prévision UBS d'août 2026 pour 2026 et 2027 seulement, prolongée ici comme moyenne à long terme." },
@@ -857,7 +883,7 @@ const F = {
   ]
 };
 const ALL = Object.values(F).flat();
-const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax", "chargesPrincipale"));
+const NO_RANGE = new Set([...F.p1, ...F.p2, ...F.menage2, ...F.eq1, ...F.eq2, ...F.ab].map(f => f.id).concat("rent", "cedReprise", "gMin", "gMax", "eMin", "eMax", "chargesPrincipale"));
 const BY = Object.fromEntries(ALL.map(f => [f.id, f]));
 for (const [id, b] of Object.entries(CFG.curseurs || {})) if (BY[id]) Object.assign(BY[id], b);
 
@@ -931,6 +957,11 @@ const CASATAX = CFG.geneve?.casatax?.plafondPrix ?? 1394928;
   w.insertAdjacentHTML("beforeend", `<div class="casatax" id="casatax" hidden style="--p:${(CASATAX - f.min) / (f.max - f.min)}" title="Casatax Genève, à titre indicatif"><span class="tick"></span><span class="lbl">Casatax ${nf.format(CASATAX)}</span></div>`);
 }
 document.addEventListener("click", e => {
+  const ab = e.target.closest(".seg button[data-ab]");
+  if (ab) {
+    if (S.abMode !== ab.dataset.ab) { S.abMode = ab.dataset.ab; touched = true; update(); }
+    return;
+  }
   const pm = e.target.closest(".seg button[data-pm]");
   if (pm) {
     const id = pm.closest(".field").id.slice(6), cle = MODE_CLE[id.slice(0, -1)] + id.slice(-1);
@@ -1022,6 +1053,11 @@ function syncInputs(skip) {
   }
   $("allocCount").checked = !!S.allocCount;
   $("gageCompte").checked = !!S.gageCompte;
+  document.querySelectorAll(".seg button[data-ab]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ab === S.abMode));
+  const abVente = S.abMode === "vente" || S.abMode === "relais";
+  for (const id of ["abPrixVente", "abHypotheque", "abFraisVente", "abImpotGain", "abEPL"]) $("field-" + id).hidden = !abVente;
+  for (const id of ["abRelaisTaux", "abRelaisMois"]) $("field-" + id).hidden = S.abMode !== "relais";
+  for (const id of ["abValeur", "abHypoActuelle", "abHypoNouvelle"]) $("field-" + id).hidden = S.abMode !== "conserve";
   document.querySelectorAll(".seg button[data-pm]").forEach(b => { const id = b.closest(".field").id.slice(6); b.setAttribute("aria-pressed", b.dataset.pm === S[MODE_CLE[id.slice(0, -1)] + id.slice(-1)]); });
   $("lockPrice").checked = !!S.lockPrice;
   $("canton").value = S.canton;
@@ -1161,12 +1197,12 @@ $("reset").addEventListener("click", () => {
 
 /* ---------- Dossier client : la simulation dans un fichier JSON, sans rien envoyer ---------- */
 const DOSSIER = { app: "simu-hypo-ch", version: 2, tailleMax: 1024 * 1024 };
-const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"], modeLpp1: ["retrait", "gage"], modeLpp2: ["retrait", "gage"], modeP3a1: ["retrait", "gage"], modeP3a2: ["retrait", "gage"] };
+const CHOIX = { usage: ["principale", "secondaire"], feesMode: ["pct", "chf", "ge"], taxMode: ["pct", "chf"], modeLpp1: ["retrait", "gage"], modeLpp2: ["retrait", "gage"], modeP3a1: ["retrait", "gage"], modeP3a2: ["retrait", "gage"], abMode: ["aucun", "vente", "relais", "conserve"] };
 const LIBELLES = {
   canton: "Canton du bien", cantonMenage: "Canton du ménage", usage: "Usage du bien", feesMode: "Mode des frais", taxMode: "Mode de l'impôt",
   name1: "Nom de la personne 1", name2: "Nom de la personne 2", solo: "Nombre de personnes", apportSel: "Apport choisi", p2saved: "Montants de la personne 2",
   allocCount: "Compter les allocations", lockPrice: "Prix bloqué", realChargesAuto: "Charges réelles automatiques", casatax: "Casatax", conseiller: "Conseiller",
-  modeLpp1: "Retrait ou gage du 2e pilier (personne 1)", modeLpp2: "Retrait ou gage du 2e pilier (personne 2)", modeP3a1: "Retrait ou gage du 3e pilier (personne 1)", modeP3a2: "Retrait ou gage du 3e pilier (personne 2)", gageCompte: "Compter le gage dans les fonds propres"
+  modeLpp1: "Retrait ou gage du 2e pilier (personne 1)", modeLpp2: "Retrait ou gage du 2e pilier (personne 2)", modeP3a1: "Retrait ou gage du 3e pilier (personne 1)", modeP3a2: "Retrait ou gage du 3e pilier (personne 2)", gageCompte: "Compter le gage dans les fonds propres", abMode: "Autre bien"
 };
 // Nom lisible d'une clé, avec la personne quand le champ en concerne une
 const libelleCle = k => {
@@ -1248,11 +1284,22 @@ const DOSSIER_CHAMPS = [
   ["acheterLouer.hausseLoyerPct", "alHausseLoyer"],
   ["acheterLouer.hausseBienPct", "alHausseBien"],
   ["acheterLouer.rendementPct", "alRendement"],
-  ["acheterLouer.fraisVentePct", "alFraisVente"]
+  ["acheterLouer.fraisVentePct", "alFraisVente"],
+  ["autreBien.mode", "abMode"],
+  ["autreBien.prixVente", "abPrixVente"],
+  ["autreBien.hypotheque", "abHypotheque"],
+  ["autreBien.fraisVente", "abFraisVente"],
+  ["autreBien.impotGain", "abImpotGain"],
+  ["autreBien.partDeuxiemePilier", "abEPL"],
+  ["autreBien.relaisTauxPct", "abRelaisTaux"],
+  ["autreBien.relaisMois", "abRelaisMois"],
+  ["autreBien.valeur", "abValeur"],
+  ["autreBien.hypothequeActuelle", "abHypoActuelle"],
+  ["autreBien.hypothequeNouvelle", "abHypoNouvelle"]
 ];
 // Blocs du fichier : un bloc qui n'est pas un objet est signalé, ses valeurs reprennent les défauts
 const DOSSIER_BLOCS = {
-  fondsPropres: "Fonds propres", bien: "Le bien", hypotheses: "Hypothèses", apport: "Apport", coutReel: "Coût réel", graphiques: "Graphiques", acheterLouer: "Acheter ou louer",
+  fondsPropres: "Fonds propres", bien: "Le bien", hypotheses: "Hypothèses", apport: "Apport", coutReel: "Coût réel", graphiques: "Graphiques", acheterLouer: "Acheter ou louer", autreBien: "Autre bien",
   "menage.enfants": "Enfants", "fondsPropres.impotRetraits": "Impôt sur retraits", "bien.frais": "Frais d'achat", "graphiques.mensualites": "Graphiques", "graphiques.fondsPropres": "Graphiques"
 };
 // Champs d'une personne : clé de S sans son numéro
@@ -1404,11 +1451,33 @@ function taxRates(s) {
   };
   return { t1: t(1), t2: t(2) };
 }
+// Autre bien, indépendant du prix. Vente : LPP 30d, le 2e pilier retiré revient à la caisse, dans la limite du produit (al. 5),
+// sauf remploi dans un logement à usage propre dans les 2 ans (al. 4). Bien gardé : charges calculées comme celles du modèle.
+function autreBien(s) {
+  const r = { brut: 0, net: 0, epl: 0, durs: 0, lpp: 0, cout: 0, degage: 0, charges: 0, chargesRet: 0, reel: 0 };
+  if (s.abMode === "vente" || s.abMode === "relais") {
+    const sec = s.usage === "secondaire";
+    r.brut = s.abPrixVente - s.abHypotheque - s.abFraisVente - s.abImpotGain;
+    r.epl = Math.min(s.abEPL, Math.max(0, r.brut));
+    r.net = sec ? r.brut - r.epl : r.brut;
+    r.lpp = sec ? 0 : r.epl;
+    if (s.abMode === "relais") r.cout = Math.max(0, r.net) * s.abRelaisTaux / 100 * s.abRelaisMois / 12;
+    r.durs = r.net - r.lpp - r.cout;
+  } else if (s.abMode === "conserve") {
+    const rang1 = s.abValeur * s.rank1Pct / 100, entretien = s.abValeur * s.maintPct / 100;
+    const amort = Math.max(0, s.abHypoNouvelle - rang1) / Math.max(1, s.amortMax);
+    r.degage = r.durs = Math.max(0, s.abHypoNouvelle - s.abHypoActuelle);
+    r.charges = s.abHypoNouvelle * s.rate / 100 + entretien + amort;
+    r.chargesRet = Math.min(s.abHypoNouvelle, rang1) * s.rate / 100 + entretien;
+    r.reel = s.abHypoNouvelle * s.realRate / 100 + entretien + amort;
+  }
+  return r;
+}
 function equity(s) {
-  const { t1, t2 } = taxRates(s);
+  const { t1, t2 } = taxRates(s), ab = autreBien(s);
   s = horsGage(s);
-  const hard = s.cash1 + s.cash2 + s.p3a1 * (1 - t1) + s.p3a2 * (1 - t2) + s.gift;
-  const lpp = s.lpp1 * (1 - t1) + s.lpp2 * (1 - t2);
+  const hard = s.cash1 + s.cash2 + s.p3a1 * (1 - t1) + s.p3a2 * (1 - t2) + s.gift + ab.durs;
+  const lpp = s.lpp1 * (1 - t1) + s.lpp2 * (1 - t2) + ab.lpp;
   return { hard, lpp, total: hard + lpp };
 }
 function model(s, P) {
@@ -1437,14 +1506,15 @@ function model(s, P) {
   const interest = loan * s.rate / 100;
   const maint = P * s.maintPct / 100;
   const princ = s.usage === "secondaire" ? s.chargesPrincipale * 12 : 0;   // le logement principal reste à payer
-  const charges = interest + amort + maint + s.debt + princ;
+  const ab = autreBien(s);
+  const charges = interest + amort + maint + s.debt + princ + ab.charges;
   const inc = income(s);
   const ratio = inc > 0 ? charges / inc : Infinity;
   const incRet = (s.inc1 + s.inc2) * s.retirePct / 100;
-  const chargesRet = rank1 * s.rate / 100 + maint + s.debt + princ;
+  const chargesRet = rank1 * s.rate / 100 + maint + s.debt + princ + ab.chargesRet;
   const ratioRet = incRet > 0 ? chargesRet / incRet : Infinity;
   return { P, eq, fees, feeGE, avail, hardAvail, apport, loan, rank1, rank2, years, amort, interest, maint, princ, charges, inc, ratio, incRet, chargesRet, ratioRet,
-    gage2, gage3, gageEq, gageHard, eqPct: (apport + gageEq) / P, hardPct: (hardIn + gageHard) / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
+    ab, gage2, gage3, gageEq, gageHard, eqPct: (apport + gageEq) / P, hardPct: (hardIn + gageHard) / P, ltv: loan / P, unused: Math.max(0, avail - apport) };
 }
 function bisect(ok, hi = 3e7) {
   if (!ok(1000)) return 0;
@@ -1488,6 +1558,8 @@ const amortHypotheses = s => `Simplification : amortissement direct, un versemen
 // Taux bornés à ±100 % et 100 ans au plus : une saisie ou un dossier extrême ne donne ni Infinity ni NaN.
 function acheterLouer(s, m) {
   if (s.usage === "secondaire") return { sansObjet: true };
+  // Bien gardé : l'emprunt sur ce bien fausserait les deux patrimoines (argent du locataire sans dette, intérêts de l'acheteur absents)
+  if (s.abMode === "conserve") return { sansObjet: true, bienGarde: true };
   const taux = (v, min = -100) => Math.min(100, Math.max(min, v)) / 100;
   const h = taux(s.alHausseLoyer), g = taux(s.alHausseBien), r = taux(s.alRendement), f = taux(s.alFraisVente, 0);
   const N = Math.min(Math.max(Math.round(s.alHorizon), 1), 100);
@@ -1518,18 +1590,34 @@ const alBiais = (s, al) => ["Le loyer de départ doit être celui d'un logement 
 function alMessages(s, m, status) {
   const msgs = [];
   if (status === "bad") msgs.push("Ce prix n'est pas finançable en l'état : la comparaison reste théorique.");
+  if (s.abMode === "relais") msgs.push("Cette comparaison ne tient pas compte de l'autre bien.");
   if (!(m.P > 0)) msgs.push("Aucun prix saisi : il n'y a rien à comparer.");
   else if (!(m.apport > 0)) msgs.push("Fonds propres insuffisants : aucun apport possible. L'épargne de départ du locataire reprend les frais d'achat, même si vous ne les avez pas.");
   if (!(s.rent > 0)) msgs.push("Aucun loyer saisi : le locataire ne paie rien dans ce calcul. Indiquez votre loyer dans « Ma simulation ».");
   if (agePlusAge(s) >= s.retireAge) msgs.push(`Âge de la retraite déjà atteint : le 2e rang est amorti en ${m.years} an, comme dans le modèle.`);
   return msgs;
 }
+const AB_ALERTE_LTV = 80;
+function abRaisons(s, ab) {
+  const msgs = [];
+  if (ab.net < 0) msgs.push("Autre bien : le net de la vente est négatif, il réduit vos fonds propres.");
+  if (s.abMode === "relais") msgs.push("Vente pas encore faite : la banque doit accepter de compter ce montant, et le délai de vente est un risque.");
+  if (ab.degage > 0) msgs.push("Ce montant est un emprunt : la banque doit l'accepter comme fonds propres.");
+  if (s.abMode === "conserve" && s.abHypoNouvelle > s.abValeur * AB_ALERTE_LTV / 100) msgs.push(`Autre bien : hypothèque à ${s.abValeur > 0 ? pc(s.abHypoNouvelle / s.abValeur) : "plus de 100 %"} de sa valeur, au-delà de ${AB_ALERTE_LTV} %.`);
+  return msgs;
+}
+function abSynthese(s, ab) {
+  if (s.abMode === "conserve") return `Montant dégagé ${chf(ab.degage)}, compté en fonds propres durs. Charges théoriques de ce bien : ${chf(ab.charges)} par an, ${chf(ab.chargesRet)} à la retraite. Les revenus locatifs ne sont pas comptés.`;
+  if (s.abMode === "aucun" || !s.abMode) return "";
+  const sec = s.usage === "secondaire";
+  return `Montant net ${chf(ab.net)} : fonds propres durs ${chf(ab.durs)}${sec ? "" : `, 2e pilier ${chf(ab.lpp)}`}.${sec && ab.epl > 0 ? ` ${chf(ab.epl)} retournent à la caisse de pension.` : ""}${s.abMode === "relais" ? ` Crédit relais ${chf(ab.cout)} déduits. Le montant accepté dépend de la banque.` : ""}`;
+}
 function required(s, m) {
   s = effectif(s);
   const P = m.P, lim = s.ratioMax / 100, r = s.rate / 100, n = m.years, kP = P * s.rank1Pct / 100;
   const reqIncome = m.charges / lim;
   // Hypothèque max supportable par le revenu
-  const B = lim * income(s) - m.maint - s.debt - m.princ;
+  const B = lim * income(s) - m.maint - s.debt - m.princ - m.ab.charges;
   let L;
   if (B <= 0) L = -1;
   else if (B / r <= kP) L = B / r;
@@ -1599,7 +1687,7 @@ function update(skip) {
   if (!okHard) reasons.push(`Fonds propres durs à ${pc(m.hardPct)} après frais${m.gageHard > 0 ? ", gage du 3e pilier compris" : ""}, minimum 10 %${sec ? "" : " hors 2e pilier"}.`);
   if (!okRet) reasons.push(`À la retraite, les charges atteindraient ${pc(m.ratioRet)} du revenu estimé : la banque peut exiger plus d'amortissement.`);
   if (gageAlerte(m)) reasons.push(gageAlerte(m));
-  reasons.push(...eplRaisons());
+  reasons.push(...eplRaisons(), ...abRaisons(S, m.ab));
   if (m.years < S.amortMax) reasons.push(`2e rang à amortir en ${m.years} ans seulement, à cause de l'âge de la retraite.`);
   const near = okRatio && m.ratio > lim - 0.015;
   const status = (!okRatio || !okEq || !okHard) ? "bad" : (!okRet || near || gageTropHaut(m)) ? "warn" : "ok";
@@ -1711,10 +1799,12 @@ function update(skip) {
   // Réserve répartie selon la part de chacun, prise sur son épargne
   const resv = p => Math.min(S["cash" + p], S.reserve * (p === 1 ? sh1 : 1 - sh1));
   const parts = p => [["res", resv(p)], ["cash", S["cash" + p] - resv(p)],["lpp", R["lpp" + p] * net[p]], ["3a", R["p3a" + p] * net[p]]];
-  const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${eSum > 0 ? v / eSum * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
-  $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("");
+  const abTotal = m.ab.durs + m.ab.lpp, abBarre = Math.max(0, abTotal), barre = eSum + abBarre;   // l'autre bien est à part : il ne change pas la répartition entre les personnes
+  const seg = ([k, v]) => `<div class="${k === "res" ? "hatch" : ""}" style="flex-basis:${barre > 0 ? v / barre * 100 : 0}%;${k === "res" ? "" : `background:var(--c-${k})`}"></div>`;
+  $("spbar").innerHTML = parts(1).map(seg).join("") + (e1 > 0 && e2 > 0 ? '<div class="sep"></div>' : "") + parts(2).map(seg).join("") + (abBarre > 0 ? seg(["ab", abBarre]) : "");
   const kinds = [["cash", "Épargne", S.cash1 + S.cash2]];
   if (!sec) kinds.push(["lpp", "2<sup>e</sup> pilier", R.lpp1 * net[1] + R.lpp2 * net[2]], ["3a", "3<sup>e</sup> pilier", R.p3a1 * net[1] + R.p3a2 * net[2]]);
+  if (S.abMode !== "aucun") kinds.push(["ab", "Autre bien", abTotal]);
   const resTot = resv(1) + resv(2);
   kinds[0][2] -= resTot;
   if (resTot > 0) kinds.unshift(["res", "Réserve", resTot]);
@@ -1725,6 +1815,11 @@ function update(skip) {
   $("f-sum").innerHTML = `Disponible après réserve <b>${chf(m.eq.total - S.reserve)}</b>${gageTotal > 0 ? ` · Mis en gage <b>${chf(gageTotal)}</b>, hors fonds propres` : ""}`;
   $("gageBloc").hidden = $("t-gage-l").hidden = !(gageTotal > 0);
   $("t-gage").textContent = chf(gageTotal);
+  $("t-ab-l").hidden = S.abMode === "aucun";
+  $("t-ab").textContent = chf(abTotal);
+  $("ab-syn").hidden = S.abMode === "aucun";
+  $("ab-syn").innerHTML = fmtTxt(abSynthese(S, m.ab));
+  $("ab-msg").innerHTML = abRaisons(S, m.ab).map(r => `<li>${fmtTxt(r)}</li>`).join("");
 
   // Structure
   const segs = [
@@ -1756,6 +1851,7 @@ function update(skip) {
   $("legend").innerHTML = lg.map(([n, v, c]) => `<div class="lg"><i style="background:${c}"></i><span>${n}</span><b>${chf(v)}</b></div>`).join("")
     + `<div class="lg"><i style="background:linear-gradient(135deg, var(--c-r1) 50%, var(--c-r2) 50%)"></i><span class="lg-info">Hypothèque totale ${AIDE.hypothequeTotale ? `<button type="button" class="info" aria-controls="info-loan" aria-expanded="${!$("info-loan").hidden}" aria-label="Explication : hypothèque totale">i</button>` : ""}</span><b>${chf(m.loan)}</b></div>`
     + (m.unused > 0 ? `<div class="lg"><i style="background:transparent;border:1px dashed var(--line)"></i><span>Fonds propres non utilisés</span><b>${chf(m.unused)}</b></div>` : "")
+    + (S.abMode !== "aucun" ? `<div class="lg"><i style="background:var(--c-ab)"></i><span>Autre bien</span><b>${chf(abTotal)}</b></div>` : "")
     + (gageTotal > 0 ? `<div class="lg"><i style="background:transparent;border:1px solid var(--c-lpp)"></i><span>Mis en gage, hors fonds propres</span><b>${chf(gageTotal)}</b></div>` : "")
     + (m.avail < 0 ? `<div class="lg"><i style="background:var(--bad)"></i><span>Frais non couverts</span><b>${chf(-m.avail)}</b></div>` : "");
 
@@ -1768,14 +1864,15 @@ function update(skip) {
   ];
   if (S.debt > 0) rows.push(["Autres charges", S.debt, S.debt]);
   if (m.princ > 0) rows.push(["Logement principal", m.princ, m.princ]);
+  if (m.ab.charges > 0) rows.push(["Autre bien gardé", m.ab.charges, m.ab.reel]);
   const tB = rows.reduce((a, r) => a + r[1], 0), tR = rows.reduce((a, r) => a + r[2], 0);
   $("costs").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${nf.format(Math.round(r[1]))}</td><td>${nf.format(Math.round(r[1] / 12))}</td><td>${nf.format(Math.round(r[2] / 12))}</td></tr>`).join("")
     + `<tr class="total"><td>Total CHF</td><td>${nf.format(Math.round(tB))}</td><td>${nf.format(Math.round(tB / 12))}</td><td>${nf.format(Math.round(tR / 12))}</td></tr>`;
   $("k-real").textContent = chf(tR / 12);
   LAST.keys = { inc: income(S), apport: m.apport, fees: invFees, real: tR / 12 };
   const diff = tR / 12 - S.rent;
-  $("rentNote").innerHTML = sec
-    ? `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.${m.princ > 0 ? ` Dont ${chf(m.princ / 12)} pour le logement principal.` : ""}`
+  $("rentNote").innerHTML = sec || m.ab.reel > 0
+    ? `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.${m.princ > 0 ? ` Dont ${chf(m.princ / 12)} pour le logement principal.` : ""}${m.ab.reel > 0 ? ` Dont ${chf(m.ab.reel / 12)} pour l'autre bien.` : ""}`
     : S.rent > 0
     ? `Coût réel estimé ${chf(tR / 12)} par mois, soit <b class="${diff <= 0 ? "delta-pos" : "delta-neg"}">${chf(Math.abs(diff))} ${diff <= 0 ? "de moins" : "de plus"}</b> que votre loyer actuel. L'amortissement constitue une épargne, il peut aussi passer par le 3<sup>e</sup> pilier (amortissement indirect).`
     : `Coût réel estimé ${chf(tR / 12)} par mois, amortissement compris.`;
@@ -2016,6 +2113,7 @@ function drawRates() {
 function drawAcheterLouer(m) {
   const al = acheterLouer(S, m), sec = !!al.sansObjet;
   $("al-sec").hidden = !sec;
+  $("al-sec-t").textContent = al.bienGarde ? "Comparaison non affichée avec un bien gardé : l'emprunt sur ce bien fausserait les deux patrimoines." : "Sans objet pour une résidence secondaire : le loyer du logement principal continue.";
   $("al-corps").hidden = $("altab").hidden = sec;
   if (sec) return;
   $("al-n").textContent = `sur ${al.N} ans`;
@@ -2179,7 +2277,7 @@ async function exportPdf() {
     y += 17;
     // Avec des banques comparées, les raisons et limites dépendent de chaque banque : on ne les écrit pas (comme sur la page)
     const multi = !!LAST.banks;
-    (multi ? eplRaisons() : reasons).forEach(r => para("- " + r));   // les alertes du 2e pilier ne dépendent pas de la banque
+    (multi ? [...eplRaisons(), ...abRaisons(S, m.ab)] : reasons).forEach(r => para("- " + r));   // les alertes du 2e pilier ne dépendent pas de la banque
 
     section("En résumé");
     row("Revenu retenu par la banque", chfT(keys.inc) + " / an", true);
@@ -2224,6 +2322,11 @@ async function exportPdf() {
       if (es > 0) row("Répartition de l'apport", `${S.name1} ${tx(pc(e1 / es, 0))} · ${S.name2} ${tx(pc(e2 / es, 0))}`);
     }
 
+    if (S.abMode !== "aucun") {
+      section("Autre bien");
+      para(abSynthese(S, m.ab));
+    }
+
     section("Le bien et le financement");
     if (sec) row("Usage du bien", "Résidence secondaire");
     row("Prix d'achat", chfT(m.P), true);
@@ -2244,6 +2347,7 @@ async function exportPdf() {
     const lines = [[`Intérêts (${S.rate} % banque / ${S.realRate} % réel)`, m.interest, realInt], ["Amortissement 2e rang", m.amort, m.amort], [`Entretien et frais (${S.maintPct} % / réel)`, m.maint, S.realCharges * 12]];
     if (S.debt) lines.push(["Autres charges", S.debt, S.debt]);
     if (m.princ > 0) lines.push(["Logement principal", m.princ, m.princ]);
+    if (m.ab.charges > 0) lines.push(["Autre bien gardé", m.ab.charges, m.ab.reel]);
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...MUTED);
     ensure(6); doc.text("BANQUE / AN", 130, y, { align: "right" }); doc.text("BANQUE / MOIS", 162, y, { align: "right" }); doc.text("RÉEL / MOIS", R, y, { align: "right" }); y += 5;
     const crow = (n, a, b, bold) => {
@@ -2276,7 +2380,7 @@ async function exportPdf() {
     }
     para(amortHypotheses(S));
 
-    if (!sec) {
+    if (!sec && S.abMode !== "conserve") {
       const al = acheterLouer(S, m);
       section("Acheter ou louer");
       alMessages(S, m, LAST.status).forEach(t => para(t));

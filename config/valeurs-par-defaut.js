@@ -27,6 +27,14 @@ SIMU_CONFIG.valeursParDefaut = {
   modeLpp2: "retrait", modeP3a2: "retrait",
   gageCompte: false,            // compter le gage dans les contrôles de fonds propres, selon la banque
 
+  // Fonds propres venant d'un autre bien
+  abMode: "aucun",              // "aucun", "vente", "relais" (vente et crédit relais) ou "conserve" (bien gardé, hypothèque augmentée)
+  abPrixVente: 0, abHypotheque: 0, abFraisVente: 0,   // vente : prix, hypothèque à rembourser, frais
+  abImpotGain: 0,               // impôt sur le gain immobilier, saisi, jamais calculé
+  abEPL: 0,                     // part du prix venant du 2e pilier, déjà retirée pour ce bien
+  abRelaisTaux: 0, abRelaisMois: 12,   // crédit relais : taux en %, durée en mois
+  abValeur: 0, abHypoActuelle: 0, abHypoNouvelle: 0,  // bien gardé
+
   // Le bien
   price: 1200000,
   usage: "principale",          // usage du bien : "principale" ou "secondaire"
