@@ -17,6 +17,12 @@ Les chiffres saisis restent dans le navigateur (`localStorage`). Rien n'est envo
 
 Ouvrir `index.html` dans un navigateur. Aucune installation. Sans internet, la page fonctionne avec les polices du système, et l'export PDF passe par l'impression du navigateur.
 
+## Sans internet (iPhone, Android, ordinateur)
+
+La version en ligne s'installe comme une application et marche ensuite hors ligne. Ouvrez le site une fois avec internet : la page, la configuration, les polices et le générateur de PDF sont gardés en cache. Sur iPhone, dans Safari : bouton Partager, puis « Sur l'écran d'accueil ». Quand internet est là, la page reprend toute seule la dernière version.
+
+Cela ne concerne que la version en ligne (https), pas un fichier `index.html` ouvert directement depuis l'ordinateur.
+
 ## Personnaliser
 
 Les valeurs réglables sont dans le dossier [`config/`](config/), un fichier par sujet, commentés en français :

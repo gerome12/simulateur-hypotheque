@@ -1,0 +1,16 @@
+{
+  "name": "Simulateur hypothécaire suisse",
+  "short_name": "Hypothèque",
+  "description": "Simuler l'achat d'un logement en Suisse : fonds propres, 1er et 2e rang, charges et prix maximum.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3F5F7",
+  "theme_color": "#1F4F86",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
