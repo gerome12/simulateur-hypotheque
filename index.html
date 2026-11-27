@@ -165,7 +165,6 @@ select, button { font: inherit; }
 @media (prefers-reduced-motion: reduce) { .subgroup { transition: none; } }
 .apport { padding: 4px 0 6px; }
 .apport input[type=range] { accent-color: var(--c-eq); }
-.apport-f { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .apport-v { font-family: var(--font-data); font-weight: 500; font-size: 13.5px; font-variant-numeric: tabular-nums; color: var(--c-eq); }
 #field-p3a1, #field-p3a2 { border-top: 0; padding-top: 0; }
 .flabel { font-size: 13.5px; font-weight: 500; }
@@ -485,8 +484,7 @@ details.rules ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); di
       <section class="panel">
         <h2>Structure du financement <small id="t-ltv"></small></h2>
         <div class="apport">
-          <div class="frow"><label for="rg-apport">Fonds propres investis dans le bien</label><b class="apport-v" id="apport-v">–</b></div>
-          <p class="apport-f" id="apport-f"></p>
+          <div class="frow"><label for="rg-apport">Fonds propres investis dans l'achat</label><b class="apport-v" id="apport-v">–</b></div>
           <input type="range" id="rg-apport" min="0" max="1" step="any">
           <p class="hint" id="apport-h"></p>
         </div>
@@ -1230,8 +1228,7 @@ function update(skip) {
   ra.min = apMin; ra.max = apMax;
   ra.disabled = apMax - apMin < 1000;
   if (ra !== skip) ra.value = m.apport;
-  $("apport-v").textContent = chf(m.apport);
-  $("apport-f").textContent = `+ frais d'achat ${chf(m.fees)} en plus, payés en fonds propres`;
+  $("apport-v").textContent = `${chf(m.apport)} · ${pc(m.apport / m.P)} du prix`;
   $("apport-h").textContent = ra.disabled
     ? (apMax < minEq * m.P ? `Fonds propres insuffisants pour atteindre le minimum de ${pc(minEq, 0)}.` : "Tous vos fonds propres sont nécessaires.")
     : `De ${short(apMin)} (minimum ${pc(minEq, 0)}) à ${short(apMax)} (tout ce qui est investissable, réserve déduite). Non investi : ${chf(m.unused)}.`;
@@ -1242,9 +1239,8 @@ function update(skip) {
   $("stack").innerHTML = segs.map(([n, v, c]) => `<div style="flex-basis:${v / m.P * 100}%;background:${c}" title="${n}">${v / m.P > 0.09 ? pc(v / m.P, 0) : ""}</div>`).join("");
   $("t-ltv").textContent = `hypothèque ${pc(m.ltv)} du prix`;
   const lg = [
-    ["Fonds propres dans le bien", m.apport, "var(--c-eq)"],
-    ...segs.slice(1).map(([n, v, c]) => [n.replace(/(\d)(er|e) /, "$1<sup>$2</sup> "), v, c]),
-    ["Frais d'achat, en plus", m.fees, "var(--c-fee)"]
+    ...segs.map(([n, v, c]) => [n.replace(/(\d)(er|e) /, "$1<sup>$2</sup> "), v, c]),
+    ["Frais d'achat", m.fees, "var(--c-fee)"]
   ];
   $("legend").innerHTML = lg.map(([n, v, c]) => `<div class="lg"><i style="background:${c}"></i><span>${n}</span><b>${chf(v)}</b></div>`).join("")
     + `<div class="lg"><i style="background:linear-gradient(135deg, var(--c-r1) 50%, var(--c-r2) 50%)"></i><span class="lg-info">Hypothèque totale ${AIDE.hypothequeTotale ? `<button type="button" class="info" aria-controls="info-loan" aria-expanded="${!$("info-loan").hidden}" aria-label="Explication : hypothèque totale">i</button>` : ""}</span><b>${chf(m.loan)}</b></div>`
